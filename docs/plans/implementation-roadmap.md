@@ -364,7 +364,7 @@ Commit：`feat: 实现统一探索状态与播放控制`
 
 验证记录：[WP-13 统一探索状态与播放控制](../testing/reports/wp-13-shared-store.md)
 
-### WP-14｜中文课程引擎
+### WP-14｜中文课程引擎（已完成）
 
 目标：让结构化中文内容能够驱动 Trace。
 
@@ -386,6 +386,8 @@ Commit：`feat: 实现统一探索状态与播放控制`
 - 无效 Action 在开发期抛出可定位错误。
 
 Commit：`feat: 接入中文引导课程引擎`
+
+验证记录：[WP-14 中文引导课程引擎](../testing/reports/wp-14-chinese-lesson-engine.md)
 
 ### WP-15｜二维计算视图
 

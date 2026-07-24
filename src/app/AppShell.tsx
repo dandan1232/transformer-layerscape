@@ -16,6 +16,13 @@ import {
   Workflow,
 } from 'lucide-react'
 import { useStore } from 'zustand'
+import { coreLesson } from '../content/lessons/core-lesson'
+import {
+  findLessonStepContext,
+  flattenLessonSteps,
+  getAdjacentLessonStep,
+  navigateToLessonStep,
+} from '../features/lesson-panel/lesson-navigation'
 import {
   selectCanGoNext,
   selectCanGoPrevious,
@@ -65,12 +72,31 @@ function BrandMark() {
 }
 
 function LessonPanel({
+  store,
   isActive,
-  onStartObservation,
 }: {
+  store: ExplorerStoreApi
   isActive: boolean
-  onStartObservation: () => void
 }) {
+  const trace = useStore(store, (state) => state.trace)
+  const traceStatus = useStore(store, (state) => state.traceStatus)
+  const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
+  const traceStepId = trace?.steps[currentStepIndex]?.id ?? null
+  const allLessonSteps = flattenLessonSteps(coreLesson)
+  const context =
+    findLessonStepContext(coreLesson, traceStepId) ??
+    findLessonStepContext(coreLesson, allLessonSteps[0].action.traceStepId)!
+  const previousStep = getAdjacentLessonStep(coreLesson, context.step.id, -1)
+  const nextStep = getAdjacentLessonStep(coreLesson, context.step.id, 1)
+  const canNavigate = traceStatus === 'ready'
+
+  const navigate = (lessonStepId: string) => {
+    navigateToLessonStep(store, coreLesson, lessonStepId)
+    requestAnimationFrame(() => {
+      document.getElementById('lesson-heading')?.focus()
+    })
+  }
+
   return (
     <article
       id="view-panel-lesson"
@@ -80,69 +106,120 @@ function LessonPanel({
     >
       <header className="lesson-panel__header">
         <div>
-          <p className="eyebrow eyebrow--ink">第 01 章 · 输入</p>
-          <p className="lesson-panel__index" aria-label="第 1 章，共 3 章">
-            01 <span>/ 03</span>
+          <p className="eyebrow eyebrow--ink">
+            第 {String(context.chapterIndex + 1).padStart(2, '0')} 章 ·{' '}
+            {context.chapter.title}
+          </p>
+          <p
+            className="lesson-panel__index"
+            aria-label={`第 ${context.chapterIndex + 1} 章，共 ${coreLesson.chapters.length} 章`}
+          >
+            {String(context.chapterIndex + 1).padStart(2, '0')}{' '}
+            <span>/ {String(coreLesson.chapters.length).padStart(2, '0')}</span>
           </p>
         </div>
         <span className="lesson-panel__status">
-          <span aria-hidden="true" /> 预置轨迹
+          <span aria-hidden="true" /> 课程项 {context.lessonStepIndex + 1} /{' '}
+          {context.totalLessonSteps}
         </span>
       </header>
 
       <div className="lesson-panel__body">
         <div className="lesson-panel__title-group">
-          <p className="kicker">TOKENIZATION</p>
-          <h1 id="lesson-heading">让文字成为模型能读懂的坐标</h1>
-          <p className="lesson-panel__lead">
-            模型不会直接阅读句子。它先把文本切成 Token，再为每个 Token
-            找到一个稳定的数字编号。
-          </p>
+          <p className="kicker">{context.step.kicker}</p>
+          <h1 id="lesson-heading" tabIndex={-1}>{context.step.title}</h1>
+          <p className="lesson-panel__lead">{context.step.plainExplanation}</p>
         </div>
 
         <ol className="chapter-track" aria-label="课程章节进度">
-          <li className="chapter-track__item is-current">
-            <span className="chapter-track__number">01</span>
-            <span>
-              <strong>Token</strong>
-              <small>文字如何进入模型</small>
-            </span>
-          </li>
-          <li className="chapter-track__item">
-            <span className="chapter-track__number">02</span>
-            <span>
-              <strong>Attention</strong>
-              <small>信息如何互相寻找</small>
-            </span>
-          </li>
-          <li className="chapter-track__item">
-            <span className="chapter-track__number">03</span>
-            <span>
-              <strong>Output</strong>
-              <small>下一个词如何被选中</small>
-            </span>
-          </li>
+          {coreLesson.chapters.map((chapter, chapterIndex) => {
+            const isCurrent = chapter.id === context.chapter.id
+            const firstStep = chapter.steps[0]
+            return (
+              <li
+                key={chapter.id}
+                className={`chapter-track__item${isCurrent ? ' is-current' : ''}`}
+              >
+                <button
+                  className="chapter-track__button"
+                  type="button"
+                  disabled={!canNavigate}
+                  aria-label={`跳到${chapter.shortTitle}章节`}
+                  aria-current={isCurrent ? 'step' : undefined}
+                  onClick={() => navigate(firstStep.id)}
+                >
+                  <span className="chapter-track__number">
+                    {String(chapterIndex + 1).padStart(2, '0')}
+                  </span>
+                  <span>
+                    <strong>{chapter.shortTitle}</strong>
+                    <small>{chapter.summary}</small>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ol>
 
-        <details className="deep-dive">
+        <details className="deep-dive" key={context.step.id}>
           <summary>
             <Braces size={17} aria-hidden="true" />
-            深入理解：张量形状
+            {context.step.deepDive.title}
           </summary>
           <div className="deep-dive__content">
-            <code>[batch, token, hidden]</code>
-            <p>当前案例会把 6 个 Token 映射为 6 组隐藏向量。</p>
+            <p>{context.step.deepDive.explanation}</p>
+            {context.step.deepDive.tensorShape && (
+              <section className="deep-dive__block" aria-label="张量形状">
+                <span className="deep-dive__label">张量形状</span>
+                <code>{context.step.deepDive.tensorShape.expression}</code>
+                <p>{context.step.deepDive.tensorShape.explanation}</p>
+              </section>
+            )}
+            {context.step.deepDive.formula && (
+              <section className="deep-dive__block" aria-label="公式解释">
+                <span className="deep-dive__label">公式</span>
+                <code>{context.step.deepDive.formula.expression}</code>
+                <dl className="formula-symbols">
+                  {context.step.deepDive.formula.symbols.map((symbol) => (
+                    <div key={symbol.symbol}>
+                      <dt>{symbol.symbol}</dt>
+                      <dd>{symbol.meaning}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+            {context.step.deepDive.pseudocode && (
+              <section className="deep-dive__block" aria-label="教学伪代码">
+                <span className="deep-dive__label">教学伪代码</span>
+                <pre><code>{context.step.deepDive.pseudocode.join('\n')}</code></pre>
+              </section>
+            )}
           </div>
         </details>
       </div>
 
       <div className="lesson-panel__actions">
-        <button className="primary-action" type="button" onClick={onStartObservation}>
-          开始观察
+        <button
+          className="secondary-action"
+          type="button"
+          disabled={!canNavigate || !previousStep}
+          onClick={() => previousStep && navigate(previousStep.id)}
+        >
+          <ChevronLeft size={18} aria-hidden="true" />
+          上一项
+        </button>
+        <button
+          className="primary-action"
+          type="button"
+          disabled={!canNavigate || !nextStep}
+          onClick={() => nextStep && navigate(nextStep.id)}
+        >
+          {nextStep ? '下一项' : '课程已完成'}
           <ChevronRight size={18} aria-hidden="true" />
         </button>
         <span className="keyboard-hint">
-          <kbd>→</kbd> 下一步
+          使用前后按钮，时间线会同步移动
         </span>
       </div>
     </article>
@@ -447,13 +524,6 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
     })
   }
 
-  const startObservation = () => {
-    setMobileView('2d')
-    requestAnimationFrame(() => {
-      document.getElementById('calculation-heading')?.focus()
-    })
-  }
-
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -528,8 +598,8 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
 
       <main id="main-content" className="workspace" tabIndex={-1}>
         <LessonPanel
+          store={store}
           isActive={mobileView === 'lesson'}
-          onStartObservation={startObservation}
         />
         <CalculationPanel isActive={mobileView === '2d'} />
         <ScenePanel isActive={mobileView === '3d'} />

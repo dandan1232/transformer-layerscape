@@ -13,7 +13,7 @@ describe('前端测试环境', () => {
     await user.click(exploreButton)
 
     expect(
-      screen.getByRole('heading', { name: '让文字成为模型能读懂的坐标' }),
+      screen.getByRole('heading', { name: '把句子切成模型的词块' }),
     ).toBeVisible()
     expect(exploreButton).toHaveAttribute('aria-pressed', 'true')
   })

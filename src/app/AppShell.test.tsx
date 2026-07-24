@@ -16,7 +16,7 @@ describe('中文学习工作台外壳', () => {
     renderAppShell()
 
     expect(
-      screen.getByRole('heading', { name: '让文字成为模型能读懂的坐标' }),
+      screen.getByRole('heading', { name: '把句子切成模型的词块' }),
     ).toBeVisible()
 
     await user.click(screen.getByRole('tab', { name: '二维计算' }))
@@ -47,19 +47,47 @@ describe('中文学习工作台外壳', () => {
     expect(exploreButton).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('开始观察会进入二维计算并移动焦点', async () => {
+  it('中文课程前后导航会同步 Trace 步骤和选中实体', async () => {
     const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    render(<AppShell store={store} />)
+
+    await user.click(screen.getByRole('button', { name: '下一项' }))
+
+    expect(
+      screen.getByRole('heading', { name: '把编号换成可以计算的向量' }),
+    ).toBeVisible()
+    expect(screen.getByText('步骤 02 / 08')).toBeVisible()
+    expect(store.getState().selectedEntityId).toBe('operation:embedding')
+
+    await user.click(screen.getByRole('button', { name: '上一项' }))
+    expect(screen.getByRole('heading', { name: '把句子切成模型的词块' })).toBeVisible()
+  })
+
+  it('章节入口跳到章节首项，深入内容不会改变 Trace 步骤', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    render(<AppShell store={store} />)
+
+    await user.click(screen.getByRole('button', { name: '跳到Attention章节' }))
+    expect(screen.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
+    expect(store.getState().currentStepIndex).toBe(2)
+
+    await user.click(screen.getByText('深入理解：线性投影'))
+    expect(screen.getByText('Q = XW_Q，K = XW_K，V = XW_V')).toBeVisible()
+    expect(screen.getByText('当前 Token 的隐藏向量')).toBeVisible()
+    expect(store.getState().currentStepIndex).toBe(2)
+  })
+
+  it('课程未加载时禁用动作并展示安全的首项内容', () => {
     renderAppShell()
 
-    await user.click(screen.getByRole('button', { name: '开始观察' }))
-
-    expect(screen.getByRole('tab', { name: '二维计算' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Token → Attention' })).toHaveFocus()
-    })
+    expect(screen.getByRole('heading', { name: '把句子切成模型的词块' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '下一项' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '跳到Token章节' })).toBeDisabled()
+    expect(screen.getByText('课程项 1 / 8')).toBeVisible()
   })
 
   it('移动视图标签支持点击和方向键切换', async () => {
@@ -79,6 +107,17 @@ describe('中文学习工作台外壳', () => {
     await waitFor(() => {
       expect(sceneTab).toHaveFocus()
     })
+  })
+
+  it('移动标签点击二维计算会切换可见面板', async () => {
+    const user = userEvent.setup()
+    renderAppShell()
+
+    await user.click(screen.getByRole('tab', { name: '二维计算' }))
+    expect(screen.getByRole('tab', { name: '二维计算' })).toHaveAttribute(
+      'aria-selected', 'true',
+    )
+    expect(screen.getByRole('heading', { name: 'Token → Attention' })).toBeVisible()
   })
 
   it('时间轴使用统一 Store 导航、播放和重置', async () => {
