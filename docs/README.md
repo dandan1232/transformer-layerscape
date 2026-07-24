@@ -8,8 +8,9 @@
 | --- | --- | --- | --- |
 | 1 | [产品需求文档](./requirements/product-requirements.md) | 做什么、为谁做、如何验收 | 1.0 已确认 |
 | 2 | [产品与技术设计](./plans/2026-07-24-transformer-layerscape-design.md) | 2D/3D、课程、数据与模型如何统一 | 已确认 |
-| 3 | [实施路径与交付计划](./plans/implementation-roadmap.md) | 按什么顺序实现、每包如何提交 | 1.0 待执行 |
-| 4 | [测试与验收方案](./testing/test-and-acceptance.md) | 如何证明正确、可用且可发布 | 1.0 持续维护 |
+| 3 | [实施路径与交付计划](./plans/implementation-roadmap.md) | 按什么顺序实现、每包如何提交 | M1 已完成 |
+| 4 | [测试与验收方案](./testing/test-and-acceptance.md) | 如何证明正确、可用且可发布 | M1 基线已建立 |
+| 5 | [M1 验收报告](./testing/reports/m1-acceptance.md) | 首个联动版本是否达到放行门槛 | 已通过 |
 
 ## 追踪方式
 
@@ -56,7 +57,8 @@ docs/
       ├─ wp-15-trace-2d.md
       ├─ wp-16-scene-3d.md
       ├─ wp-17-unified-interaction.md
-      └─ wp-18-resilience.md
+      ├─ wp-18-resilience.md
+      └─ m1-acceptance.md
 ```
 
 后续里程碑验收报告放在 `docs/testing/reports/`，技术探针和重要架构取舍应放在 `docs/decisions/`，并从本页增加入口。
@@ -72,6 +74,7 @@ docs/
 - [WP-16 三维模型探索场景](./testing/reports/wp-16-scene-3d.md)：真实 WebGL、实例化 Token、共享选择、引导相机、回退和移动端验证。
 - [WP-17 二维、三维与统一时间轴联动](./testing/reports/wp-17-unified-interaction.md)：可拖动时间轴、章节重置、课程焦点、双向选择与竞态保护。
 - [WP-18 响应式、能力检测与错误恢复](./testing/reports/wp-18-resilience.md)：设备能力分级、独立错误边界、Context 恢复与版本化本地进度。
+- [M1 首个联动版本验收](./testing/reports/m1-acceptance.md)：需求追踪、126 条单元/组件测试、11 条 Chromium E2E、视觉与性能证据。
 
 ## 文档维护规则
 
@@ -93,5 +96,6 @@ docs/
 | 分阶段实施路径 | `131fa97` | 已推送 |
 | 测试与验收规范 | `c13d442` | 已推送 |
 | 文档导航 | 本文所在提交 | 随本文推送 |
+| M1 首个联动版本 | 本文所在提交 | 验收通过，随本文推送 |
 
 后续实施工作包的 Commit SHA 和验证结果统一记录在对应里程碑验收报告中，不通过修改历史提交补写。

@@ -31,7 +31,9 @@ describe('设备能力检测', () => {
     const result = detectDeviceCapabilities(
       scope({
         contexts: { webgl2: true },
-        matchMedia: () => ({ matches: true }),
+        matchMedia: (query) => ({
+          matches: query === '(prefers-reduced-motion: reduce)',
+        }),
       }),
     )
 
@@ -41,9 +43,25 @@ describe('设备能力检测', () => {
       webgpu: true,
       wasm: true,
       reducedMotion: true,
+      coarsePointer: false,
       deviceMemoryGB: 8,
       memoryTier: 'high',
       threeDMode: 'full',
+    })
+  })
+
+  it('粗指针设备即使内存充足也采用简化三维', () => {
+    const result = detectDeviceCapabilities(
+      scope({
+        contexts: { webgl2: true },
+        matchMedia: (query) => ({ matches: query === '(pointer: coarse)' }),
+      }),
+    )
+
+    expect(result).toMatchObject({
+      coarsePointer: true,
+      memoryTier: 'high',
+      threeDMode: 'reduced',
     })
   })
 
@@ -85,6 +103,7 @@ describe('设备能力检测', () => {
       webgl: false,
       webgl2: false,
       wasm: false,
+      coarsePointer: false,
       deviceMemoryGB: null,
       memoryTier: 'unknown',
       threeDMode: 'none',

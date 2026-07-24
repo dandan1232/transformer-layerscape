@@ -362,7 +362,17 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
         </div>
       )}
 
-      <div className="calculation-figure trace2d-figure">
+      <p id="trace2d-scroll-hint" className="trace2d-scroll-hint">
+        左右滑动查看完整计算图
+      </p>
+
+      <div
+        className="calculation-figure trace2d-figure"
+        role="group"
+        tabIndex={0}
+        aria-label="可横向滚动的二维计算图"
+        aria-describedby="trace2d-scroll-hint"
+      >
         {stage === 'token' && (
           <TokenDiagram
             trace={trace}

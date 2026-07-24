@@ -104,11 +104,13 @@ test('WebGL Context 丢失后保留进度并支持重建或切换二维', async 
   await page.goto('/')
   await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
 
-  const canvas = page.locator('canvas').first()
-  await expect(canvas).toBeVisible()
-  await canvas.evaluate((element) => {
-    element.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
-  })
+  const loseReadyContext = async () => {
+    const canvas = page.locator('canvas[data-context-listener="ready"]')
+    await expect(canvas).toBeVisible()
+    await canvas.dispatchEvent('webglcontextlost', { cancelable: true })
+  }
+
+  await loseReadyContext()
 
   await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
   await expect(page.getByText('步骤 04 / 08')).toBeVisible()
@@ -120,9 +122,8 @@ test('WebGL Context 丢失后保留进度并支持重建或切换二维', async 
   ).toBeVisible()
   await expect(page.getByText('步骤 04 / 08')).toBeVisible()
 
-  await page.locator('canvas').first().evaluate((element) => {
-    element.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
-  })
+  await loseReadyContext()
+  await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
   await page.getByRole('button', { name: '切换到二维安全模式' }).click()
   await expect(page.locator('#mobile-view-2d')).toHaveAttribute(
     'aria-selected',

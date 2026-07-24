@@ -33,6 +33,7 @@ export interface DeviceCapabilities {
   readonly webgpu: boolean
   readonly wasm: boolean
   readonly reducedMotion: boolean
+  readonly coarsePointer: boolean
   readonly deviceMemoryGB: number | null
   readonly memoryTier: MemoryTier
   readonly threeDMode: ThreeDMode
@@ -72,9 +73,10 @@ export function detectDeviceCapabilities(
       ? rawMemory
       : null
   const memoryTier = readMemoryTier(deviceMemoryGB)
+  const coarsePointer = scope.matchMedia?.('(pointer: coarse)').matches ?? false
   const threeDMode: ThreeDMode = !webgl
     ? 'none'
-    : memoryTier === 'low'
+    : memoryTier === 'low' || coarsePointer
       ? 'reduced'
       : 'full'
 
@@ -84,6 +86,7 @@ export function detectDeviceCapabilities(
     webgpu: typeof scope.navigator?.gpu !== 'undefined',
     wasm: typeof scope.WebAssembly !== 'undefined',
     reducedMotion: scope.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    coarsePointer,
     deviceMemoryGB,
     memoryTier,
     threeDMode,

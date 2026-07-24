@@ -284,7 +284,11 @@ function WebGLContextGuard({
       onLost()
     }
     canvas.addEventListener('webglcontextlost', handleContextLost)
-    return () => canvas.removeEventListener('webglcontextlost', handleContextLost)
+    canvas.dataset.contextListener = 'ready'
+    return () => {
+      canvas.removeEventListener('webglcontextlost', handleContextLost)
+      delete canvas.dataset.contextListener
+    }
   }, [gl, onLost])
 
   return null

@@ -4,12 +4,13 @@
 
 ## 当前状态
 
-项目已完成 **M0：文档与工程基线**，正在实施 M1。
+项目已完成 **M1：Token→Attention→Output 联动垂直切片**，下一阶段是 M2 完整预置课程。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
-- M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、中文课程、二维计算、三维空间、完整联动、能力检测与错误恢复已经完成，下一交付点是 M1 综合验收。
+- M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、中文课程、二维计算、三维空间、完整联动、能力检测、错误恢复和综合验收已经完成。
 - 当前页面可以学习 Token、Attention、Output 三章八项中文课程，在二维图中查看真实教学 Trace，在 WebGL 场景中旋转观察模型，并使用可拖动时间轴定位；系统会按设备能力切换完整、简化或二维安全模式，保存本地进度，并在数据、子视图或 WebGL Context 失败时保持核心课程可用。
+- 当前自动化基线为 126 条单元/组件测试和 11 条 Chromium 端到端测试；详细证据见 [M1 验收报告](./docs/testing/reports/m1-acceptance.md)。
 
 ## 目标体验
 
@@ -26,7 +27,7 @@
 | 里程碑 | 目标 | 状态 |
 | --- | --- | --- |
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
-| M1 | Token→Attention→Output 联动垂直切片 | 进行中 |
+| M1 | Token→Attention→Output 联动垂直切片 | 已完成 |
 | M2 | 完整预置 Transformer 课程 | 待实施 |
 | M3 | 浏览器真实模型模式 | 待实施 |
 | M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
@@ -40,6 +41,7 @@
 3. [实施路径与交付计划](./docs/plans/implementation-roadmap.md)：36 个原子工作包、依赖、测试门槛和 Commit 粒度。
 4. [测试与验收方案](./docs/testing/test-and-acceptance.md)：分层测试、性能预算、浏览器矩阵和放行规则。
 5. [文档导航](./docs/README.md)：文档状态和维护约定。
+6. [M1 验收报告](./docs/testing/reports/m1-acceptance.md)：需求追踪、测试、视觉、性能和放行结论。
 
 ## 技术栈
 

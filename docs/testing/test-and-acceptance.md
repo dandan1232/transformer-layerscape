@@ -756,13 +756,16 @@ Push：origin/main
 
 ## 17. 当前验证基线
 
-文档阶段完成后执行：
+M1 已完成单元、组件、Chromium E2E、视觉与基础性能基线。当前提交门槛为：
 
 ```bash
 npm run lint
+npm run test:run
+npm run test:coverage
 npm run build
+npm run test:e2e
 ```
 
-现阶段尚未建立 `test:run` 和 `test:e2e` 配置，因此不能把依赖已安装等同于测试已经完成。WP-10 完成后，所有后续功能工作包必须把单元测试纳入提交门槛；WP-17 完成后，联动相关工作包必须把端到端主路径纳入里程碑门槛。
+当前基线为 16 个 Vitest 文件、126 条单元/组件测试和 11 条 Chromium E2E。全项目覆盖率为语句 87.29%、分支 84.00%、函数 82.48%、行 89.25%。执行环境、视觉基线、性能数据和未验证矩阵见 [M1 验收报告](./reports/m1-acceptance.md)。
 
 CI 或 GitHub Actions 的引入将改变仓库环境配置，按照项目规范必须在修改前单独获得确认。

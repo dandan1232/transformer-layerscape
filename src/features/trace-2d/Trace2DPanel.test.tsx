@@ -43,6 +43,10 @@ describe('二维计算视图', () => {
 
     expect(screen.getByRole('heading', { name: '生成 Q、K、V' })).toBeVisible()
     expect(screen.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
+    expect(
+      screen.getByRole('group', { name: '可横向滚动的二维计算图' }),
+    ).toHaveAttribute('aria-describedby', 'trace2d-scroll-hint')
+    expect(screen.getByText('左右滑动查看完整计算图')).toBeInTheDocument()
     expect(screen.getByText('query')).toBeVisible()
     expect(screen.getByText('key')).toBeVisible()
     expect(screen.getByText('value')).toBeVisible()
