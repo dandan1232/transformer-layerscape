@@ -313,7 +313,7 @@ Commit：`feat: 建立中文学习工作台外壳`
 
 验证记录：[WP-11 中文学习工作台外壳](../testing/reports/wp-11-app-shell.md)
 
-### WP-12｜Trace 领域模型与预置适配器
+### WP-12｜Trace 领域模型与预置适配器（已完成）
 
 目标：建立所有视图共用的数据契约。
 
@@ -335,6 +335,8 @@ Commit：`feat: 建立中文学习工作台外壳`
 - 因果掩码上三角位置符合预期。
 
 Commit：`feat: 定义统一模型轨迹与预置案例`
+
+验证记录：[WP-12 统一模型轨迹与预置案例](../testing/reports/wp-12-model-trace.md)
 
 ### WP-13｜共享 Store 与时间状态机
 
