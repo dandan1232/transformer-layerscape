@@ -100,6 +100,100 @@ test('真实三维场景可以旋转、复位并与二维 Head 选择联动', as
   await expect(page.locator('.scene3d-readout')).toContainText('讲解视角')
 })
 
+test('WebGL Context 丢失后保留进度并支持重建或切换二维', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
+
+  const canvas = page.locator('canvas').first()
+  await expect(canvas).toBeVisible()
+  await canvas.evaluate((element) => {
+    element.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+  })
+
+  await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
+  await expect(page.getByText('步骤 04 / 08')).toBeVisible()
+  await expect(page.getByRole('img', { name: '三维场景安全预览' })).toBeVisible()
+
+  await page.getByRole('button', { name: '尝试恢复三维' }).click()
+  await expect(
+    page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' }),
+  ).toBeVisible()
+  await expect(page.getByText('步骤 04 / 08')).toBeVisible()
+
+  await page.locator('canvas').first().evaluate((element) => {
+    element.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+  })
+  await page.getByRole('button', { name: '切换到二维安全模式' }).click()
+  await expect(page.locator('#mobile-view-2d')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+})
+
+test('无 WebGL 与减少动态效果环境自动进入安全模式', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'WebGLRenderingContext', {
+      configurable: true,
+      value: undefined,
+    })
+    Object.defineProperty(window, 'WebGL2RenderingContext', {
+      configurable: true,
+      value: undefined,
+    })
+  })
+  await page.goto('/')
+
+  const capability = page.locator('.capability-badge')
+  await expect(capability).toContainText('2D 安全模式')
+  await expect(capability).toHaveAttribute('data-reduced-motion', 'true')
+  await expect(page.getByRole('img', { name: '三维场景安全预览' })).toBeVisible()
+  await expect(page.locator('canvas')).toHaveCount(0)
+})
+
+test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'transformer-layerscape:explorer:v1',
+      JSON.stringify({
+        version: 1,
+        mode: 'explore',
+        view: '2d',
+        currentStepIndex: 3,
+        playbackRate: 2,
+        selectedEntityId: 'head:1',
+      }),
+    )
+  })
+  await page.reload()
+
+  await expect(page.getByText('步骤 04 / 08')).toBeVisible()
+  await expect(page.getByRole('button', { name: '自由探索' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.locator('#mobile-view-2d')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Head 2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  await page.evaluate(() => {
+    localStorage.setItem('transformer-layerscape:explorer:v1', '{broken')
+  })
+  await page.reload()
+  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem('transformer-layerscape:explorer:v1'),
+    ),
+  ).not.toContain('{broken')
+})
+
 test('移动端可以切换到二维计算且没有页面横向溢出', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/')

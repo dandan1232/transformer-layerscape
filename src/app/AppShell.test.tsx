@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { verticalSliceTrace } from '../content/traces/vertical-slice-trace'
 import { createExplorerStore } from '../store/explorer-store'
 import { AppShell } from './AppShell'
@@ -32,6 +32,22 @@ describe('中文学习工作台外壳', () => {
       'href',
       '#main-content',
     )
+    expect(screen.getByText('2D 安全模式')).toBeInTheDocument()
+  })
+
+  it('模型轨迹加载失败时显示独立错误信息并允许重试', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    const requestId = store.getState().beginTraceLoad()
+    store.getState().failTraceLoad(requestId, '教学 Trace 校验失败')
+    const onRetryTrace = vi.fn()
+    render(<AppShell store={store} onRetryTrace={onRetryTrace} />)
+
+    expect(screen.getByRole('alert', { name: '模型轨迹加载失败' })).toHaveTextContent(
+      '教学 Trace 校验失败',
+    )
+    await user.click(screen.getByRole('button', { name: '重新加载案例' }))
+    expect(onRetryTrace).toHaveBeenCalledOnce()
   })
 
   it('可以切换学习模式', async () => {

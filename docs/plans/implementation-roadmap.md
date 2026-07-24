@@ -463,7 +463,7 @@ Commit：`feat: 打通二维三维与时间轴联动`
 
 验证记录：[WP-17 二维、三维与统一时间轴联动](../testing/reports/wp-17-unified-interaction.md)
 
-### WP-18｜响应式、能力检测与错误恢复
+### WP-18｜响应式、能力检测与错误恢复（已完成）
 
 目标：让核心学习链路在不同设备和失败场景中保持可用。
 
@@ -486,6 +486,8 @@ Commit：`feat: 打通二维三维与时间轴联动`
 - reduced-motion 媒体查询。
 
 Commit：`feat: 完善响应式布局与安全降级`
+
+验证记录：[WP-18 响应式、能力检测与错误恢复](../testing/reports/wp-18-resilience.md)
 
 ### WP-19｜M1 验收与文档
 

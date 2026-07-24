@@ -57,6 +57,51 @@
   pointer-events: none;
 }
 
+.scene3d-context-alert {
+  position: absolute;
+  z-index: 3;
+  inset: auto var(--space-4) var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--starlight-100);
+  background: oklch(23% 0.055 25 / 0.96);
+  border: 1px solid oklch(68% 0.16 25 / 0.7);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.scene3d-context-alert p {
+  margin: 0;
+  color: var(--starlight-400);
+  font-size: var(--text-xs);
+}
+
+.scene3d-context-alert > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.scene3d-context-alert button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+  color: var(--starlight-100);
+  background: var(--void-900);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.scene3d-context-alert button:first-of-type {
+  color: var(--amber-ink);
+  background: var(--amber-300);
+  border-color: var(--amber-400);
+}
+
 .scene3d-fallback {
   min-height: 24rem;
   display: grid;

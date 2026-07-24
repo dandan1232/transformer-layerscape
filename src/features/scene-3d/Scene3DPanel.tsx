@@ -1,7 +1,7 @@
 import { Html, Line, OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Focus, MousePointer2, Orbit } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Focus, MousePointer2, Orbit, RefreshCcw, ShieldCheck } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Color,
   Object3D,
@@ -10,6 +10,10 @@ import {
 } from 'three'
 import { useStore } from 'zustand'
 import type { ModelTrace, TraceEntityId } from '../../domain/trace/trace'
+import {
+  detectDeviceCapabilities,
+  type DeviceCapabilities,
+} from '../../platform/capabilities'
 import { selectCurrentStep, selectSelectedEntity } from '../../store/explorer-selectors'
 import type { ExplorerStoreApi } from '../../store/explorer-store'
 import {
@@ -25,6 +29,7 @@ import './Scene3DPanel.css'
 interface Scene3DPanelProps {
   readonly store: ExplorerStoreApi
   readonly isActive: boolean
+  readonly capabilities?: DeviceCapabilities
 }
 
 const palette = {
@@ -36,14 +41,6 @@ const palette = {
   output: '#6dcf9a',
   outputSelected: '#ffcf69',
   void: '#09111f',
-}
-
-function canMountWebGL() {
-  return (
-    typeof window !== 'undefined' &&
-    (typeof window.WebGLRenderingContext !== 'undefined' ||
-      typeof window.WebGL2RenderingContext !== 'undefined')
-  )
 }
 
 function TokenInstances({
@@ -273,6 +270,26 @@ function CameraRig({
   return null
 }
 
+function WebGLContextGuard({
+  onLost,
+}: {
+  readonly onLost: () => void
+}) {
+  const { gl } = useThree()
+
+  useEffect(() => {
+    const canvas = gl.domElement
+    const handleContextLost = (event: Event) => {
+      event.preventDefault()
+      onLost()
+    }
+    canvas.addEventListener('webglcontextlost', handleContextLost)
+    return () => canvas.removeEventListener('webglcontextlost', handleContextLost)
+  }, [gl, onLost])
+
+  return null
+}
+
 function SceneGraph({
   store,
   trace,
@@ -282,6 +299,8 @@ function SceneGraph({
   selectedHeadIndex,
   cameraMode,
   reducedMotion,
+  reducedDetail,
+  onContextLost,
 }: {
   store: ExplorerStoreApi
   trace: ModelTrace
@@ -291,6 +310,8 @@ function SceneGraph({
   selectedHeadIndex: number | null
   cameraMode: 'guided' | 'manual'
   reducedMotion: boolean
+  reducedDetail: boolean
+  onContextLost: () => void
 }) {
   const focus = getSceneFocus(layout, selectedEntityId)
   const attentionPosition = layout.byId['operation:attention'].position
@@ -310,18 +331,19 @@ function SceneGraph({
       </mesh>
       <gridHelper args={[11, 22, '#35516e', '#1c2b41']} position={[0, -2.03, 0.35]} />
 
-      {layout.tokens.flatMap((token) =>
-        layout.heads.map((head) => (
-          <Line
-            key={`${token.id}-${head.id}`}
-            points={[token.position, head.position]}
-            color={selectedEntityId === token.id || selectedEntityId === head.id ? '#f6be55' : '#37526e'}
-            lineWidth={selectedEntityId === token.id || selectedEntityId === head.id ? 1.8 : 0.65}
-            transparent
-            opacity={0.72}
-          />
-        )),
-      )}
+      {!reducedDetail &&
+        layout.tokens.flatMap((token) =>
+          layout.heads.map((head) => (
+            <Line
+              key={`${token.id}-${head.id}`}
+              points={[token.position, head.position]}
+              color={selectedEntityId === token.id || selectedEntityId === head.id ? '#f6be55' : '#37526e'}
+              lineWidth={selectedEntityId === token.id || selectedEntityId === head.id ? 1.8 : 0.65}
+              transparent
+              opacity={0.72}
+            />
+          )),
+        )}
       {layout.heads.map((head) => (
         <Line
           key={`${head.id}-output`}
@@ -359,6 +381,7 @@ function SceneGraph({
       />
 
       <CameraRig focus={focus} cameraMode={cameraMode} reducedMotion={reducedMotion} />
+      <WebGLContextGuard onLost={onContextLost} />
       <OrbitControls
         makeDefault
         target={controlsTarget}
@@ -373,7 +396,15 @@ function SceneGraph({
   )
 }
 
-function SceneFallback({ trace, layout }: { trace: ModelTrace; layout: SceneLayout }) {
+function SceneFallback({
+  trace,
+  layout,
+  message = '当前环境不提供可用 WebGL；课程、二维视图和三维实体选择仍可完整使用。',
+}: {
+  trace: ModelTrace
+  layout: SceneLayout
+  message?: string
+}) {
   return (
     <div className="scene3d-fallback" role="img" aria-label="三维场景安全预览">
       <svg viewBox="0 0 760 390" aria-hidden="true">
@@ -389,12 +420,16 @@ function SceneFallback({ trace, layout }: { trace: ModelTrace; layout: SceneLayo
         <path className="scene3d-fallback__output-line" d="M590 165 680 112" />
         <circle className="scene3d-fallback__output" cx="690" cy="105" r="20" />
       </svg>
-      <p>当前测试环境不提供 WebGL；课程、二维视图和三维实体选择仍可完整使用。</p>
+      <p>{message}</p>
     </div>
   )
 }
 
-export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
+export function Scene3DPanel({
+  store,
+  isActive,
+  capabilities = detectDeviceCapabilities(),
+}: Scene3DPanelProps) {
   const trace = useStore(store, (state) => state.trace)
   const traceStatus = useStore(store, (state) => state.traceStatus)
   const currentStep = useStore(store, selectCurrentStep)
@@ -405,7 +440,19 @@ export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
   const cameraMode = useStore(store, (state) => state.cameraMode)
   const reducedMotion = useStore(store, (state) => state.reducedMotion)
   const layout = useMemo(() => (trace ? createSceneLayout(trace) : null), [trace])
-  const hasWebGL = canMountWebGL()
+  const [contextStatus, setContextStatus] = useState<'ready' | 'lost'>('ready')
+  const [sceneRevision, setSceneRevision] = useState(0)
+  const hasWebGL = capabilities.threeDMode !== 'none'
+  const canRenderCanvas = hasWebGL && contextStatus === 'ready'
+  const reducedDetail = capabilities.threeDMode === 'reduced'
+  const handleContextLost = useCallback(() => {
+    store.getState().setCameraMode('guided')
+    setContextStatus('lost')
+  }, [store])
+  const retryContext = () => {
+    setSceneRevision((revision) => revision + 1)
+    setContextStatus('ready')
+  }
 
   return (
     <section
@@ -416,7 +463,16 @@ export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
     >
       <header className="scene-panel__header scene3d-header">
         <div>
-          <p className="eyebrow">模型空间 · {hasWebGL ? 'WebGL 实时场景' : '安全预览'}</p>
+          <p className="eyebrow">
+            模型空间 ·{' '}
+            {contextStatus === 'lost'
+              ? 'Context 已暂停'
+              : capabilities.threeDMode === 'full'
+                ? 'WebGL 实时场景'
+                : capabilities.threeDMode === 'reduced'
+                  ? '简化 WebGL 场景'
+                  : '安全预览'}
+          </p>
           <h2 id="scene-heading">Transformer 微型观测场</h2>
         </div>
         <button
@@ -432,12 +488,13 @@ export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
 
       {trace && layout ? (
         <div className="scene3d-stage">
-          {hasWebGL ? (
+          {canRenderCanvas ? (
             <Canvas
+              key={sceneRevision}
               className="scene3d-canvas"
               role="img"
               aria-label="可旋转的 Transformer 三维模型空间"
-              dpr={[1, 1.5]}
+              dpr={reducedDetail ? 1 : [1, 1.5]}
               camera={{ position: [7, 5, 9], fov: 46, near: 0.1, far: 100 }}
               gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
               onPointerMissed={() => store.getState().selectEntity(null)}
@@ -451,10 +508,37 @@ export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
                 selectedHeadIndex={selectedHeadIndex}
                 cameraMode={cameraMode}
                 reducedMotion={reducedMotion}
+                reducedDetail={reducedDetail}
+                onContextLost={handleContextLost}
               />
             </Canvas>
           ) : (
-            <SceneFallback trace={trace} layout={layout} />
+            <SceneFallback
+              trace={trace}
+              layout={layout}
+              message={
+                contextStatus === 'lost'
+                  ? '三维 Context 已丢失并暂停；当前选择与课程进度已保留。'
+                  : undefined
+              }
+            />
+          )}
+
+          {contextStatus === 'lost' && (
+            <div className="scene3d-context-alert" role="alert">
+              <strong>三维渲染环境已丢失</strong>
+              <p>可以尝试重新创建场景，或继续使用完整二维课程。</p>
+              <div>
+                <button type="button" onClick={retryContext}>
+                  <RefreshCcw size={16} aria-hidden="true" />
+                  尝试恢复三维
+                </button>
+                <button type="button" onClick={() => store.getState().setView('2d')}>
+                  <ShieldCheck size={16} aria-hidden="true" />
+                  切换到二维安全模式
+                </button>
+              </div>
+            </div>
           )}
 
           <div className="scene3d-overlay" aria-hidden="true">
@@ -531,9 +615,11 @@ export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
 
           <p className="scene3d-description" aria-live="polite">
             <MousePointer2 size={15} aria-hidden="true" />
-            {hasWebGL
+            {canRenderCanvas
               ? '拖动旋转、滚轮缩放；操作相机后可使用“返回讲解视角”。'
-              : '当前为安全预览；可使用下方实体按钮同步课程和二维选择。'}
+              : contextStatus === 'lost'
+                ? '三维渲染已暂停；当前为安全预览，进度和选择不会丢失。'
+                : '当前为安全预览；可使用下方实体按钮同步课程和二维选择。'}
             <span>1 Block · {trace.model.heads} Heads · {trace.input.tokens.length} Tokens</span>
           </p>
         </>

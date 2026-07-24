@@ -1,4 +1,4 @@
-import { lazy, Suspense, type KeyboardEvent } from 'react'
+import { lazy, Suspense, useEffect, type KeyboardEvent } from 'react'
 import {
   BookOpenText,
   Box,
@@ -15,6 +15,7 @@ import {
   Workflow,
 } from 'lucide-react'
 import { useStore } from 'zustand'
+import { FeatureErrorBoundary } from '../components/FeatureErrorBoundary'
 import { coreLesson } from '../content/lessons/core-lesson'
 import {
   findLessonStepContext,
@@ -23,6 +24,7 @@ import {
   navigateToLessonStep,
 } from '../features/lesson-panel/lesson-navigation'
 import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
+import { useDeviceCapabilities } from '../platform/use-device-capabilities'
 import {
   selectCanGoNext,
   selectCanGoPrevious,
@@ -391,12 +393,31 @@ function Timeline({ store }: { store: ExplorerStoreApi }) {
   )
 }
 
-export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }) {
+export function AppShell({
+  store = explorerStore,
+  onRetryTrace,
+}: {
+  store?: ExplorerStoreApi
+  onRetryTrace?: () => void
+}) {
   const learningMode = useStore(store, (state) => state.mode)
   const mobileView = useStore(store, (state) => state.view)
   const traceStatus = useStore(store, (state) => state.traceStatus)
+  const traceError = useStore(store, (state) => state.traceError)
+  const traceRequestId = useStore(store, (state) => state.traceRequestId)
+  const capabilities = useDeviceCapabilities()
   const setLearningMode = store.getState().setMode
   const setMobileView = store.getState().setView
+  const capabilityLabel =
+    capabilities.threeDMode === 'full'
+      ? '完整 3D'
+      : capabilities.threeDMode === 'reduced'
+        ? '简化 3D'
+        : '2D 安全模式'
+
+  useEffect(() => {
+    store.getState().setReducedMotion(capabilities.reducedMotion)
+  }, [capabilities.reducedMotion, store])
 
   const moveMobileFocus = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -459,8 +480,13 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
           <span className="source-badge" data-status={traceStatus}>
             <span aria-hidden="true" /> {traceStatusLabels[traceStatus]}
           </span>
-          <span className="capability-badge">
-            <GaugeIcon /> 完整 3D
+          <span
+            className="capability-badge"
+            data-mode={capabilities.threeDMode}
+            data-reduced-motion={capabilities.reducedMotion}
+            title={`WebGL2 ${capabilities.webgl2 ? '可用' : '不可用'}；WebGPU ${capabilities.webgpu ? '可用' : '不可用'}；WASM ${capabilities.wasm ? '可用' : '不可用'}；内存等级 ${capabilities.memoryTier}`}
+          >
+            <GaugeIcon /> {capabilityLabel}
           </span>
         </div>
 
@@ -472,6 +498,20 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
             <Settings2 size={19} aria-hidden="true" />
           </button>
         </div>
+        {traceStatus === 'error' && (
+          <section className="data-alert" role="alert" aria-label="模型轨迹加载失败">
+            <div>
+              <strong>教学案例暂时无法加载</strong>
+              <p>{traceError ?? '预置模型轨迹加载失败。'}</p>
+            </div>
+            {onRetryTrace && (
+              <button type="button" onClick={onRetryTrace}>
+                <RotateCcw size={16} aria-hidden="true" />
+                重新加载案例
+              </button>
+            )}
+          </section>
+        )}
       </header>
 
       <nav className="mobile-view-tabs" aria-label="学习视图" role="tablist">
@@ -494,14 +534,44 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
       </nav>
 
       <main id="main-content" className="workspace" tabIndex={-1}>
-        <LessonPanel
-          store={store}
-          isActive={mobileView === 'lesson'}
-        />
-        <Trace2DPanel store={store} isActive={mobileView === '2d'} />
-        <Suspense fallback={<Scene3DLoading isActive={mobileView === '3d'} />}>
-          <Scene3DPanel store={store} isActive={mobileView === '3d'} />
-        </Suspense>
+        <FeatureErrorBoundary
+          key={`lesson:${traceRequestId}:${traceStatus}`}
+          featureName="中文课程"
+          description="二维计算、三维空间和时间轴仍可继续使用。"
+          panelId="view-panel-lesson"
+          labelledBy="mobile-view-lesson"
+          panelClassName={`workspace-panel lesson-panel${mobileView === 'lesson' ? ' is-mobile-active' : ''}`}
+        >
+          <LessonPanel store={store} isActive={mobileView === 'lesson'} />
+        </FeatureErrorBoundary>
+        <FeatureErrorBoundary
+          key={`2d:${traceRequestId}:${traceStatus}`}
+          featureName="二维计算"
+          description="中文课程和三维空间仍可继续使用。"
+          panelId="view-panel-2d"
+          labelledBy="mobile-view-2d"
+          panelClassName={`workspace-panel calculation-panel${mobileView === '2d' ? ' is-mobile-active' : ''}`}
+        >
+          <Trace2DPanel store={store} isActive={mobileView === '2d'} />
+        </FeatureErrorBoundary>
+        <FeatureErrorBoundary
+          key={`3d:${traceRequestId}:${traceStatus}`}
+          featureName="三维空间"
+          description="中文课程与二维计算仍可完整使用。"
+          panelId="view-panel-3d"
+          labelledBy="mobile-view-3d"
+          panelClassName={`workspace-panel scene-panel${mobileView === '3d' ? ' is-mobile-active' : ''}`}
+          onFallbackAction={() => setMobileView('2d')}
+          fallbackActionLabel="切换到二维安全模式"
+        >
+          <Suspense fallback={<Scene3DLoading isActive={mobileView === '3d'} />}>
+            <Scene3DPanel
+              store={store}
+              isActive={mobileView === '3d'}
+              capabilities={capabilities}
+            />
+          </Suspense>
+        </FeatureErrorBoundary>
       </main>
 
       <Timeline store={store} />
