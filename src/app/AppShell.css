@@ -155,6 +155,17 @@
   box-shadow: 0 0 0 0.1875rem oklch(65% 0.13 151 / 0.16);
 }
 
+.source-badge[data-status='idle'] > span,
+.source-badge[data-status='loading'] > span {
+  background: var(--amber-300);
+  box-shadow: 0 0 0 0.1875rem oklch(80% 0.15 80 / 0.14);
+}
+
+.source-badge[data-status='error'] > span {
+  background: var(--danger-color);
+  box-shadow: 0 0 0 0.1875rem oklch(62% 0.2 25 / 0.14);
+}
+
 .gauge-icon {
   height: 0.75rem;
   display: inline-flex;
@@ -877,8 +888,9 @@ kbd {
 .timeline__fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 8.33%;
+  width: 0;
   background: var(--amber-300);
+  transition: width var(--duration-base) var(--ease-out);
 }
 
 .timeline__marker {
@@ -892,10 +904,12 @@ kbd {
   transform: translate(-50%, -50%);
 }
 
-.timeline__marker:nth-of-type(2) { inset-inline-start: 8.33%; }
-.timeline__marker:nth-of-type(3) { inset-inline-start: 50%; }
-.timeline__marker:nth-of-type(4) { inset-inline-start: 100%; }
-.timeline__marker.is-current { background: var(--amber-300); }
+.timeline__marker.is-reached { background: var(--amber-500); }
+.timeline__marker.is-current {
+  width: 0.625rem;
+  height: 0.625rem;
+  background: var(--amber-300);
+}
 
 .timeline__reset {
   width: auto;

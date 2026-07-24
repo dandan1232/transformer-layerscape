@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useState } from 'react'
+import { type KeyboardEvent } from 'react'
 import {
   BookOpenText,
   Box,
@@ -9,15 +9,33 @@ import {
   Compass,
   Focus,
   Layers3,
+  Pause,
   Play,
   RotateCcw,
   Settings2,
   Workflow,
 } from 'lucide-react'
+import { useStore } from 'zustand'
+import {
+  selectCanGoNext,
+  selectCanGoPrevious,
+  selectCurrentStep,
+} from '../store/explorer-selectors'
+import {
+  explorerStore,
+  type ExplorerStoreApi,
+  type ExplorerView,
+} from '../store/explorer-store'
 import './AppShell.css'
 
-type LearningMode = 'guided' | 'explore'
-type MobileView = 'lesson' | '2d' | '3d'
+type MobileView = ExplorerView
+
+const traceStatusLabels = {
+  idle: '等待案例',
+  loading: '正在准备案例',
+  ready: '预置案例已就绪',
+  error: '案例不可用',
+} as const
 
 const mobileViews: ReadonlyArray<{
   id: MobileView
@@ -63,8 +81,8 @@ function LessonPanel({
       <header className="lesson-panel__header">
         <div>
           <p className="eyebrow eyebrow--ink">第 01 章 · 输入</p>
-          <p className="lesson-panel__index" aria-label="第 1 步，共 12 步">
-            01 <span>/ 12</span>
+          <p className="lesson-panel__index" aria-label="第 1 章，共 3 章">
+            01 <span>/ 03</span>
           </p>
         </div>
         <span className="lesson-panel__status">
@@ -302,40 +320,96 @@ function ScenePanel({ isActive }: { isActive: boolean }) {
   )
 }
 
-function Timeline() {
+function Timeline({ store }: { store: ExplorerStoreApi }) {
+  const trace = useStore(store, (state) => state.trace)
+  const traceStatus = useStore(store, (state) => state.traceStatus)
+  const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
+  const currentStep = useStore(store, selectCurrentStep)
+  const canGoPrevious = useStore(store, selectCanGoPrevious)
+  const canGoNext = useStore(store, selectCanGoNext)
+  const playback = useStore(store, (state) => state.playback)
+
+  const totalSteps = trace?.steps.length ?? 0
+  const visibleStep = totalSteps > 0 ? currentStepIndex + 1 : 0
+  const progress = totalSteps > 0 ? (visibleStep / totalSteps) * 100 : 0
+  const isPlaying = playback === 'playing'
+  const phaseLabel =
+    currentStep?.title ??
+    (traceStatus === 'error' ? '模型轨迹加载失败' : '正在准备模型轨迹')
+
   return (
     <footer className="timeline" aria-label="计算时间轴">
       <div className="timeline__controls">
-        <button type="button" disabled aria-label="上一步">
+        <button
+          type="button"
+          disabled={!canGoPrevious}
+          aria-label="上一步"
+          onClick={() => store.getState().previousStep()}
+        >
           <ChevronLeft size={18} aria-hidden="true" />
         </button>
-        <button className="timeline__play" type="button" disabled aria-label="播放计算过程">
-          <Play size={17} fill="currentColor" aria-hidden="true" />
+        <button
+          className="timeline__play"
+          type="button"
+          disabled={!isPlaying && !canGoNext}
+          aria-label={isPlaying ? '暂停计算过程' : '播放计算过程'}
+          onClick={() => {
+            const state = store.getState()
+            if (state.playback === 'playing') state.pausePlayback()
+            else state.startPlayback()
+          }}
+        >
+          {isPlaying ? (
+            <Pause size={17} fill="currentColor" aria-hidden="true" />
+          ) : (
+            <Play size={17} fill="currentColor" aria-hidden="true" />
+          )}
         </button>
-        <button type="button" disabled aria-label="下一步">
+        <button
+          type="button"
+          disabled={!canGoNext}
+          aria-label="下一步"
+          onClick={() => store.getState().nextStep()}
+        >
           <ChevronRight size={18} aria-hidden="true" />
         </button>
       </div>
 
       <div className="timeline__track-group">
-        <span className="timeline__step">步骤 01 / 12</span>
+        <span className="timeline__step">
+          步骤 {String(visibleStep).padStart(2, '0')} /{' '}
+          {String(totalSteps).padStart(2, '0')}
+        </span>
         <div
           className="timeline__track"
           role="progressbar"
-          aria-label="课程步骤进度"
-          aria-valuemin={1}
-          aria-valuemax={12}
-          aria-valuenow={1}
+          aria-label="模型计算步骤进度"
+          aria-valuemin={0}
+          aria-valuemax={Math.max(totalSteps, 1)}
+          aria-valuenow={visibleStep}
+          aria-valuetext={
+            totalSteps > 0 ? `第 ${visibleStep} 步，共 ${totalSteps} 步` : '模型轨迹尚未就绪'
+          }
         >
-          <span className="timeline__fill" />
-          <span className="timeline__marker is-current" />
-          <span className="timeline__marker" />
-          <span className="timeline__marker" />
+          <span className="timeline__fill" style={{ width: `${progress}%` }} />
+          {trace?.steps.map((step, index) => (
+            <span
+              key={step.id}
+              className={`timeline__marker${index <= currentStepIndex ? ' is-reached' : ''}${index === currentStepIndex ? ' is-current' : ''}`}
+              style={{ insetInlineStart: `${((index + 1) / totalSteps) * 100}%` }}
+              aria-hidden="true"
+            />
+          ))}
         </div>
-        <span className="timeline__phase">Tokenization</span>
+        <span className="timeline__phase" aria-live="polite">{phaseLabel}</span>
       </div>
 
-      <button className="timeline__reset" type="button" disabled>
+      <button
+        className="timeline__reset"
+        type="button"
+        disabled={!canGoPrevious && !isPlaying}
+        onClick={() => store.getState().resetPlayback()}
+      >
         <RotateCcw size={16} aria-hidden="true" />
         重置
       </button>
@@ -343,9 +417,12 @@ function Timeline() {
   )
 }
 
-export function AppShell() {
-  const [learningMode, setLearningMode] = useState<LearningMode>('guided')
-  const [mobileView, setMobileView] = useState<MobileView>('lesson')
+export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }) {
+  const learningMode = useStore(store, (state) => state.mode)
+  const mobileView = useStore(store, (state) => state.view)
+  const traceStatus = useStore(store, (state) => state.traceStatus)
+  const setLearningMode = store.getState().setMode
+  const setMobileView = store.getState().setView
 
   const moveMobileFocus = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -412,8 +489,8 @@ export function AppShell() {
         </div>
 
         <div className="topbar__status">
-          <span className="source-badge">
-            <span aria-hidden="true" /> 预置案例
+          <span className="source-badge" data-status={traceStatus}>
+            <span aria-hidden="true" /> {traceStatusLabels[traceStatus]}
           </span>
           <span className="capability-badge">
             <GaugeIcon /> 完整 3D
@@ -458,7 +535,7 @@ export function AppShell() {
         <ScenePanel isActive={mobileView === '3d'} />
       </main>
 
-      <Timeline />
+      <Timeline store={store} />
     </div>
   )
 }
