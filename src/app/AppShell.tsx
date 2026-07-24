@@ -27,6 +27,7 @@ import {
   selectCanGoNext,
   selectCanGoPrevious,
   selectCurrentStep,
+  selectSelectedEntity,
 } from '../store/explorer-selectors'
 import {
   explorerStore,
@@ -103,6 +104,7 @@ function LessonPanel({
   const trace = useStore(store, (state) => state.trace)
   const traceStatus = useStore(store, (state) => state.traceStatus)
   const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
+  const selectedEntity = useStore(store, selectSelectedEntity)
   const traceStepId = trace?.steps[currentStepIndex]?.id ?? null
   const allLessonSteps = flattenLessonSteps(coreLesson)
   const context =
@@ -151,6 +153,16 @@ function LessonPanel({
           <p className="kicker">{context.step.kicker}</p>
           <h1 id="lesson-heading" tabIndex={-1}>{context.step.title}</h1>
           <p className="lesson-panel__lead">{context.step.plainExplanation}</p>
+          {selectedEntity && (
+            <aside className="lesson-focus" aria-label="当前联动焦点" aria-live="polite">
+              <span>当前联动焦点</span>
+              <strong>{selectedEntity.label}</strong>
+              <p>
+                {selectedEntity.description ??
+                  '该实体已在二维与三维视图中同步选中。'}
+              </p>
+            </aside>
+          )}
         </div>
 
         <ol className="chapter-track" aria-label="课程章节进度">
@@ -259,8 +271,17 @@ function Timeline({ store }: { store: ExplorerStoreApi }) {
 
   const totalSteps = trace?.steps.length ?? 0
   const visibleStep = totalSteps > 0 ? currentStepIndex + 1 : 0
-  const progress = totalSteps > 0 ? (visibleStep / totalSteps) * 100 : 0
+  const progress =
+    totalSteps > 1 ? (currentStepIndex / (totalSteps - 1)) * 100 : totalSteps > 0 ? 100 : 0
   const isPlaying = playback === 'playing'
+  const lessonContext = findLessonStepContext(coreLesson, currentStep?.id ?? null)
+  const chapterStartTraceStepId = lessonContext?.chapter.steps[0]?.action.traceStepId
+  const chapterStartIndex = trace
+    ? Math.max(
+        0,
+        trace.steps.findIndex((step) => step.id === chapterStartTraceStepId),
+      )
+    : 0
   const phaseLabel =
     currentStep?.title ??
     (traceStatus === 'error' ? '模型轨迹加载失败' : '正在准备模型轨迹')
@@ -308,26 +329,51 @@ function Timeline({ store }: { store: ExplorerStoreApi }) {
           步骤 {String(visibleStep).padStart(2, '0')} /{' '}
           {String(totalSteps).padStart(2, '0')}
         </span>
-        <div
-          className="timeline__track"
-          role="progressbar"
-          aria-label="模型计算步骤进度"
-          aria-valuemin={0}
-          aria-valuemax={Math.max(totalSteps, 1)}
-          aria-valuenow={visibleStep}
-          aria-valuetext={
-            totalSteps > 0 ? `第 ${visibleStep} 步，共 ${totalSteps} 步` : '模型轨迹尚未就绪'
-          }
-        >
+        <div className="timeline__track">
           <span className="timeline__fill" style={{ width: `${progress}%` }} />
           {trace?.steps.map((step, index) => (
             <span
               key={step.id}
               className={`timeline__marker${index <= currentStepIndex ? ' is-reached' : ''}${index === currentStepIndex ? ' is-current' : ''}`}
-              style={{ insetInlineStart: `${((index + 1) / totalSteps) * 100}%` }}
+              style={{
+                insetInlineStart: `${totalSteps > 1 ? (index / (totalSteps - 1)) * 100 : 100}%`,
+              }}
               aria-hidden="true"
             />
           ))}
+          <input
+            className="timeline__scrubber"
+            type="range"
+            min={1}
+            max={Math.max(totalSteps, 1)}
+            step={1}
+            value={Math.max(visibleStep, 1)}
+            disabled={totalSteps === 0}
+            aria-label="定位模型计算步骤"
+            aria-valuetext={
+              totalSteps > 0
+                ? `第 ${visibleStep} 步，共 ${totalSteps} 步：${phaseLabel}`
+                : '模型轨迹尚未就绪'
+            }
+            onChange={(event) =>
+              store.getState().goToStep(Number(event.currentTarget.value) - 1)
+            }
+            onKeyDown={(event) => {
+              let nextIndex = currentStepIndex
+              if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                nextIndex = Math.min(currentStepIndex + 1, totalSteps - 1)
+              }
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                nextIndex = Math.max(currentStepIndex - 1, 0)
+              }
+              if (event.key === 'Home') nextIndex = 0
+              if (event.key === 'End') nextIndex = Math.max(totalSteps - 1, 0)
+              if (nextIndex === currentStepIndex) return
+
+              event.preventDefault()
+              store.getState().goToStep(nextIndex)
+            }}
+          />
         </div>
         <span className="timeline__phase" aria-live="polite">{phaseLabel}</span>
       </div>
@@ -335,8 +381,8 @@ function Timeline({ store }: { store: ExplorerStoreApi }) {
       <button
         className="timeline__reset"
         type="button"
-        disabled={!canGoPrevious && !isPlaying}
-        onClick={() => store.getState().resetPlayback()}
+        disabled={currentStepIndex === chapterStartIndex && !isPlaying}
+        onClick={() => store.getState().resetPlayback(chapterStartIndex)}
       >
         <RotateCcw size={16} aria-hidden="true" />
         重置

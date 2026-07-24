@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { verticalSliceTrace } from '../content/traces/vertical-slice-trace'
@@ -143,6 +143,33 @@ describe('中文学习工作台外壳', () => {
       'true',
     )
     expect(screen.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: '课程' }))
+    expect(
+      screen.getByRole('complementary', { name: '当前联动焦点' }),
+    ).toHaveTextContent('Attention Head 2')
+  })
+
+  it('二维 Token 选择会同步三维高亮与课程焦点说明', async () => {
+    const user = userEvent.setup()
+    const { store } = renderAppShell({ withTrace: true })
+
+    await user.click(screen.getByRole('tab', { name: '二维计算' }))
+    await user.click(
+      screen.getByRole('button', { name: '选择 Token 4：deep，ID 9' }),
+    )
+
+    expect(store.getState()).toMatchObject({
+      selectedEntityId: 'token:3',
+      selectedTokenIndex: 3,
+    })
+    await user.click(screen.getByRole('tab', { name: '课程' }))
+    expect(screen.getByRole('complementary', { name: '当前联动焦点' })).toHaveTextContent(
+      'deep输入序列中的第 4 个 Token。',
+    )
+    await user.click(screen.getByRole('tab', { name: '三维空间' }))
+    expect(
+      await screen.findByRole('button', { name: '三维实体：Token 4 deep' }),
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('时间轴使用统一 Store 导航、播放和重置', async () => {
@@ -169,5 +196,38 @@ describe('中文学习工作台外壳', () => {
     await user.click(screen.getByRole('button', { name: '重置' }))
     expect(screen.getByText('步骤 01 / 08')).toBeVisible()
     expect(store.getState().playback).toBe('paused')
+  })
+
+  it('时间轴滑块支持键盘定位、拖动定位并重置到当前章节起点', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    render(<AppShell store={store} />)
+
+    const scrubber = screen.getByRole('slider', { name: '定位模型计算步骤' })
+    expect(scrubber).toHaveValue('1')
+    scrubber.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(store.getState().currentStepIndex).toBe(1)
+    expect(scrubber).toHaveValue('2')
+
+    await user.click(screen.getByRole('button', { name: '播放计算过程' }))
+    fireEvent.change(scrubber, { target: { value: '4' } })
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 3,
+      playback: 'paused',
+    })
+    expect(scrubber).toHaveAttribute(
+      'aria-valuetext',
+      '第 4 步，共 8 步：遮住未来 Token',
+    )
+
+    await user.click(screen.getByRole('button', { name: '重置' }))
+    expect(store.getState().currentStepIndex).toBe(2)
+    expect(scrubber).toHaveValue('3')
+    expect(screen.getByRole('button', { name: '重置' })).toBeDisabled()
+    expect(
+      screen.getByRole('heading', { name: '为信息准备三种角色' }),
+    ).toBeVisible()
   })
 })

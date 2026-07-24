@@ -41,7 +41,7 @@ export interface ExplorerActions {
   advancePlayback: () => void
   startPlayback: () => void
   pausePlayback: () => void
-  resetPlayback: () => void
+  resetPlayback: (startIndex?: number) => void
   setPlaybackRate: (rate: PlaybackRate) => void
   selectEntity: (id: TraceEntityId | null) => void
   selectToken: (index: number | null) => void
@@ -213,10 +213,14 @@ export function createExplorerStore(): ExplorerStoreApi {
 
     pausePlayback: () => set({ playback: 'paused' }),
 
-    resetPlayback: () => {
+    resetPlayback: (startIndex = 0) => {
       const trace = get().trace
       if (!trace) return
-      set({ ...stepPatch(trace, 0), playback: 'paused', cameraMode: 'guided' })
+      set({
+        ...stepPatch(trace, startIndex),
+        playback: 'paused',
+        cameraMode: 'guided',
+      })
     },
 
     setPlaybackRate: (rate) => {
@@ -228,14 +232,14 @@ export function createExplorerStore(): ExplorerStoreApi {
       const trace = get().trace
       if (!trace) return
       if (id !== null && !trace.entities[id]) return
-      set(selectionForEntity(trace, id))
+      set({ ...selectionForEntity(trace, id), playback: 'paused' })
     },
 
     selectToken: (index) => {
       const trace = get().trace
       if (!trace) return
       if (index === null) {
-        set({ selectedTokenIndex: null })
+        set({ selectedTokenIndex: null, playback: 'paused' })
         return
       }
       if (!Number.isInteger(index) || index < 0 || index >= trace.input.tokens.length) return
@@ -243,6 +247,7 @@ export function createExplorerStore(): ExplorerStoreApi {
       set({
         selectedTokenIndex: index,
         selectedEntityId: trace.entities[id] ? id : null,
+        playback: 'paused',
       })
     },
 
@@ -250,18 +255,18 @@ export function createExplorerStore(): ExplorerStoreApi {
       const trace = get().trace
       if (!trace) return
       if (index === null) {
-        set({ selectedLayerIndex: null })
+        set({ selectedLayerIndex: null, playback: 'paused' })
         return
       }
       if (!Number.isInteger(index) || index < 0 || index >= trace.model.layers) return
-      set({ selectedLayerIndex: index })
+      set({ selectedLayerIndex: index, playback: 'paused' })
     },
 
     selectHead: (index) => {
       const trace = get().trace
       if (!trace) return
       if (index === null) {
-        set({ selectedHeadIndex: null })
+        set({ selectedHeadIndex: null, playback: 'paused' })
         return
       }
       if (!Number.isInteger(index) || index < 0 || index >= trace.model.heads) return
@@ -271,6 +276,7 @@ export function createExplorerStore(): ExplorerStoreApi {
         selectedHeadIndex: index,
         selectedLayerIndex: entity?.layerIndex ?? get().selectedLayerIndex,
         selectedEntityId: entity?.id ?? get().selectedEntityId,
+        playback: 'paused',
       })
     },
 

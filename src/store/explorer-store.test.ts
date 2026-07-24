@@ -133,6 +133,39 @@ describe('Explorer Store', () => {
     expect(store.getState().playback).toBe('paused')
   })
 
+  it('重置播放可以回到当前课程章节的合法起点', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(6)
+    store.getState().setCameraMode('manual')
+
+    store.getState().resetPlayback(5)
+
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 5,
+      selectedEntityId: 'operation:output',
+      playback: 'paused',
+      cameraMode: 'guided',
+    })
+  })
+
+  it('播放期间的显式实体选择会暂停并阻止旧定时推进覆盖用户意图', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(3)
+    store.getState().startPlayback()
+
+    store.getState().selectHead(1)
+    store.getState().advancePlayback()
+
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 3,
+      selectedEntityId: 'head:1',
+      selectedHeadIndex: 1,
+      playback: 'paused',
+    })
+  })
+
   it('只接受允许的播放速度', () => {
     const store = createExplorerStore()
     store.getState().setPlaybackRate(2)

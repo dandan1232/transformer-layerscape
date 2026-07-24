@@ -9,6 +9,13 @@ test('应用能够在浏览器中启动', async ({ page }) => {
   ).toBeVisible()
 
   await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  const scrubber = page.getByRole('slider', { name: '定位模型计算步骤' })
+  await scrubber.focus()
+  await page.keyboard.press('End')
+  await expect(page.getByText('步骤 08 / 08')).toBeVisible()
+  await page.keyboard.press('Home')
+  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+
   await page.getByRole('button', { name: '下一项' }).click()
   await expect(
     page.getByRole('heading', { name: '把编号换成可以计算的向量' }),
@@ -35,6 +42,8 @@ test('应用能够在浏览器中启动', async ({ page }) => {
   await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await page.getByRole('button', { name: '重置' }).click()
+  await expect(page.getByText('步骤 03 / 08')).toBeVisible()
 
   await page.getByRole('button', { name: '跳到第 7 步：把分数变成概率' }).click()
   await expect(page.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
@@ -65,6 +74,13 @@ test('真实三维场景可以旋转、复位并与二维 Head 选择联动', as
   ).toHaveAttribute(
     'aria-pressed',
     'true',
+  )
+  await page.getByRole('button', { name: 'blue 读取 and：权重 0.42' }).click()
+  await expect(
+    page.getByRole('button', { name: '三维实体：Token 6 blue' }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('complementary', { name: '当前联动焦点' })).toContainText(
+    'blue',
   )
 
   const bounds = await scene.boundingBox()
