@@ -46,10 +46,16 @@ docs/
 │  ├─ 2026-07-24-transformer-layerscape-design.md
 │  └─ implementation-roadmap.md
 └─ testing/
-   └─ test-and-acceptance.md
+   ├─ test-and-acceptance.md
+   └─ reports/
+      └─ wp-10-test-baseline.md
 ```
 
 后续里程碑验收报告放在 `docs/testing/reports/`，技术探针和重要架构取舍应放在 `docs/decisions/`，并从本页增加入口。
+
+## 验证记录
+
+- [WP-10 前端测试运行基线](./testing/reports/wp-10-test-baseline.md)：Vitest、Testing Library、覆盖率、Playwright 项目与 Chromium 冒烟。
 
 ## 文档维护规则
 

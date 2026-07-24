@@ -260,7 +260,7 @@ interface LessonAction {
 
 ## 7. M1｜首个 2D/3D 联动垂直切片
 
-### WP-10｜测试运行器与质量脚本
+### WP-10｜测试运行器与质量脚本（已完成）
 
 目标：先建立可重复验证的测试入口。
 
@@ -285,6 +285,8 @@ npm run build
 完成定义：本地可稳定运行单元测试，Playwright 能发现配置项目。
 
 Commit：`test: 建立前端测试运行基线`
+
+验证记录：[WP-10 前端测试运行基线](../testing/reports/wp-10-test-baseline.md)
 
 ### WP-11｜设计 Token 与应用外壳
 

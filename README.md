@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-项目已完成 **M0：文档与工程基线**，准备进入 M1 实施。
+项目已完成 **M0：文档与工程基线**，正在实施 M1。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
-- 下一交付点是 **M1：Token→Attention→Output 的 2D/3D 联动垂直切片**。
+- M1 的测试运行基线已经建立，下一交付点是中文学习工作台外壳。
 - 当前页面仍是工程占位界面，不代表目标产品已经完成。
 
 ## 目标体验
@@ -26,7 +26,7 @@
 | 里程碑 | 目标 | 状态 |
 | --- | --- | --- |
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
-| M1 | Token→Attention→Output 联动垂直切片 | 待实施 |
+| M1 | Token→Attention→Output 联动垂直切片 | 进行中 |
 | M2 | 完整预置 Transformer 课程 | 待实施 |
 | M3 | 浏览器真实模型模式 | 待实施 |
 | M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
@@ -77,9 +77,27 @@ npm run build
 
 # 本地预览生产构建
 npm run preview
+
+# 交互式单元测试
+npm test
+
+# 单次运行单元测试
+npm run test:run
+
+# 生成覆盖率报告
+npm run test:coverage
+
+# 运行 Playwright 端到端测试
+npm run test:e2e
 ```
 
-Vitest 与 Playwright 依赖已经加入工程，测试环境与 `test:*` 脚本将在实施计划的 WP-10 独立配置。在此之前，不把“依赖已安装”视为“测试已完成”。
+首次运行 Playwright 前，需要安装测试浏览器：
+
+```bash
+npx playwright install
+```
+
+测试分层、支持矩阵和不同里程碑的放行条件见[测试与验收方案](./docs/testing/test-and-acceptance.md)。CI 尚未配置；修改 GitHub Actions 前需另行确认。
 
 ## 开发与提交规范
 
