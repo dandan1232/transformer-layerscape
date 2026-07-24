@@ -288,7 +288,7 @@ Commit：`test: 建立前端测试运行基线`
 
 验证记录：[WP-10 前端测试运行基线](../testing/reports/wp-10-test-baseline.md)
 
-### WP-11｜设计 Token 与应用外壳
+### WP-11｜设计 Token 与应用外壳（已完成）
 
 目标：替换 Vite 示例，建立数字天文台风格的响应式工作台。
 
@@ -310,6 +310,8 @@ Commit：`test: 建立前端测试运行基线`
 - lint、test、build。
 
 Commit：`feat: 建立中文学习工作台外壳`
+
+验证记录：[WP-11 中文学习工作台外壳](../testing/reports/wp-11-app-shell.md)
 
 ### WP-12｜Trace 领域模型与预置适配器
 

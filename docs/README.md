@@ -48,7 +48,8 @@ docs/
 └─ testing/
    ├─ test-and-acceptance.md
    └─ reports/
-      └─ wp-10-test-baseline.md
+      ├─ wp-10-test-baseline.md
+      └─ wp-11-app-shell.md
 ```
 
 后续里程碑验收报告放在 `docs/testing/reports/`，技术探针和重要架构取舍应放在 `docs/decisions/`，并从本页增加入口。
@@ -56,6 +57,7 @@ docs/
 ## 验证记录
 
 - [WP-10 前端测试运行基线](./testing/reports/wp-10-test-baseline.md)：Vitest、Testing Library、覆盖率、Playwright 项目与 Chromium 冒烟。
+- [WP-11 中文学习工作台外壳](./testing/reports/wp-11-app-shell.md)：设计 Token、响应式工作台、键盘交互与视觉验证。
 
 ## 文档维护规则
 
