@@ -53,7 +53,8 @@ docs/
       ├─ wp-12-model-trace.md
       ├─ wp-13-shared-store.md
       ├─ wp-14-chinese-lesson-engine.md
-      └─ wp-15-trace-2d.md
+      ├─ wp-15-trace-2d.md
+      └─ wp-16-scene-3d.md
 ```
 
 后续里程碑验收报告放在 `docs/testing/reports/`，技术探针和重要架构取舍应放在 `docs/decisions/`，并从本页增加入口。
@@ -66,6 +67,7 @@ docs/
 - [WP-13 统一探索状态与播放控制](./testing/reports/wp-13-shared-store.md)：共享 Store、加载竞态保护、播放状态机与时间线交互。
 - [WP-14 中文引导课程引擎](./testing/reports/wp-14-chinese-lesson-engine.md)：三章八项中文内容、课程动作、引用校验与导航交互。
 - [WP-15 二维注意力计算视图](./testing/reports/wp-15-trace-2d.md)：Token、Q/K/V、Attention、Output、真实张量和文本替代。
+- [WP-16 三维模型探索场景](./testing/reports/wp-16-scene-3d.md)：真实 WebGL、实例化 Token、共享选择、引导相机、回退和移动端验证。
 
 ## 文档维护规则
 

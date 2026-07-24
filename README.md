@@ -8,8 +8,8 @@
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
-- M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、播放状态机、中文课程引擎与二维计算视图已经完成，下一交付点是三维模型空间。
-- 当前页面已经可以学习 Token、Attention、Output 三章八项中文课程，在二维图中查看真实教学 Trace 的 Token、Q/K/V、因果掩码、Attention 权重和输出概率，并进行前后导航、播放、暂停和重置；三维场景仍是教学预览，将在后续工作包替换。
+- M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、播放状态机、中文课程引擎、二维计算视图与三维模型空间已经完成，下一交付点是完整双向联动。
+- 当前页面已经可以学习 Token、Attention、Output 三章八项中文课程，在二维图中查看真实教学 Trace 的 Token、Q/K/V、因果掩码、Attention 权重和输出概率，并在真实 WebGL 场景中旋转观察 Token、Attention Head 与输出节点；课程、2D、3D 和时间轴共享步骤与实体选择。
 
 ## 目标体验
 

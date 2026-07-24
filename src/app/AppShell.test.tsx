@@ -25,7 +25,7 @@ describe('中文学习工作台外壳', () => {
 
     await user.click(screen.getByRole('tab', { name: '三维空间' }))
     expect(
-      screen.getByRole('heading', { name: 'Transformer 微型观测场' }),
+      await screen.findByRole('heading', { name: 'Transformer 微型观测场' }),
     ).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '跳到主要内容' })).toHaveAttribute(
@@ -119,6 +119,30 @@ describe('中文学习工作台外壳', () => {
       'aria-selected', 'true',
     )
     expect(screen.getByRole('heading', { name: '把句子切成 Token' })).toBeVisible()
+  })
+
+  it('三维实体选择会与二维视图共享同一个 Attention Head', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(3)
+    store.getState().setView('3d')
+    render(<AppShell store={store} />)
+
+    await user.click(
+      await screen.findByRole('button', { name: '三维实体：Attention Head 2' }),
+    )
+    expect(store.getState()).toMatchObject({
+      selectedEntityId: 'head:1',
+      selectedHeadIndex: 1,
+    })
+
+    await user.click(screen.getByRole('tab', { name: '二维计算' }))
+    expect(screen.getByRole('button', { name: 'Head 2' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
   })
 
   it('时间轴使用统一 Store 导航、播放和重置', async () => {

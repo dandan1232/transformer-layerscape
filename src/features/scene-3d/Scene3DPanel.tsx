@@ -1,0 +1,543 @@
+import { Html, Line, OrbitControls } from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Focus, MousePointer2, Orbit } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  Color,
+  Object3D,
+  Vector3,
+  type InstancedMesh,
+} from 'three'
+import { useStore } from 'zustand'
+import type { ModelTrace, TraceEntityId } from '../../domain/trace/trace'
+import { selectCurrentStep, selectSelectedEntity } from '../../store/explorer-selectors'
+import type { ExplorerStoreApi } from '../../store/explorer-store'
+import {
+  createSceneLayout,
+  getCameraTransitionAlpha,
+  getGuidedCameraPose,
+  getSceneFocus,
+  type SceneLayout,
+  type ScenePosition,
+} from './scene-layout'
+import './Scene3DPanel.css'
+
+interface Scene3DPanelProps {
+  readonly store: ExplorerStoreApi
+  readonly isActive: boolean
+}
+
+const palette = {
+  token: new Color('#f6be55'),
+  tokenSelected: new Color('#ffdf91'),
+  tokenHover: new Color('#71b9eb'),
+  head: '#64aee0',
+  headSelected: '#f6be55',
+  output: '#6dcf9a',
+  outputSelected: '#ffcf69',
+  void: '#09111f',
+}
+
+function canMountWebGL() {
+  return (
+    typeof window !== 'undefined' &&
+    (typeof window.WebGLRenderingContext !== 'undefined' ||
+      typeof window.WebGL2RenderingContext !== 'undefined')
+  )
+}
+
+function TokenInstances({
+  trace,
+  layout,
+  selectedTokenIndex,
+  onSelectToken,
+}: {
+  trace: ModelTrace
+  layout: SceneLayout
+  selectedTokenIndex: number | null
+  onSelectToken: (index: number) => void
+}) {
+  const meshRef = useRef<InstancedMesh>(null)
+  const transform = useMemo(() => new Object3D(), [])
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    layout.tokens.forEach((token, index) => {
+      transform.position.set(...token.position)
+      transform.scale.setScalar(1)
+      transform.updateMatrix()
+      mesh.setMatrixAt(index, transform.matrix)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+  }, [layout.tokens, transform])
+
+  useEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    layout.tokens.forEach((_, index) => {
+      const color =
+        index === selectedTokenIndex
+          ? palette.tokenSelected
+          : index === hoveredIndex
+            ? palette.tokenHover
+            : palette.token
+      mesh.setColorAt(index, color)
+    })
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+  }, [hoveredIndex, layout.tokens, selectedTokenIndex])
+
+  const readInstance = (event: {
+    readonly instanceId?: number
+    stopPropagation: () => void
+  }) => {
+    event.stopPropagation()
+    return event.instanceId ?? null
+  }
+
+  return (
+    <>
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, trace.input.tokens.length]}
+        onClick={(event) => {
+          const index = readInstance(event)
+          if (index !== null) onSelectToken(index)
+        }}
+        onPointerMove={(event) => setHoveredIndex(readInstance(event))}
+        onPointerOut={() => setHoveredIndex(null)}
+      >
+        <sphereGeometry args={[0.28, 24, 24]} />
+        <meshStandardMaterial roughness={0.4} metalness={0.15} vertexColors />
+      </instancedMesh>
+      {layout.tokens.map((token, index) => (
+        <Html
+          key={token.id}
+          position={[token.position[0], token.position[1] - 0.48, token.position[2]]}
+          center
+          distanceFactor={9}
+          className="scene3d-label"
+        >
+          <span aria-hidden="true">T{index + 1} · {trace.input.tokens[index].trim()}</span>
+        </Html>
+      ))}
+    </>
+  )
+}
+
+function HeadNode({
+  position,
+  index,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  index: number
+  selected: boolean
+  onSelect: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <group position={position as [number, number, number]}>
+      <mesh
+        onClick={(event) => {
+          event.stopPropagation()
+          onSelect()
+        }}
+        onPointerOver={(event) => {
+          event.stopPropagation()
+          setHovered(true)
+        }}
+        onPointerOut={() => setHovered(false)}
+        scale={selected || hovered ? 1.12 : 1}
+      >
+        <torusGeometry args={[0.48, 0.14, 18, 40]} />
+        <meshStandardMaterial
+          color={selected ? palette.headSelected : palette.head}
+          emissive={selected ? palette.headSelected : palette.void}
+          emissiveIntensity={selected ? 0.32 : 0.04}
+          roughness={0.32}
+          metalness={0.3}
+        />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.2, 20, 20]} />
+        <meshStandardMaterial color={selected ? palette.headSelected : palette.output} />
+      </mesh>
+      <Html center distanceFactor={8} position={[0, -0.78, 0]} className="scene3d-label scene3d-label--head">
+        <span aria-hidden="true">HEAD {index + 1}</span>
+      </Html>
+    </group>
+  )
+}
+
+function OutputNode({
+  position,
+  token,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  token: string
+  selected: boolean
+  onSelect: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <group position={position as [number, number, number]}>
+      <mesh
+        onClick={(event) => {
+          event.stopPropagation()
+          onSelect()
+        }}
+        onPointerOver={(event) => {
+          event.stopPropagation()
+          setHovered(true)
+        }}
+        onPointerOut={() => setHovered(false)}
+        scale={selected || hovered ? 1.14 : 1}
+        rotation={[0.25, 0.35, 0]}
+      >
+        <octahedronGeometry args={[0.48, 0]} />
+        <meshStandardMaterial
+          color={selected ? palette.outputSelected : palette.output}
+          emissive={selected ? palette.outputSelected : palette.void}
+          emissiveIntensity={selected ? 0.28 : 0.03}
+          roughness={0.28}
+          metalness={0.2}
+        />
+      </mesh>
+      <Html center distanceFactor={8} position={[0, -0.76, 0]} className="scene3d-label scene3d-label--output">
+        <span aria-hidden="true">NEXT · {token}</span>
+      </Html>
+    </group>
+  )
+}
+
+function QKVGate({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
+  const channels = [
+    { label: 'Q', color: '#e87a4d', y: 0.62 },
+    { label: 'K', color: '#64aee0', y: 0 },
+    { label: 'V', color: '#6dcf9a', y: -0.62 },
+  ]
+  return (
+    <group position={[-1.35, 0, 0.35]}>
+      {channels.map((channel) => (
+        <group key={channel.label} position={[0, channel.y, 0]}>
+          <mesh
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelect()
+            }}
+            scale={selected ? 1.08 : 1}
+          >
+            <boxGeometry args={[0.7, 0.34, 0.7]} />
+            <meshStandardMaterial
+              color={channel.color}
+              emissive={selected ? channel.color : palette.void}
+              emissiveIntensity={selected ? 0.25 : 0.02}
+              roughness={0.38}
+            />
+          </mesh>
+          <Html center distanceFactor={8} className="scene3d-label scene3d-label--channel">
+            <span aria-hidden="true">{channel.label}</span>
+          </Html>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function CameraRig({
+  focus,
+  cameraMode,
+  reducedMotion,
+}: {
+  focus: ScenePosition
+  cameraMode: 'guided' | 'manual'
+  reducedMotion: boolean
+}) {
+  const { camera } = useThree()
+  const pose = useMemo(() => getGuidedCameraPose(focus), [focus])
+  const desiredPosition = useMemo(() => new Vector3(...pose.position), [pose.position])
+  const desiredTarget = useMemo(() => new Vector3(...pose.target), [pose.target])
+
+  useFrame((_, delta) => {
+    if (cameraMode === 'manual') return
+    const alpha = getCameraTransitionAlpha(delta, reducedMotion)
+    camera.position.lerp(desiredPosition, alpha)
+    camera.lookAt(desiredTarget)
+  })
+
+  return null
+}
+
+function SceneGraph({
+  store,
+  trace,
+  layout,
+  selectedEntityId,
+  selectedTokenIndex,
+  selectedHeadIndex,
+  cameraMode,
+  reducedMotion,
+}: {
+  store: ExplorerStoreApi
+  trace: ModelTrace
+  layout: SceneLayout
+  selectedEntityId: TraceEntityId | null
+  selectedTokenIndex: number | null
+  selectedHeadIndex: number | null
+  cameraMode: 'guided' | 'manual'
+  reducedMotion: boolean
+}) {
+  const focus = getSceneFocus(layout, selectedEntityId)
+  const attentionPosition = layout.byId['operation:attention'].position
+  const controlsTarget = useMemo(() => new Vector3(...focus), [focus])
+
+  return (
+    <>
+      <color attach="background" args={[palette.void]} />
+      <fog attach="fog" args={[palette.void, 8, 20]} />
+      <ambientLight intensity={0.75} />
+      <directionalLight position={[4, 7, 5]} intensity={2.1} color="#ffe1a3" />
+      <pointLight position={[-4, 2, 3]} intensity={18} distance={9} color="#64aee0" />
+
+      <mesh position={[0, -2.05, 0.35]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[11, 7]} />
+        <meshStandardMaterial color="#111d30" transparent opacity={0.62} roughness={0.78} />
+      </mesh>
+      <gridHelper args={[11, 22, '#35516e', '#1c2b41']} position={[0, -2.03, 0.35]} />
+
+      {layout.tokens.flatMap((token) =>
+        layout.heads.map((head) => (
+          <Line
+            key={`${token.id}-${head.id}`}
+            points={[token.position, head.position]}
+            color={selectedEntityId === token.id || selectedEntityId === head.id ? '#f6be55' : '#37526e'}
+            lineWidth={selectedEntityId === token.id || selectedEntityId === head.id ? 1.8 : 0.65}
+            transparent
+            opacity={0.72}
+          />
+        )),
+      )}
+      {layout.heads.map((head) => (
+        <Line
+          key={`${head.id}-output`}
+          points={[head.position, layout.output.position]}
+          color={selectedEntityId === head.id ? '#f6be55' : '#4f718e'}
+          lineWidth={selectedEntityId === head.id ? 2 : 0.9}
+        />
+      ))}
+
+      <Line points={[[-1.35, 0, 0.35], attentionPosition]} color="#8e7650" lineWidth={1.3} />
+      <TokenInstances
+        trace={trace}
+        layout={layout}
+        selectedTokenIndex={selectedTokenIndex}
+        onSelectToken={(index) => store.getState().selectToken(index)}
+      />
+      <QKVGate
+        selected={selectedEntityId === 'operation:qkv'}
+        onSelect={() => store.getState().selectEntity('operation:qkv')}
+      />
+      {layout.heads.map((head, index) => (
+        <HeadNode
+          key={head.id}
+          position={head.position}
+          index={index}
+          selected={selectedHeadIndex === index || selectedEntityId === head.id}
+          onSelect={() => store.getState().selectHead(index)}
+        />
+      ))}
+      <OutputNode
+        position={layout.output.position}
+        token={trace.output.sampledToken}
+        selected={selectedEntityId === layout.output.id}
+        onSelect={() => store.getState().selectEntity(layout.output.id)}
+      />
+
+      <CameraRig focus={focus} cameraMode={cameraMode} reducedMotion={reducedMotion} />
+      <OrbitControls
+        makeDefault
+        target={controlsTarget}
+        enableDamping={!reducedMotion}
+        dampingFactor={0.08}
+        minDistance={3.8}
+        maxDistance={18}
+        maxPolarAngle={Math.PI * 0.72}
+        onStart={() => store.getState().setCameraMode('manual')}
+      />
+    </>
+  )
+}
+
+function SceneFallback({ trace, layout }: { trace: ModelTrace; layout: SceneLayout }) {
+  return (
+    <div className="scene3d-fallback" role="img" aria-label="三维场景安全预览">
+      <svg viewBox="0 0 760 390" aria-hidden="true">
+        <path className="scene3d-fallback__plane" d="M80 300 430 92 695 226 342 350Z" />
+        {layout.tokens.map((token, index) => (
+          <g key={token.id} transform={`translate(${125 + index * 82} ${290 - index * 34})`}>
+            <circle r="13" />
+            <text y="32" textAnchor="middle">T{index + 1}</text>
+          </g>
+        ))}
+        <circle className="scene3d-fallback__core" cx="550" cy="190" r="48" />
+        <text x="550" y="194" textAnchor="middle">HEAD × {trace.model.heads}</text>
+        <path className="scene3d-fallback__output-line" d="M590 165 680 112" />
+        <circle className="scene3d-fallback__output" cx="690" cy="105" r="20" />
+      </svg>
+      <p>当前测试环境不提供 WebGL；课程、二维视图和三维实体选择仍可完整使用。</p>
+    </div>
+  )
+}
+
+export function Scene3DPanel({ store, isActive }: Scene3DPanelProps) {
+  const trace = useStore(store, (state) => state.trace)
+  const traceStatus = useStore(store, (state) => state.traceStatus)
+  const currentStep = useStore(store, selectCurrentStep)
+  const selectedEntity = useStore(store, selectSelectedEntity)
+  const selectedEntityId = useStore(store, (state) => state.selectedEntityId)
+  const selectedTokenIndex = useStore(store, (state) => state.selectedTokenIndex)
+  const selectedHeadIndex = useStore(store, (state) => state.selectedHeadIndex)
+  const cameraMode = useStore(store, (state) => state.cameraMode)
+  const reducedMotion = useStore(store, (state) => state.reducedMotion)
+  const layout = useMemo(() => (trace ? createSceneLayout(trace) : null), [trace])
+  const hasWebGL = canMountWebGL()
+
+  return (
+    <section
+      id="view-panel-3d"
+      className={`workspace-panel scene-panel scene3d-panel${isActive ? ' is-mobile-active' : ''}`}
+      role="tabpanel"
+      aria-labelledby="mobile-view-3d"
+    >
+      <header className="scene-panel__header scene3d-header">
+        <div>
+          <p className="eyebrow">模型空间 · {hasWebGL ? 'WebGL 实时场景' : '安全预览'}</p>
+          <h2 id="scene-heading">Transformer 微型观测场</h2>
+        </div>
+        <button
+          className="scene-control"
+          type="button"
+          disabled={cameraMode === 'guided' || !trace}
+          onClick={() => store.getState().setCameraMode('guided')}
+        >
+          <Focus size={17} aria-hidden="true" />
+          返回讲解视角
+        </button>
+      </header>
+
+      {trace && layout ? (
+        <div className="scene3d-stage">
+          {hasWebGL ? (
+            <Canvas
+              className="scene3d-canvas"
+              role="img"
+              aria-label="可旋转的 Transformer 三维模型空间"
+              dpr={[1, 1.5]}
+              camera={{ position: [7, 5, 9], fov: 46, near: 0.1, far: 100 }}
+              gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+              onPointerMissed={() => store.getState().selectEntity(null)}
+            >
+              <SceneGraph
+                store={store}
+                trace={trace}
+                layout={layout}
+                selectedEntityId={selectedEntityId}
+                selectedTokenIndex={selectedTokenIndex}
+                selectedHeadIndex={selectedHeadIndex}
+                cameraMode={cameraMode}
+                reducedMotion={reducedMotion}
+              />
+            </Canvas>
+          ) : (
+            <SceneFallback trace={trace} layout={layout} />
+          )}
+
+          <div className="scene3d-overlay" aria-hidden="true">
+            <span>LAYER 01</span>
+            <span>TOKEN AXIS</span>
+          </div>
+        </div>
+      ) : (
+        <div className="scene3d-loading" role="status">
+          <Orbit size={28} aria-hidden="true" />
+          <strong>{traceStatus === 'error' ? '三维轨迹暂不可用' : '正在建立模型空间'}</strong>
+          <p>三维区域不会阻塞中文课程和二维计算。</p>
+        </div>
+      )}
+
+      {trace && layout && (
+        <>
+          <div className="scene3d-readout">
+            <div>
+              <span>当前步骤</span>
+              <strong>{currentStep?.title ?? '等待轨迹'}</strong>
+            </div>
+            <div>
+              <span>当前焦点</span>
+              <strong>{selectedEntity?.label ?? '场景总览'}</strong>
+            </div>
+            <div>
+              <span>相机状态</span>
+              <strong>{cameraMode === 'guided' ? '讲解视角' : '手动观察'}</strong>
+            </div>
+          </div>
+
+          <nav className="scene3d-entities" aria-label="三维实体快捷选择">
+            <div>
+              <span>Token</span>
+              {trace.input.tokens.map((token, index) => (
+                <button
+                  key={`${token}-${index}`}
+                  type="button"
+                  aria-label={`三维实体：Token ${index + 1} ${token.trim()}`}
+                  aria-pressed={selectedTokenIndex === index}
+                  onClick={() => store.getState().selectToken(index)}
+                >
+                  T{index + 1}
+                </button>
+              ))}
+            </div>
+            <div>
+              <span>Attention</span>
+              {layout.heads.map((head, index) => (
+                <button
+                  key={head.id}
+                  type="button"
+                  aria-label={`三维实体：Attention Head ${index + 1}`}
+                  aria-pressed={selectedHeadIndex === index}
+                  onClick={() => store.getState().selectHead(index)}
+                >
+                  H{index + 1}
+                </button>
+              ))}
+            </div>
+            <div>
+              <span>Output</span>
+              <button
+                type="button"
+                aria-label={`三维实体：输出 Token ${trace.output.sampledToken}`}
+                aria-pressed={selectedEntityId === layout.output.id}
+                onClick={() => store.getState().selectEntity(layout.output.id)}
+              >
+                NEXT
+              </button>
+            </div>
+          </nav>
+
+          <p className="scene3d-description" aria-live="polite">
+            <MousePointer2 size={15} aria-hidden="true" />
+            {hasWebGL
+              ? '拖动旋转、滚轮缩放；操作相机后可使用“返回讲解视角”。'
+              : '当前为安全预览；可使用下方实体按钮同步课程和二维选择。'}
+            <span>1 Block · {trace.model.heads} Heads · {trace.input.tokens.length} Tokens</span>
+          </p>
+        </>
+      )}
+    </section>
+  )
+}

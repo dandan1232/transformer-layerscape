@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from 'react'
+import { lazy, Suspense, type KeyboardEvent } from 'react'
 import {
   BookOpenText,
   Box,
@@ -7,7 +7,6 @@ import {
   ChevronRight,
   CircleHelp,
   Compass,
-  Focus,
   Layers3,
   Pause,
   Play,
@@ -37,6 +36,28 @@ import {
 import './AppShell.css'
 
 type MobileView = ExplorerView
+
+const Scene3DPanel = lazy(() =>
+  import('../features/scene-3d/Scene3DPanel').then((module) => ({
+    default: module.Scene3DPanel,
+  })),
+)
+
+function Scene3DLoading({ isActive }: { readonly isActive: boolean }) {
+  return (
+    <section
+      id="view-panel-3d"
+      className={`workspace-panel scene-panel scene3d-panel${isActive ? ' is-mobile-active' : ''}`}
+      role="tabpanel"
+      aria-labelledby="mobile-view-3d"
+    >
+      <div className="scene3d-loading" role="status">
+        <strong>正在加载三维模型空间</strong>
+        <p>课程与二维计算仍可继续使用。</p>
+      </div>
+    </section>
+  )
+}
 
 const traceStatusLabels = {
   idle: '等待案例',
@@ -224,94 +245,6 @@ function LessonPanel({
         </span>
       </div>
     </article>
-  )
-}
-
-function ScenePanel({ isActive }: { isActive: boolean }) {
-  return (
-    <section
-      id="view-panel-3d"
-      className={`workspace-panel scene-panel${isActive ? ' is-mobile-active' : ''}`}
-      role="tabpanel"
-      aria-labelledby="mobile-view-3d"
-    >
-      <header className="scene-panel__header">
-        <div>
-          <p className="eyebrow">模型空间 · 教学模式</p>
-          <h2 id="scene-heading">Transformer 微型观测场</h2>
-        </div>
-        <button
-          className="scene-control"
-          type="button"
-          disabled
-          title="三维相机接入后开放"
-        >
-          <Focus size={17} aria-hidden="true" />
-          返回讲解视角
-        </button>
-      </header>
-
-      <div className="model-space" aria-hidden="true">
-        <span className="model-space__axis model-space__axis--x">TOKEN AXIS</span>
-        <span className="model-space__axis model-space__axis--y">LAYER 01</span>
-        <svg viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <linearGradient id="layer-plane" x1="0" x2="1">
-              <stop offset="0" stopColor="var(--void-800)" stopOpacity="0.25" />
-              <stop offset="1" stopColor="var(--amber-400)" stopOpacity="0.12" />
-            </linearGradient>
-          </defs>
-          <path className="scene-plane" d="M126 421 575 174 813 311 359 555Z" />
-          <path className="scene-plane scene-plane--upper" d="M126 334 575 87 813 224 359 468Z" />
-          {[0, 1, 2, 3, 4, 5].map((index) => {
-            const x = 170 + index * 82
-            const y = 390 - index * 45
-            return (
-              <g key={index}>
-                <path className="scene-link" d={`M${x} ${y} 700 272`} />
-                <circle className="scene-node__halo" cx={x} cy={y} r="19" />
-                <circle className="scene-node" cx={x} cy={y} r="8" />
-                <text className="scene-node__label" x={x} y={y + 32} textAnchor="middle">
-                  T{index + 1}
-                </text>
-              </g>
-            )
-          })}
-          <g className="attention-core" transform="translate(700 272)">
-            <circle r="70" />
-            <circle r="45" />
-            <circle r="15" />
-            <text y="106" textAnchor="middle">ATTENTION CORE</text>
-          </g>
-          <path className="output-link" d="M700 272 820 204" />
-          <g className="output-node" transform="translate(820 204)">
-            <circle r="22" />
-            <text y="43" textAnchor="middle">NEXT</text>
-          </g>
-        </svg>
-      </div>
-
-      <div className="scene-readout">
-        <div>
-          <span>当前焦点</span>
-          <strong>Token Embedding</strong>
-        </div>
-        <div>
-          <span>结构规模</span>
-          <strong>1 Block · 2 Heads</strong>
-        </div>
-      </div>
-
-      <ul className="vector-legend" aria-label="向量颜色说明">
-        <li className="vector-legend__q"><span>Q</span> 查询</li>
-        <li className="vector-legend__k"><span>K</span> 索引</li>
-        <li className="vector-legend__v"><span>V</span> 内容</li>
-      </ul>
-
-      <p className="scene-description">
-        三维场景占位预览：后续将使用可旋转、可缩放的真实 WebGL 场景替换。
-      </p>
-    </section>
   )
 }
 
@@ -520,7 +453,9 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
           isActive={mobileView === 'lesson'}
         />
         <Trace2DPanel store={store} isActive={mobileView === '2d'} />
-        <ScenePanel isActive={mobileView === '3d'} />
+        <Suspense fallback={<Scene3DLoading isActive={mobileView === '3d'} />}>
+          <Scene3DPanel store={store} isActive={mobileView === '3d'} />
+        </Suspense>
       </main>
 
       <Timeline store={store} />
