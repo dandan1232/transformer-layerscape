@@ -5,22 +5,23 @@ import { verticalSliceTrace } from '../content/traces/vertical-slice-trace'
 import { createExplorerStore } from '../store/explorer-store'
 import { AppShell } from './AppShell'
 
-function renderAppShell() {
+function renderAppShell({ withTrace = false } = {}) {
   const store = createExplorerStore()
+  if (withTrace) store.getState().setTrace(verticalSliceTrace)
   return { store, ...render(<AppShell store={store} />) }
 }
 
 describe('中文学习工作台外壳', () => {
   it('提供课程、二维计算、三维空间和时间轴语义区域', async () => {
     const user = userEvent.setup()
-    renderAppShell()
+    renderAppShell({ withTrace: true })
 
     expect(
       screen.getByRole('heading', { name: '把句子切成模型的词块' }),
     ).toBeVisible()
 
     await user.click(screen.getByRole('tab', { name: '二维计算' }))
-    expect(screen.getByRole('heading', { name: 'Token → Attention' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '把句子切成 Token' })).toBeVisible()
 
     await user.click(screen.getByRole('tab', { name: '三维空间' }))
     expect(
@@ -111,13 +112,13 @@ describe('中文学习工作台外壳', () => {
 
   it('移动标签点击二维计算会切换可见面板', async () => {
     const user = userEvent.setup()
-    renderAppShell()
+    renderAppShell({ withTrace: true })
 
     await user.click(screen.getByRole('tab', { name: '二维计算' }))
     expect(screen.getByRole('tab', { name: '二维计算' })).toHaveAttribute(
       'aria-selected', 'true',
     )
-    expect(screen.getByRole('heading', { name: 'Token → Attention' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '把句子切成 Token' })).toBeVisible()
   })
 
   it('时间轴使用统一 Store 导航、播放和重置', async () => {

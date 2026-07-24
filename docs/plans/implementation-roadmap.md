@@ -389,7 +389,7 @@ Commit：`feat: 接入中文引导课程引擎`
 
 验证记录：[WP-14 中文引导课程引擎](../testing/reports/wp-14-chinese-lesson-engine.md)
 
-### WP-15｜二维计算视图
+### WP-15｜二维计算视图（已完成）
 
 目标：实现可读的 Token→Attention→Output 二维数据流。
 
@@ -411,6 +411,8 @@ Commit：`feat: 接入中文引导课程引擎`
 - 当前 Step 变化产生正确高亮。
 
 Commit：`feat: 实现二维注意力计算视图`
+
+验证记录：[WP-15 二维注意力计算视图](../testing/reports/wp-15-trace-2d.md)
 
 ### WP-16｜三维模型空间
 

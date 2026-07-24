@@ -19,7 +19,7 @@ test('应用能够在浏览器中启动', async ({ page }) => {
 
   await page.getByRole('button', { name: '下一步' }).click()
   await expect(page.getByText('步骤 02 / 08')).toBeVisible()
-  await expect(page.getByText('查找 Token 向量')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '查找 Token 向量' })).toBeVisible()
 
   await page.getByRole('button', { name: '播放计算过程' }).click()
   await expect(page.getByRole('button', { name: '暂停计算过程' })).toBeVisible()
@@ -28,6 +28,19 @@ test('应用能够在浏览器中启动', async ({ page }) => {
 
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await expect(page.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '生成 Q、K、V' })).toBeVisible()
+  await expect(page.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
+
+  await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
+  await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Head 2' }).click()
+  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+
+  await page.getByRole('button', { name: '跳到第 7 步：把分数变成概率' }).click()
+  await expect(page.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
+  await expect(page.getByText('18.0%')).toBeVisible()
+
+  await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await page.getByText('深入理解：线性投影').click()
   await expect(page.getByText('Q = XW_Q，K = XW_K，V = XW_V')).toBeVisible()
 })
@@ -38,12 +51,14 @@ test('移动端可以切换到二维计算且没有页面横向溢出', async ({
 
   await page.getByRole('tab', { name: '二维计算' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Token → Attention' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '把句子切成 Token' })).toBeVisible()
 
   await page.getByRole('tab', { name: '课程' }).click()
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await page.getByText('深入理解：线性投影').click()
   await expect(page.getByText('Q = XW_Q，K = XW_K，V = XW_V')).toBeVisible()
+  await page.getByRole('tab', { name: '二维计算' }).click()
+  await expect(page.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

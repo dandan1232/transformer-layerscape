@@ -1,0 +1,351 @@
+.trace2d-panel {
+  gap: var(--space-4);
+}
+
+.trace2d-heading {
+  align-items: center;
+}
+
+.trace2d-heading .tensor-shape {
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace2d-step-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(2.75rem, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 1px;
+  overflow-x: auto;
+  background: var(--border-light);
+  list-style: none;
+}
+
+.trace2d-step-strip button {
+  width: 100%;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: grid;
+  place-items: center;
+  gap: 0.125rem;
+  padding: var(--space-1);
+  color: var(--ink-500);
+  background: var(--paper-50);
+  cursor: pointer;
+}
+
+.trace2d-step-strip button[aria-current='step'] {
+  color: var(--amber-ink);
+  background: var(--amber-300);
+  font-weight: 800;
+}
+
+.trace2d-step-strip span,
+.trace2d-step-strip small {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+}
+
+.trace2d-head-switch {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.trace2d-head-switch button {
+  min-height: 2.5rem;
+  padding-inline: var(--space-3);
+  color: var(--ink-700);
+  background: var(--paper-50);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.trace2d-head-switch button[aria-pressed='true'] {
+  color: var(--amber-ink);
+  background: var(--amber-300);
+  border-color: var(--amber-500);
+}
+
+.trace2d-figure {
+  min-height: 20rem;
+  margin: 0;
+  overflow: auto hidden;
+}
+
+.trace2d-figure svg {
+  min-width: 36rem;
+}
+
+.trace2d-svg__axis-title,
+.trace2d-svg__caption,
+.trace2d-svg__small,
+.trace2d-matrix-label,
+.trace2d-matrix-note,
+.trace2d-candidate__rank,
+.trace2d-candidate__value,
+.trace2d-candidate__sampled {
+  fill: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.trace2d-svg__axis-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.trace2d-token,
+.trace2d-projection,
+.trace2d-matrix-cell,
+.trace2d-candidate {
+  cursor: pointer;
+}
+
+.trace2d-token__card,
+.trace2d-source rect {
+  fill: var(--paper-50);
+  stroke: var(--border-light);
+}
+
+.trace2d-token.is-selected .trace2d-token__card {
+  fill: var(--amber-300);
+  stroke: var(--amber-500);
+  stroke-width: 2;
+}
+
+.trace2d-token__text,
+.trace2d-source text,
+.trace2d-projection text,
+.trace2d-candidate__token {
+  fill: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.trace2d-token__id {
+  fill: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.trace2d-vector-bar {
+  fill: var(--v-color);
+}
+
+.trace2d-vector-bar.is-negative {
+  fill: var(--q-color);
+}
+
+.trace2d-vector-zero,
+.trace2d-flow {
+  stroke: var(--ink-500);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.trace2d-projection-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.trace2d-projection-line.is-q { stroke: var(--q-color); }
+.trace2d-projection-line.is-k { stroke: var(--k-color); }
+.trace2d-projection-line.is-v { stroke: var(--v-color); }
+
+.trace2d-projection rect {
+  fill: var(--paper-50);
+  stroke-width: 2;
+}
+
+.trace2d-projection.is-q rect { stroke: var(--q-color); }
+.trace2d-projection.is-k rect { stroke: var(--k-color); }
+.trace2d-projection.is-v rect { stroke: var(--v-color); }
+
+.trace2d-projection > text:first-of-type {
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.trace2d-mask-pattern {
+  stroke: var(--ink-500);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.trace2d-matrix-cell {
+  stroke: var(--paper-50);
+  stroke-width: 1;
+}
+
+.trace2d-matrix-cell.is-row-selected {
+  stroke: var(--q-color);
+  stroke-width: 2.5;
+}
+
+.trace2d-cell-value {
+  fill: var(--amber-ink);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  pointer-events: none;
+}
+
+.trace2d-matrix-label.is-selected {
+  fill: var(--q-color);
+  font-weight: 800;
+}
+
+.trace2d-candidate__track {
+  fill: var(--paper-200);
+}
+
+.trace2d-candidate__bar {
+  fill: var(--k-color);
+  opacity: 0.72;
+}
+
+.trace2d-candidate.is-sampled .trace2d-candidate__bar {
+  fill: var(--amber-400);
+  opacity: 1;
+}
+
+.trace2d-candidate.is-selected .trace2d-candidate__track {
+  stroke: var(--amber-500);
+  stroke-width: 2;
+}
+
+.trace2d-candidate__sampled {
+  fill: var(--amber-ink);
+  font-weight: 800;
+}
+
+.trace2d-summary {
+  padding: var(--space-3) var(--space-4);
+  background: var(--paper-50);
+  border-inline-start: 0.1875rem solid var(--amber-400);
+}
+
+.trace2d-tensors {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.trace2d-tensors > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.trace2d-tensors h3 {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+}
+
+.trace2d-tensors__arrow {
+  margin-block-start: 2rem;
+  color: var(--amber-500);
+  font-size: var(--text-lg);
+}
+
+.trace2d-tensor-card {
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--paper-50);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+}
+
+.trace2d-tensor-card div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.trace2d-tensor-card strong,
+.trace2d-tensor-card code,
+.trace2d-tensor-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace2d-tensor-card code {
+  color: var(--ink-700);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+}
+
+.trace2d-tensor-card p,
+.trace2d-tensor-card small,
+.trace2d-tensors__empty {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+}
+
+.trace2d-empty {
+  min-height: 20rem;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.trace2d-empty > span {
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--amber-300);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.35rem oklch(80% 0.15 80 / 0.14);
+}
+
+.trace2d-empty p {
+  max-width: 30rem;
+  margin: 0;
+  color: var(--ink-500);
+}
+
+@media (max-width: 47.99rem) {
+  .trace2d-panel {
+    padding: var(--space-4);
+  }
+
+  .trace2d-heading {
+    align-items: flex-start;
+  }
+
+  .trace2d-heading .tensor-shape {
+    max-width: 48%;
+  }
+
+  .trace2d-tensors {
+    grid-template-columns: 1fr;
+  }
+
+  .trace2d-tensors__arrow {
+    margin: 0;
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trace2d-panel * {
+    scroll-behavior: auto !important;
+  }
+}

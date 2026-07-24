@@ -23,6 +23,7 @@ import {
   getAdjacentLessonStep,
   navigateToLessonStep,
 } from '../features/lesson-panel/lesson-navigation'
+import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
 import {
   selectCanGoNext,
   selectCanGoPrevious,
@@ -223,89 +224,6 @@ function LessonPanel({
         </span>
       </div>
     </article>
-  )
-}
-
-function CalculationPanel({ isActive }: { isActive: boolean }) {
-  return (
-    <section
-      id="view-panel-2d"
-      className={`workspace-panel calculation-panel${isActive ? ' is-mobile-active' : ''}`}
-      role="tabpanel"
-      aria-labelledby="mobile-view-2d"
-    >
-      <header className="panel-heading panel-heading--light">
-        <div>
-          <p className="eyebrow eyebrow--ink">二维计算台</p>
-          <h2 id="calculation-heading" tabIndex={-1}>Token → Attention</h2>
-        </div>
-        <span className="tensor-shape">[1, 6, 64]</span>
-      </header>
-
-      <div className="calculation-figure">
-        <svg
-          viewBox="0 0 640 220"
-          role="img"
-          aria-labelledby="trace-preview-title trace-preview-description"
-        >
-          <title id="trace-preview-title">Token 到注意力计算的二维预览</title>
-          <desc id="trace-preview-description">
-            六个 Token 向量经过 Q、K、V 三个投影，进入注意力矩阵。
-          </desc>
-          <g className="token-row">
-            {['The', 'sky', 'is', 'deep', 'and', 'blue'].map((token, index) => (
-              <g key={token} transform={`translate(${18 + index * 63} 18)`}>
-                <rect width="52" height="34" rx="5" />
-                <text x="26" y="22" textAnchor="middle">
-                  {token}
-                </text>
-              </g>
-            ))}
-          </g>
-          <path className="flow-line" d="M207 62v24H96v24" />
-          <path className="flow-line" d="M207 86v24" />
-          <path className="flow-line" d="M207 86h111v24" />
-          <g className="projection-node projection-node--q" transform="translate(62 110)">
-            <rect width="68" height="40" rx="5" />
-            <text x="34" y="25" textAnchor="middle">Q · 查询</text>
-          </g>
-          <g className="projection-node projection-node--k" transform="translate(173 110)">
-            <rect width="68" height="40" rx="5" />
-            <text x="34" y="25" textAnchor="middle">K · 索引</text>
-          </g>
-          <g className="projection-node projection-node--v" transform="translate(284 110)">
-            <rect width="68" height="40" rx="5" />
-            <text x="34" y="25" textAnchor="middle">V · 内容</text>
-          </g>
-          <path className="flow-line flow-line--active" d="M96 158v22h241" />
-          <path className="flow-line" d="M207 150v30" />
-          <path className="flow-line" d="M318 150v30" />
-          <g className="attention-node" transform="translate(386 109)">
-            <rect width="230" height="86" rx="8" />
-            <text x="20" y="28">Masked Self-Attention</text>
-            <g transform="translate(20 42)">
-              {[0, 1, 2, 3, 4, 5].map((row) =>
-                [0, 1, 2, 3, 4, 5].map((column) => (
-                  <rect
-                    key={`${row}-${column}`}
-                    x={column * 24}
-                    y={row * 6}
-                    width="19"
-                    height="4"
-                    rx="2"
-                    className={column > row ? 'is-masked' : `weight-${(row + column) % 3}`}
-                  />
-                )),
-              )}
-            </g>
-          </g>
-        </svg>
-      </div>
-
-      <p className="calculation-summary">
-        当前观察：每个 Token 先生成 <strong>查询、索引和内容</strong> 三种向量。
-      </p>
-    </section>
   )
 }
 
@@ -601,7 +519,7 @@ export function AppShell({ store = explorerStore }: { store?: ExplorerStoreApi }
           store={store}
           isActive={mobileView === 'lesson'}
         />
-        <CalculationPanel isActive={mobileView === '2d'} />
+        <Trace2DPanel store={store} isActive={mobileView === '2d'} />
         <ScenePanel isActive={mobileView === '3d'} />
       </main>
 
