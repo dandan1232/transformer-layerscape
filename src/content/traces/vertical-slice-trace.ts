@@ -30,6 +30,20 @@ function addVectors(left: readonly number[], right: readonly number[]) {
   return left.map((value, index) => Number((value + (right[index] ?? 0)).toFixed(4)))
 }
 
+function layerNormalize(values: readonly number[], tokenCount: number, hiddenSize: number) {
+  return Array.from({ length: tokenCount }, (_, tokenIndex) => {
+    const start = tokenIndex * hiddenSize
+    const sample = values.slice(start, start + hiddenSize)
+    const mean = sample.reduce((sum, value) => sum + value, 0) / hiddenSize
+    const variance = sample.reduce(
+      (sum, value) => sum + (value - mean) ** 2,
+      0,
+    ) / hiddenSize
+    const scale = Math.sqrt(variance + 1e-5)
+    return sample.map((value) => Number(((value - mean) / scale).toFixed(4)))
+  }).flat()
+}
+
 function tensorStats(values: readonly number[]) {
   return {
     min: Math.min(...values),
@@ -49,6 +63,7 @@ function tensor(
 const tokenEmbeddingValues = deterministicValues(tokens.length * 8, 0.73)
 const positionEmbeddingValues = sinusoidalPositionValues(tokens.length, 8)
 const hiddenInputValues = addVectors(tokenEmbeddingValues, positionEmbeddingValues)
+const normalizedValues = layerNormalize(hiddenInputValues, tokens.length, 8)
 
 const tokenEntities = Object.fromEntries(
   tokens.map((token, index) => {
@@ -134,6 +149,12 @@ export const verticalSliceTrace = {
       label: 'Position Embedding',
       description: '把每个 Token 的顺序信息逐项加入 Token 向量。',
     },
+    'operation:layernorm': {
+      id: 'operation:layernorm',
+      kind: 'operation',
+      label: 'LayerNorm',
+      description: '把每个 Token 的数值分布调整到稳定尺度。',
+    },
     'operation:qkv': {
       id: 'operation:qkv',
       kind: 'operation',
@@ -213,6 +234,15 @@ export const verticalSliceTrace = {
       shape: [1, 6, 8],
       values: hiddenInputValues,
       ...tensorStats(hiddenInputValues),
+    }),
+    'tensor:normalized': tensor({
+      id: 'tensor:normalized',
+      role: 'normalized',
+      name: 'normalized_hidden',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: normalizedValues,
+      ...tensorStats(normalizedValues),
     }),
     'tensor:q': tensor({
       id: 'tensor:q',
@@ -332,13 +362,24 @@ export const verticalSliceTrace = {
       durationMs: 1100,
     },
     {
+      id: 'step:layernorm',
+      phase: 'embedding',
+      operation: 'layer-normalize',
+      title: '稳定每个 Token 的数值尺度',
+      description: 'LayerNorm 分别把每个 Token 调整为接近零均值和单位方差。',
+      entityIds: ['operation:layernorm', ...tokens.map((_, index) => `token:${index}`)],
+      inputTensorIds: ['tensor:embedding'],
+      outputTensorIds: ['tensor:normalized'],
+      durationMs: 1000,
+    },
+    {
       id: 'step:qkv',
       phase: 'attention',
       operation: 'project-qkv',
       title: '生成 Q、K、V',
       description: '同一组隐藏向量被投影成查询、索引和内容。',
       entityIds: ['operation:qkv', 'head:0', 'head:1'],
-      inputTensorIds: ['tensor:embedding'],
+      inputTensorIds: ['tensor:normalized'],
       outputTensorIds: ['tensor:q', 'tensor:k', 'tensor:v'],
       durationMs: 1100,
     },

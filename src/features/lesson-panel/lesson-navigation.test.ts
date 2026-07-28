@@ -10,10 +10,10 @@ import {
 } from './lesson-navigation'
 
 describe('课程导航控制器', () => {
-  it('把三章课程展平为九个有序课程项', () => {
+  it('把三章课程展平为十个有序课程项', () => {
     const steps = flattenLessonSteps(coreLesson)
 
-    expect(steps).toHaveLength(9)
+    expect(steps).toHaveLength(10)
     expect(steps[0].action.traceStepId).toBe('step:tokenize')
     expect(steps.at(-1)?.action.traceStepId).toBe('step:sample')
   })
@@ -23,9 +23,9 @@ describe('课程导航控制器', () => {
 
     expect(context).toMatchObject({
       chapterIndex: 1,
-      stepIndex: 1,
-      lessonStepIndex: 4,
-      totalLessonSteps: 9,
+      stepIndex: 2,
+      lessonStepIndex: 5,
+      totalLessonSteps: 10,
     })
     expect(context?.chapter.id).toBe('chapter:attention')
     expect(findLessonStepContext(coreLesson, 'step:missing')).toBeNull()
@@ -48,7 +48,7 @@ describe('课程导航控制器', () => {
     navigateToLessonStep(store, coreLesson, 'lesson-step:qkv')
 
     expect(store.getState()).toMatchObject({
-      currentStepIndex: 3,
+      currentStepIndex: 4,
       selectedEntityId: 'operation:qkv',
       cameraMode: 'guided',
       playback: 'paused',

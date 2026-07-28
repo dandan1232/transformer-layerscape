@@ -70,6 +70,14 @@ describe('ModelTrace 运行时校验', () => {
     expectValidationCode(trace, 'INVALID_VALUE')
   })
 
+  it('拒绝没有达到零均值与单位方差的 LayerNorm 输出', () => {
+    const trace = structuredClone(verticalSliceTrace)
+    const normalized = trace.tensors['tensor:normalized'] as unknown as { values: number[] }
+    normalized.values[0] += 0.5
+
+    expectValidationCode(trace, 'INVALID_VALUE')
+  })
+
   it('拒绝能够读取未来 Token 的因果 Mask', () => {
     const trace = structuredClone(verticalSliceTrace)
     const mask = trace.tensors['tensor:causal-mask'] as unknown as { values: number[] }

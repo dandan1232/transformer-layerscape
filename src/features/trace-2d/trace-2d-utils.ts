@@ -6,11 +6,17 @@ import type {
   TraceStep,
 } from '../../domain/trace/trace'
 
-export type Trace2DStage = 'token' | 'embedding' | 'qkv' | 'attention' | 'output'
+export type Trace2DStage =
+  | 'token'
+  | 'embedding'
+  | 'normalization'
+  | 'qkv'
+  | 'attention'
+  | 'output'
 
 export type EmbeddingTensorRole = Extract<
   TensorRole,
-  'token-embedding' | 'position-embedding' | 'embedding'
+  'token-embedding' | 'position-embedding' | 'embedding' | 'normalized'
 >
 
 export interface AttentionCell {
@@ -25,6 +31,7 @@ export function getTrace2DStage(operation: TraceOperation): Trace2DStage {
   if (operation === 'embed' || operation === 'add-position-embedding') {
     return 'embedding'
   }
+  if (operation === 'layer-normalize') return 'normalization'
   if (operation === 'project-qkv') return 'qkv'
   if (operation === 'apply-causal-mask' || operation === 'weighted-sum') {
     return 'attention'
@@ -87,6 +94,16 @@ export function getEmbeddingSample(
   return tensor.values.slice(offset, offset + hiddenSize)
 }
 
+export function getVectorStats(values: readonly number[]) {
+  if (values.length === 0) return { mean: 0, variance: 0, standardDeviation: 0 }
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+  const variance = values.reduce(
+    (sum, value) => sum + (value - mean) ** 2,
+    0,
+  ) / values.length
+  return { mean, variance, standardDeviation: Math.sqrt(variance) }
+}
+
 export function createStepSummary(
   trace: ModelTrace,
   step: TraceStep,
@@ -100,8 +117,10 @@ export function createStepSummary(
       return `${tokenCount} 个 Token 分别查表得到 ${trace.model.hiddenSize} 维向量，输出形状为 [1, ${tokenCount}, ${trace.model.hiddenSize}]。`
     case 'add-position-embedding':
       return `Token 向量与位置向量逐项相加，把内容和顺序合并为 [1, ${tokenCount}, ${trace.model.hiddenSize}]，张量形状保持不变。`
+    case 'layer-normalize':
+      return `LayerNorm 分别归一化 ${tokenCount} 个 Token 的 ${trace.model.hiddenSize} 个隐藏维度，使每个位置接近零均值和单位方差，形状保持不变。`
     case 'project-qkv':
-      return `隐藏向量被投影为 Q、K、V，并拆成 ${trace.model.heads} 个 Attention Head；每个 Head 的维度为 ${trace.model.hiddenSize / trace.model.heads}。`
+      return `归一化后的隐藏向量被投影为 Q、K、V，并拆成 ${trace.model.heads} 个 Attention Head；每个 Head 的维度为 ${trace.model.hiddenSize / trace.model.heads}。`
     case 'apply-causal-mask':
       return `正在查看 Attention Head ${selectedHeadIndex + 1}。矩阵上三角被因果掩码遮住，当前位置不能读取未来 Token。`
     case 'weighted-sum':

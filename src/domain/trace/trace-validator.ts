@@ -44,6 +44,7 @@ const tensorRoles = new Set<TensorRole>([
   'token-embedding',
   'position-embedding',
   'embedding',
+  'normalized',
   'query',
   'key',
   'value',
@@ -70,6 +71,7 @@ const traceOperations = new Set<TraceOperation>([
   'tokenize',
   'embed',
   'add-position-embedding',
+  'layer-normalize',
   'project-qkv',
   'apply-causal-mask',
   'weighted-sum',
@@ -509,6 +511,36 @@ function validateCoreTensorShapes(
           embedding.id,
           'Embedding 必须等于 Token Embedding 与 Position Embedding 的逐项和。',
         )
+      }
+    }
+
+    const normalized = byRole.get('normalized')?.[0]
+    if (normalized) {
+      if (normalized.shape.join(',') !== expectedEmbeddingShape) {
+        addIssue(
+          issues,
+          'INVALID_SHAPE',
+          normalized.id,
+          'normalized Shape 必须为 [1, token, hidden]。',
+        )
+      } else {
+        for (let tokenIndex = 0; tokenIndex < tokenCount; tokenIndex += 1) {
+          const start = tokenIndex * model.hiddenSize
+          const sample = normalized.values.slice(start, start + model.hiddenSize)
+          const mean = sample.reduce((sum, value) => sum + value, 0) / sample.length
+          const variance = sample.reduce(
+            (sum, value) => sum + (value - mean) ** 2,
+            0,
+          ) / sample.length
+          if (Math.abs(mean) > 0.002 || Math.abs(variance - 1) > 0.01) {
+            addIssue(
+              issues,
+              'INVALID_VALUE',
+              `${normalized.id}[${tokenIndex}]`,
+              'LayerNorm 教学样本的每个 Token 必须接近零均值和单位方差。',
+            )
+          }
+        }
       }
     }
   }

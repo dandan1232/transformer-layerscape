@@ -31,7 +31,7 @@ describe('中文课程校验器', () => {
     expect(coreLesson.chapters).toHaveLength(3)
     expect(
       coreLesson.chapters.reduce((total, chapter) => total + chapter.steps.length, 0),
-    ).toBe(9)
+    ).toBe(10)
   })
 
   it('拒绝非对象根节点和未知版本', () => {

@@ -39,7 +39,7 @@ describe('二维计算视图', () => {
     store.getState().setTrace(verticalSliceTrace)
     render(<Trace2DPanel store={store} isActive />)
 
-    act(() => store.getState().goToStep(3))
+    act(() => store.getState().goToStep(4))
 
     expect(screen.getByRole('heading', { name: '生成 Q、K、V' })).toBeVisible()
     expect(screen.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
@@ -55,6 +55,27 @@ describe('二维计算视图', () => {
         '[1, 2, 6, 4]',
       ),
     ).toHaveLength(3)
+  })
+
+  it('对比 LayerNorm 前后的分布并允许切换 Token', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(3)
+    render(<Trace2DPanel store={store} isActive />)
+
+    expect(screen.getByRole('heading', { name: '稳定每个 Token 的数值尺度' })).toBeVisible()
+    expect(
+      screen.getByRole('img', { name: /^LayerNorm 归一化前后分布图/ }),
+    ).toBeVisible()
+    const tensors = screen.getByRole('region', { name: '当前步骤张量' })
+    expect(within(tensors).getByText('hidden_input')).toBeVisible()
+    expect(within(tensors).getByText('normalized_hidden')).toBeVisible()
+
+    await user.click(
+      screen.getByRole('button', { name: '选择 Token 4：deep，查看 LayerNorm' }),
+    )
+    expect(store.getState().selectedTokenIndex).toBe(3)
   })
 
   it('逐维展示 Token 与 Position Embedding 的相加过程', async () => {
@@ -85,7 +106,7 @@ describe('二维计算视图', () => {
     const user = userEvent.setup()
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
-    store.getState().goToStep(4)
+    store.getState().goToStep(5)
     render(<Trace2DPanel store={store} isActive />)
 
     expect(screen.getByText('因果掩码：未来位置显示 ×')).toBeVisible()
@@ -108,7 +129,7 @@ describe('二维计算视图', () => {
     const user = userEvent.setup()
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
-    store.getState().goToStep(7)
+    store.getState().goToStep(8)
     render(<Trace2DPanel store={store} isActive />)
 
     expect(screen.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
@@ -125,8 +146,8 @@ describe('二维计算视图', () => {
     )
     expect(store.getState().selectedEntityId).toBe('output-token:12')
 
-    await user.click(screen.getByRole('button', { name: '跳到第 9 步：选出下一个 Token' }))
-    expect(store.getState().currentStepIndex).toBe(8)
+    await user.click(screen.getByRole('button', { name: '跳到第 10 步：选出下一个 Token' }))
+    expect(store.getState().currentStepIndex).toBe(9)
     expect(screen.getByRole('heading', { name: '选出下一个 Token' })).toBeVisible()
   })
 })

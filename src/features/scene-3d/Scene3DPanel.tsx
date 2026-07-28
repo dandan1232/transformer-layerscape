@@ -39,6 +39,7 @@ const palette = {
   tokenEmbedding: '#e87a4d',
   positionEmbedding: '#64aee0',
   hiddenInput: '#f6be55',
+  normalized: '#8bcaa6',
   head: '#64aee0',
   headSelected: '#f6be55',
   output: '#6dcf9a',
@@ -231,6 +232,71 @@ function EmbeddingLayer({
   )
 }
 
+function NormalizationRail({
+  layout,
+  selected,
+  onSelect,
+}: {
+  layout: SceneLayout
+  selected: boolean
+  onSelect: () => void
+}) {
+  const positions = useMemo(
+    () =>
+      layout.tokens.map(
+        (token) => [token.position[0], -0.25, 0.5] as ScenePosition,
+      ),
+    [layout.tokens],
+  )
+
+  return (
+    <>
+      {positions.length > 1 && (
+        <Line
+          points={[positions[0], positions.at(-1)!]}
+          color={selected ? palette.normalized : '#3f675d'}
+          lineWidth={selected ? 2.2 : 1}
+        />
+      )}
+      {positions.map((position, index) => (
+        <group key={`layernorm-${layout.tokens[index].id}`}>
+          <Line
+            points={[[position[0], -0.62, 0.82], position]}
+            color={selected ? palette.normalized : '#5f7569'}
+            lineWidth={selected ? 1.8 : 0.8}
+          />
+          <mesh
+            position={position as [number, number, number]}
+            rotation={[Math.PI / 2, 0, 0]}
+            scale={selected ? 1.18 : 1}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelect()
+            }}
+          >
+            <torusGeometry args={[0.18, 0.055, 12, 28]} />
+            <meshStandardMaterial
+              color={palette.normalized}
+              emissive={selected ? palette.normalized : palette.void}
+              emissiveIntensity={selected ? 0.3 : 0.03}
+              roughness={0.34}
+              metalness={0.16}
+            />
+          </mesh>
+        </group>
+      ))}
+      <Html
+        center
+        distanceFactor={9}
+        position={[0, -0.08, 0.72]}
+        className="scene3d-label scene3d-label--normalization"
+      >
+        <span aria-hidden="true">LAYER NORM · μ→0 · σ→1</span>
+      </Html>
+    </>
+  )
+}
+
 function HeadNode({
   position,
   index,
@@ -320,14 +386,22 @@ function OutputNode({
   )
 }
 
-function QKVGate({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
+function QKVGate({
+  position,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  selected: boolean
+  onSelect: () => void
+}) {
   const channels = [
     { label: 'Q', color: '#e87a4d', y: 0.62 },
     { label: 'K', color: '#64aee0', y: 0 },
     { label: 'V', color: '#6dcf9a', y: -0.62 },
   ]
   return (
-    <group position={[-1.35, 0, 0.35]}>
+    <group position={position as [number, number, number]}>
       {channels.map((channel) => (
         <group key={channel.label} position={[0, channel.y, 0]}>
           <mesh
@@ -427,6 +501,7 @@ function SceneGraph({
 }) {
   const focus = getSceneFocus(layout, selectedEntityId)
   const attentionPosition = layout.byId['operation:attention'].position
+  const qkvPosition = layout.byId['operation:qkv'].position
   const controlsTarget = useMemo(() => new Vector3(...focus), [focus])
 
   return (
@@ -448,7 +523,7 @@ function SceneGraph({
           layout.heads.map((head) => (
             <Line
               key={`${token.id}-${head.id}`}
-              points={[[token.position[0], -0.62, 0.82], head.position]}
+              points={[[token.position[0], -0.25, 0.5], head.position]}
               color={selectedEntityId === token.id || selectedEntityId === head.id || selectedEntityId === 'operation:position-embedding' ? '#f6be55' : '#37526e'}
               lineWidth={selectedEntityId === token.id || selectedEntityId === head.id || selectedEntityId === 'operation:position-embedding' ? 1.8 : 0.65}
               transparent
@@ -465,7 +540,7 @@ function SceneGraph({
         />
       ))}
 
-      <Line points={[[-1.35, 0, 0.35], attentionPosition]} color="#8e7650" lineWidth={1.3} />
+      <Line points={[qkvPosition, attentionPosition]} color="#8e7650" lineWidth={1.3} />
       <TokenInstances
         trace={trace}
         layout={layout}
@@ -480,7 +555,13 @@ function SceneGraph({
           store.getState().selectEntity('operation:position-embedding')
         }
       />
+      <NormalizationRail
+        layout={layout}
+        selected={selectedEntityId === 'operation:layernorm'}
+        onSelect={() => store.getState().selectEntity('operation:layernorm')}
+      />
       <QKVGate
+        position={qkvPosition}
         selected={selectedEntityId === 'operation:qkv'}
         onSelect={() => store.getState().selectEntity('operation:qkv')}
       />
@@ -529,7 +610,7 @@ function SceneFallback({
     <div className="scene3d-fallback" role="img" aria-label="三维场景安全预览">
       <svg viewBox="0 0 760 390" aria-hidden="true">
         <path className="scene3d-fallback__plane" d="M80 300 430 92 695 226 342 350Z" />
-        <g className="scene3d-fallback__embedding" transform="translate(104 112)">
+        <g className="scene3d-fallback__embedding" transform="translate(104 58)">
           <rect className="is-token" width="112" height="34" rx="5" />
           <text x="56" y="22" textAnchor="middle">TOKEN EMB</text>
           <text className="is-operator" x="132" y="23">＋</text>
@@ -538,6 +619,9 @@ function SceneFallback({
           <text className="is-operator" x="286" y="23">＝</text>
           <rect className="is-hidden" x="310" width="72" height="34" rx="5" />
           <text x="346" y="22" textAnchor="middle">X</text>
+          <path className="is-flow" d="M346 34v18" />
+          <rect className="is-normalized" x="300" y="52" width="92" height="30" rx="15" />
+          <text x="346" y="72" textAnchor="middle">LAYER NORM</text>
         </g>
         {layout.tokens.map((token, index) => (
           <g key={token.id} transform={`translate(${125 + index * 82} ${290 - index * 34})`}>
@@ -735,6 +819,25 @@ export function Scene3DPanel({
                 }
               >
                 + POSITION
+              </button>
+            </div>
+            <div>
+              <span>Projection</span>
+              <button
+                type="button"
+                aria-label="三维实体：LayerNorm"
+                aria-pressed={selectedEntityId === 'operation:layernorm'}
+                onClick={() => store.getState().selectEntity('operation:layernorm')}
+              >
+                NORM
+              </button>
+              <button
+                type="button"
+                aria-label="三维实体：Q K V Projection"
+                aria-pressed={selectedEntityId === 'operation:qkv'}
+                onClick={() => store.getState().selectEntity('operation:qkv')}
+              >
+                Q/K/V
               </button>
             </div>
             <div>

@@ -222,6 +222,59 @@
   font-weight: 800;
 }
 
+.trace2d-normalization-row__label {
+  fill: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trace2d-normalization-row__stats,
+.trace2d-normalization-min,
+.trace2d-normalization-max {
+  fill: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.trace2d-normalization-axis {
+  stroke: var(--ink-500);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+.trace2d-normalization-mean {
+  stroke: var(--amber-500);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.trace2d-normalization-point {
+  stroke: var(--paper-50);
+  stroke-width: 1.5;
+}
+
+.trace2d-normalization-row.is-before .trace2d-normalization-point {
+  fill: var(--q-color);
+}
+
+.trace2d-normalization-row.is-after .trace2d-normalization-point {
+  fill: var(--v-color);
+}
+
+.trace2d-normalization-action path {
+  fill: none;
+  stroke: var(--amber-500);
+  stroke-width: 1.5;
+}
+
+.trace2d-normalization-action text {
+  fill: var(--amber-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+}
+
 .trace2d-vector-bar {
   fill: var(--v-color);
 }

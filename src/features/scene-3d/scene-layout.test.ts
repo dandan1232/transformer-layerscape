@@ -13,10 +13,11 @@ describe('三维场景布局', () => {
 
     expect(layout.tokens).toHaveLength(6)
     expect(layout.heads).toHaveLength(2)
-    expect(layout.operations).toHaveLength(6)
+    expect(layout.operations).toHaveLength(7)
     expect(layout.output.id).toBe('output-token:12')
-    expect(Object.keys(layout.byId)).toHaveLength(15)
+    expect(Object.keys(layout.byId)).toHaveLength(16)
     expect(layout.byId['operation:position-embedding'].kind).toBe('operation')
+    expect(layout.byId['operation:layernorm'].kind).toBe('operation')
     expect(layout.byId['operation:attention'].kind).toBe('operation')
   })
 

@@ -75,7 +75,7 @@ describe('中文学习工作台外壳', () => {
     expect(
       screen.getByRole('heading', { name: '把编号换成可以计算的向量' }),
     ).toBeVisible()
-    expect(screen.getByText('步骤 02 / 09')).toBeVisible()
+    expect(screen.getByText('步骤 02 / 10')).toBeVisible()
     expect(store.getState().selectedEntityId).toBe('operation:embedding')
 
     await user.click(screen.getByRole('button', { name: '上一项' }))
@@ -89,13 +89,19 @@ describe('中文学习工作台外壳', () => {
     render(<AppShell store={store} />)
 
     await user.click(screen.getByRole('button', { name: '跳到Attention章节' }))
-    expect(screen.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '先把每个 Token 调到稳定尺度' })).toBeVisible()
     expect(store.getState().currentStepIndex).toBe(3)
 
-    await user.click(screen.getByText('深入理解：线性投影'))
-    expect(screen.getByText('Q = XW_Q，K = XW_K，V = XW_V')).toBeVisible()
-    expect(screen.getByText('当前 Token 的隐藏向量')).toBeVisible()
+    await user.click(screen.getByText('深入理解：零均值与单位方差'))
+    expect(screen.getByText('x̂ = (x − μ) / √(σ² + ε)，y = γx̂ + β')).toBeVisible()
     expect(store.getState().currentStepIndex).toBe(3)
+
+    await user.click(screen.getByRole('button', { name: '下一项' }))
+    expect(screen.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
+    await user.click(screen.getByText('深入理解：线性投影'))
+    expect(screen.getByText('Q = X̂W_Q，K = X̂W_K，V = X̂W_V')).toBeVisible()
+    expect(screen.getByText('经过 LayerNorm 的隐藏向量')).toBeVisible()
+    expect(store.getState().currentStepIndex).toBe(4)
   })
 
   it('课程未加载时禁用动作并展示安全的首项内容', () => {
@@ -104,7 +110,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByRole('heading', { name: '把句子切成模型的词块' })).toBeVisible()
     expect(screen.getByRole('button', { name: '下一项' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '跳到Token章节' })).toBeDisabled()
-    expect(screen.getByText('课程项 1 / 9')).toBeVisible()
+    expect(screen.getByText('课程项 1 / 10')).toBeVisible()
   })
 
   it('移动视图标签支持点击和方向键切换', async () => {
@@ -141,7 +147,7 @@ describe('中文学习工作台外壳', () => {
     const user = userEvent.setup()
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
-    store.getState().goToStep(4)
+    store.getState().goToStep(5)
     store.getState().setView('3d')
     render(<AppShell store={store} />)
 
@@ -194,14 +200,14 @@ describe('中文学习工作台外壳', () => {
     store.getState().setTrace(verticalSliceTrace)
     render(<AppShell store={store} />)
 
-    expect(screen.getByText('步骤 01 / 09')).toBeVisible()
+    expect(screen.getByText('步骤 01 / 10')).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toHaveTextContent(
       '把句子切成 Token',
     )
     expect(screen.getByRole('button', { name: '上一步' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '下一步' }))
-    expect(screen.getByText('步骤 02 / 09')).toBeVisible()
+    expect(screen.getByText('步骤 02 / 10')).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toHaveTextContent(
       '查找 Token 向量',
     )
@@ -210,7 +216,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByRole('button', { name: '暂停计算过程' })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: '重置' }))
-    expect(screen.getByText('步骤 01 / 09')).toBeVisible()
+    expect(screen.getByText('步骤 01 / 10')).toBeVisible()
     expect(store.getState().playback).toBe('paused')
   })
 
@@ -228,14 +234,14 @@ describe('中文学习工作台外壳', () => {
     expect(scrubber).toHaveValue('2')
 
     await user.click(screen.getByRole('button', { name: '播放计算过程' }))
-    fireEvent.change(scrubber, { target: { value: '5' } })
+    fireEvent.change(scrubber, { target: { value: '6' } })
     expect(store.getState()).toMatchObject({
-      currentStepIndex: 4,
+      currentStepIndex: 5,
       playback: 'paused',
     })
     expect(scrubber).toHaveAttribute(
       'aria-valuetext',
-      '第 5 步，共 9 步：遮住未来 Token',
+      '第 6 步，共 10 步：遮住未来 Token',
     )
 
     await user.click(screen.getByRole('button', { name: '重置' }))
@@ -243,7 +249,7 @@ describe('中文学习工作台外壳', () => {
     expect(scrubber).toHaveValue('4')
     expect(screen.getByRole('button', { name: '重置' })).toBeDisabled()
     expect(
-      screen.getByRole('heading', { name: '为信息准备三种角色' }),
+      screen.getByRole('heading', { name: '先把每个 Token 调到稳定尺度' }),
     ).toBeVisible()
   })
 })

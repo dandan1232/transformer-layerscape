@@ -50,6 +50,14 @@ describe('三维模型探索场景', () => {
     expect(positionButton).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Position Embedding')).toBeVisible()
 
+    const normalizationButton = screen.getByRole('button', {
+      name: '三维实体：LayerNorm',
+    })
+    await user.click(normalizationButton)
+    expect(store.getState().selectedEntityId).toBe('operation:layernorm')
+    expect(normalizationButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('LayerNorm')).toBeVisible()
+
     const headButton = screen.getByRole('button', {
       name: '三维实体：Attention Head 2',
     })
@@ -74,7 +82,7 @@ describe('三维模型探索场景', () => {
     store.getState().setTrace(verticalSliceTrace)
     render(<Scene3DPanel store={store} isActive />)
 
-    act(() => store.getState().goToStep(4))
+    act(() => store.getState().goToStep(5))
     expect(screen.getByText('遮住未来 Token')).toBeVisible()
     expect(screen.getByText('Masked Self-Attention')).toBeVisible()
 

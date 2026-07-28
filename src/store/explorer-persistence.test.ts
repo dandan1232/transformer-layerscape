@@ -75,10 +75,10 @@ describe('探索进度本地持久化', () => {
       selectedEntityId: 'head:1',
     })
 
-    store.getState().goToStep(6)
+    store.getState().goToStep(7)
     expect(JSON.parse(storage.value ?? '{}')).toMatchObject({
       version: 1,
-      currentStepIndex: 6,
+      currentStepIndex: 7,
       selectedEntityId: 'operation:output',
     })
     controller.dispose()

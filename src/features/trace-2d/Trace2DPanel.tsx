@@ -10,6 +10,7 @@ import {
   getAttentionCells,
   getEmbeddingSample,
   getTrace2DStage,
+  getVectorStats,
   resolveStepTensors,
 } from './trace-2d-utils'
 import './Trace2DPanel.css'
@@ -167,20 +168,106 @@ function EmbeddingDiagram({
   )
 }
 
+function LayerNormDiagram({
+  trace,
+  selectedTokenIndex,
+  onSelectToken,
+}: {
+  trace: ModelTrace
+  selectedTokenIndex: number | null
+  onSelectToken: (index: number) => void
+}) {
+  const indexes = trace.input.tokens.map((_, index) => index)
+  const selected = selectedTokenIndex ?? 0
+  const tokenX = scaleBand<number>().domain(indexes).range([42, 678]).padding(0.12)
+  const before = getEmbeddingSample(trace, selected, 'embedding')
+  const after = getEmbeddingSample(trace, selected, 'normalized')
+  const beforeStats = getVectorStats(before)
+  const afterStats = getVectorStats(after)
+  const maxAbsolute = Math.max(2, ...before.map(Math.abs), ...after.map(Math.abs))
+  const valueX = scaleLinear().domain([-maxAbsolute, maxAbsolute]).range([254, 666])
+  const rows = [
+    { label: '归一化前', values: before, stats: beforeStats, y: 156, className: 'is-before' },
+    { label: 'LayerNorm 后', values: after, stats: afterStats, y: 284, className: 'is-after' },
+  ]
+
+  return (
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="layernorm-title layernorm-desc">
+      <title id="layernorm-title">LayerNorm 归一化前后分布图</title>
+      <desc id="layernorm-desc">
+        选择任意 Token，对比它的八维隐藏向量在 LayerNorm 前后的均值、标准差和数值分布。
+      </desc>
+      <text className="trace2d-svg__axis-title" x="42" y="28">
+        选择 Token · 当前 T{selected + 1} “{trace.input.tokens[selected].trim()}”
+      </text>
+      {indexes.map((index) => (
+        <g
+          key={`layernorm-token-${index}`}
+          className={`trace2d-embedding-token${selected === index ? ' is-selected' : ''}`}
+          transform={`translate(${tokenX(index) ?? 0} 42)`}
+          role="button"
+          tabIndex={0}
+          aria-label={`选择 Token ${index + 1}：${trace.input.tokens[index].trim()}，查看 LayerNorm`}
+          onClick={() => onSelectToken(index)}
+          onKeyDown={(event) => activateWithKeyboard(event, () => onSelectToken(index))}
+        >
+          <rect width={tokenX.bandwidth()} height="44" rx="6" />
+          <text x={tokenX.bandwidth() / 2} y="19" textAnchor="middle">T{index + 1}</text>
+          <text x={tokenX.bandwidth() / 2} y="34" textAnchor="middle">{trace.input.tokens[index].trim()}</text>
+        </g>
+      ))}
+      {rows.map((row) => (
+        <g key={row.label} className={`trace2d-normalization-row ${row.className}`}>
+          <text className="trace2d-normalization-row__label" x="42" y={row.y - 12}>{row.label}</text>
+          <text className="trace2d-normalization-row__stats" x="42" y={row.y + 12}>
+            μ {numberFormat(row.stats.mean)} · σ {numberFormat(row.stats.standardDeviation)}
+          </text>
+          <line className="trace2d-normalization-axis" x1="254" x2="666" y1={row.y} y2={row.y} />
+          <line
+            className="trace2d-normalization-mean"
+            x1={valueX(row.stats.mean)}
+            x2={valueX(row.stats.mean)}
+            y1={row.y - 30}
+            y2={row.y + 30}
+          />
+          {row.values.map((value, dimension) => (
+            <circle
+              key={dimension}
+              className="trace2d-normalization-point"
+              cx={valueX(value)}
+              cy={row.y + ((dimension % 3) - 1) * 12}
+              r="7"
+            >
+              <title>维度 {dimension + 1}：{numberFormat(value)}</title>
+            </circle>
+          ))}
+          <text className="trace2d-normalization-min" x="254" y={row.y + 46}>−{numberFormat(maxAbsolute)}</text>
+          <text className="trace2d-normalization-max" x="666" y={row.y + 46} textAnchor="end">+{numberFormat(maxAbsolute)}</text>
+        </g>
+      ))}
+      <g className="trace2d-normalization-action" transform="translate(560 196)">
+        <path d="M0 0v32" />
+        <path d="m-5 26 5 6 5-6" />
+        <text x="-12" y="16" textAnchor="end">中心化 + 缩放</text>
+      </g>
+    </svg>
+  )
+}
+
 function QKVDiagram({ trace, onSelectOperation }: { trace: ModelTrace; onSelectOperation: () => void }) {
   const headSize = trace.model.hiddenSize / trace.model.heads
   const paths = [
-    { channel: 'Q', label: '查询 · 我在找什么', className: 'is-q', y: 78 },
-    { channel: 'K', label: '索引 · 我有什么特征', className: 'is-k', y: 160 },
-    { channel: 'V', label: '内容 · 我要贡献什么', className: 'is-v', y: 242 },
+    { channel: 'Q', label: '查询 · 我在找什么', matrix: 'W_Q · [8, 8]', className: 'is-q', y: 78 },
+    { channel: 'K', label: '索引 · 我有什么特征', matrix: 'W_K · [8, 8]', className: 'is-k', y: 160 },
+    { channel: 'V', label: '内容 · 我要贡献什么', matrix: 'W_V · [8, 8]', className: 'is-v', y: 242 },
   ]
   return (
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="qkv-title qkv-desc">
       <title id="qkv-title">Q、K、V 投影二维图</title>
-      <desc id="qkv-desc">六个八维 Token 向量分别投影为两组四维的查询、索引和内容向量。</desc>
+      <desc id="qkv-desc">六个归一化后的八维 Token 向量经过三组独立权重，投影为两组四维的查询、索引和内容向量。</desc>
       <g className="trace2d-source" transform="translate(42 118)">
         <rect width="174" height="120" rx="9" />
-        <text x="87" y="38" textAnchor="middle">隐藏向量 X</text>
+        <text x="87" y="38" textAnchor="middle">LayerNorm 输出 X̂</text>
         <text className="trace2d-svg__small" x="87" y="68" textAnchor="middle">[1, {trace.input.tokens.length}, {trace.model.hiddenSize}]</text>
         <text className="trace2d-svg__small" x="87" y="92" textAnchor="middle">同一输入 · 三组权重</text>
       </g>
@@ -198,8 +285,9 @@ function QKVDiagram({ trace, onSelectOperation }: { trace: ModelTrace; onSelectO
           >
             <rect width="318" height="60" rx="8" />
             <text x="22" y="26">{path.channel}</text>
-            <text className="trace2d-svg__small" x="66" y="24">{path.label}</text>
-            <text className="trace2d-svg__small" x="66" y="44">[1, {trace.model.heads}, {trace.input.tokens.length}, {headSize}]</text>
+            <text className="trace2d-svg__small" x="66" y="17">{path.label}</text>
+            <text className="trace2d-svg__small" x="66" y="34">{path.matrix}</text>
+            <text className="trace2d-svg__small" x="176" y="34">→ [1, {trace.model.heads}, {trace.input.tokens.length}, {headSize}]</text>
           </g>
         </g>
       ))}
@@ -448,6 +536,13 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
             trace={trace}
             selectedTokenIndex={selectedTokenIndex}
             showComposition={currentStep.operation === 'add-position-embedding'}
+            onSelectToken={(index) => store.getState().selectToken(index)}
+          />
+        )}
+        {stage === 'normalization' && (
+          <LayerNormDiagram
+            trace={trace}
+            selectedTokenIndex={selectedTokenIndex}
             onSelectToken={(index) => store.getState().selectToken(index)}
           />
         )}

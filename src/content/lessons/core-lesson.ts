@@ -108,11 +108,47 @@ export const coreLesson = {
       summary: '每个位置如何寻找、衡量并收集上下文信息。',
       steps: [
         {
+          id: 'lesson-step:layernorm',
+          kicker: 'LAYER NORMALIZATION',
+          title: '先把每个 Token 调到稳定尺度',
+          plainExplanation:
+            '不同 Token 的数值可能整体偏高、偏低或分散程度不同。LayerNorm 会分别观察每个 Token 的 8 个维度，把它们拉回共同的中心和尺度，让后面的投影更稳定。',
+          action: {
+            traceStepId: 'step:layernorm',
+            selectEntityId: 'operation:layernorm',
+            cameraTargetId: 'operation:layernorm',
+            twoDTargetId: 'operation:layernorm',
+          },
+          deepDive: {
+            title: '深入理解：零均值与单位方差',
+            explanation:
+              '教学图先展示标准化结果。真实 LayerNorm 还会用训练得到的 γ 和 β 再做缩放与平移，因此模型仍能学习合适的数值范围。',
+            formula: {
+              expression: 'x̂ = (x − μ) / √(σ² + ε)，y = γx̂ + β',
+              symbols: [
+                { symbol: 'μ', meaning: '当前 Token 各维度的平均值' },
+                { symbol: 'σ²', meaning: '当前 Token 各维度的方差' },
+                { symbol: 'ε', meaning: '避免除以零的微小常数' },
+                { symbol: 'γ / β', meaning: '训练得到的缩放与平移参数' },
+              ],
+            },
+            tensorShape: {
+              expression: '[batch, token, hidden] = [1, 6, 8]',
+              explanation: 'LayerNorm 只改变每个位置的数值分布，不改变张量形状。',
+            },
+            pseudocode: [
+              'mean = hidden.mean(dim=hidden_dimension)',
+              'variance = hidden.var(dim=hidden_dimension)',
+              'normalized = (hidden - mean) / sqrt(variance + epsilon)',
+            ],
+          },
+        },
+        {
           id: 'lesson-step:qkv',
           kicker: 'Q / K / V',
           title: '为信息准备三种角色',
           plainExplanation:
-            '同一个隐藏向量会经过三次不同投影：Q 表示“我在找什么”，K 表示“我有什么特征”，V 表示“我要贡献什么内容”。',
+            '归一化后的同一个隐藏向量会经过三次不同投影：Q 表示“我在找什么”，K 表示“我有什么特征”，V 表示“我要贡献什么内容”。',
           action: {
             traceStepId: 'step:qkv',
             selectEntityId: 'operation:qkv',
@@ -121,11 +157,11 @@ export const coreLesson = {
           },
           deepDive: {
             title: '深入理解：线性投影',
-            explanation: '三个权重矩阵各自学习不同的观察方向，不是把向量机械复制三份。',
+            explanation: '三个权重矩阵各自学习不同的观察方向，不是把归一化向量机械复制三份。',
             formula: {
-              expression: 'Q = XW_Q，K = XW_K，V = XW_V',
+              expression: 'Q = X̂W_Q，K = X̂W_K，V = X̂W_V',
               symbols: [
-                { symbol: 'X', meaning: '当前 Token 的隐藏向量' },
+                { symbol: 'X̂', meaning: '经过 LayerNorm 的隐藏向量' },
                 { symbol: 'W_Q / W_K / W_V', meaning: '训练得到的三组投影权重' },
               ],
             },

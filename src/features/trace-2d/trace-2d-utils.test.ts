@@ -6,14 +6,16 @@ import {
   getAttentionCells,
   getEmbeddingSample,
   getTrace2DStage,
+  getVectorStats,
   resolveStepTensors,
 } from './trace-2d-utils'
 
 describe('二维 Trace 数据工具', () => {
-  it('把九种算子分为五个可视阶段', () => {
+  it('把十种算子分为六个可视阶段', () => {
     expect(getTrace2DStage('tokenize')).toBe('token')
     expect(getTrace2DStage('embed')).toBe('embedding')
     expect(getTrace2DStage('add-position-embedding')).toBe('embedding')
+    expect(getTrace2DStage('layer-normalize')).toBe('normalization')
     expect(getTrace2DStage('project-qkv')).toBe('qkv')
     expect(getTrace2DStage('apply-causal-mask')).toBe('attention')
     expect(getTrace2DStage('weighted-sum')).toBe('attention')
@@ -23,12 +25,21 @@ describe('二维 Trace 数据工具', () => {
   })
 
   it('解析当前步骤的输入与输出 Tensor', () => {
-    const tensors = resolveStepTensors(verticalSliceTrace, verticalSliceTrace.steps[3])
+    const tensors = resolveStepTensors(verticalSliceTrace, verticalSliceTrace.steps[4])
 
-    expect(tensors.inputs.map((tensor) => tensor.name)).toEqual(['hidden_input'])
+    expect(tensors.inputs.map((tensor) => tensor.name)).toEqual(['normalized_hidden'])
     expect(tensors.outputs.map((tensor) => tensor.name)).toEqual(['query', 'key', 'value'])
     expect(formatTensorShape(tensors.outputs[0])).toBe('[1, 2, 6, 4]')
     expect(formatTensorShape(null)).toBe('—')
+  })
+
+  it('计算 LayerNorm 前后的均值与方差', () => {
+    const before = getEmbeddingSample(verticalSliceTrace, 0, 'embedding')
+    const after = getEmbeddingSample(verticalSliceTrace, 0, 'normalized')
+
+    expect(Math.abs(getVectorStats(before).mean)).toBeGreaterThan(0.01)
+    expect(getVectorStats(after).mean).toBeCloseTo(0, 3)
+    expect(getVectorStats(after).variance).toBeCloseTo(1, 2)
   })
 
   it('按 Head 读取真实注意力矩阵并标记因果掩码', () => {
@@ -56,10 +67,11 @@ describe('二维 Trace 数据工具', () => {
       createStepSummary(verticalSliceTrace, step, 0),
     )
 
-    expect(summaries).toHaveLength(9)
+    expect(summaries).toHaveLength(10)
     expect(summaries.every((summary) => summary.length > 20)).toBe(true)
     expect(summaries[2]).toContain('逐项相加')
-    expect(summaries[4]).toContain('因果掩码')
+    expect(summaries[3]).toContain('零均值')
+    expect(summaries[5]).toContain('因果掩码')
     expect(summaries.at(-1)).toContain('Token ID 为 12')
   })
 })
