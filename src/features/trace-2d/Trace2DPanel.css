@@ -15,7 +15,8 @@
 
 .trace2d-step-strip {
   display: grid;
-  grid-template-columns: repeat(8, minmax(2.75rem, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(2.75rem, 1fr);
   gap: 1px;
   margin: 0;
   padding: 1px;
@@ -141,6 +142,84 @@
   fill: var(--ink-500);
   font-family: var(--font-mono);
   font-size: 10px;
+}
+
+.trace2d-embedding-token {
+  cursor: pointer;
+}
+
+.trace2d-embedding-token rect {
+  fill: var(--paper-50);
+  stroke: var(--border-light);
+}
+
+.trace2d-embedding-token.is-selected rect {
+  fill: var(--amber-300);
+  stroke: var(--amber-500);
+  stroke-width: 2;
+}
+
+.trace2d-embedding-token text {
+  fill: var(--ink-700);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.trace2d-embedding-token text:first-of-type {
+  fill: var(--ink-900);
+  font-weight: 800;
+}
+
+.trace2d-embedding-row__label {
+  fill: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trace2d-embedding-row__shape {
+  fill: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.trace2d-embedding-cell {
+  stroke-width: 1.5;
+}
+
+.trace2d-embedding-row.is-token .trace2d-embedding-cell {
+  fill: var(--q-color);
+  stroke: var(--q-color);
+}
+
+.trace2d-embedding-row.is-position .trace2d-embedding-cell {
+  fill: var(--k-color);
+  stroke: var(--k-color);
+}
+
+.trace2d-embedding-row.is-hidden .trace2d-embedding-cell {
+  fill: var(--amber-400);
+  stroke: var(--amber-500);
+}
+
+.trace2d-embedding-cell.is-negative {
+  stroke-dasharray: 3 2;
+}
+
+.trace2d-embedding-cell__value {
+  fill: var(--ink-900);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.trace2d-embedding-operator {
+  fill: var(--ink-700);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
 }
 
 .trace2d-vector-bar {

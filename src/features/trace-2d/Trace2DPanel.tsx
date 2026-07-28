@@ -32,12 +32,10 @@ function activateWithKeyboard(event: KeyboardEvent<SVGGElement>, action: () => v
 function TokenDiagram({
   trace,
   selectedTokenIndex,
-  showEmbedding,
   onSelectToken,
 }: {
   trace: ModelTrace
   selectedTokenIndex: number | null
-  showEmbedding: boolean
   onSelectToken: (index: number) => void
 }) {
   const indexes = trace.input.tokens.map((_, index) => index)
@@ -49,12 +47,11 @@ function TokenDiagram({
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="token-diagram-title token-diagram-desc">
       <title id="token-diagram-title">Token 与 Embedding 二维图</title>
       <desc id="token-diagram-desc">
-        输入句子包含六个可选择的 Token。每个 Token 显示文本、ID，以及当前教学模型的八维向量样本。
+        输入句子包含六个可选择的 Token。每个 Token 显示文本和对应的词表 ID。
       </desc>
       <text className="trace2d-svg__axis-title" x="42" y="42">输入序列 · 点击 Token 查看向量</text>
       {indexes.map((index) => {
         const token = trace.input.tokens[index].trim() || '空格'
-        const embedding = getEmbeddingSample(trace, index)
         const isSelected = selected === index
         return (
           <g
@@ -70,36 +67,102 @@ function TokenDiagram({
             <rect className="trace2d-token__card" width={bandwidth} height="72" rx="7" />
             <text className="trace2d-token__text" x={bandwidth / 2} y="28" textAnchor="middle">{token}</text>
             <text className="trace2d-token__id" x={bandwidth / 2} y="51" textAnchor="middle">ID {trace.input.tokenIds[index]}</text>
-            {showEmbedding && (
-              <g transform="translate(0 96)">
-                {embedding.map((value, dimension) => {
-                  const height = Math.max(3, Math.abs(value) * 90)
-                  return (
-                    <rect
-                      key={dimension}
-                      className={`trace2d-vector-bar${value < 0 ? ' is-negative' : ''}`}
-                      x={dimension * (bandwidth / embedding.length) + 1}
-                      y={52 - height}
-                      width={Math.max(2, bandwidth / embedding.length - 2)}
-                      height={height}
-                      rx="1"
-                    >
-                      <title>维度 {dimension + 1}：{numberFormat(value)}</title>
-                    </rect>
-                  )
-                })}
-                <line className="trace2d-vector-zero" x1="0" x2={bandwidth} y1="52" y2="52" />
-              </g>
-            )}
           </g>
         )
       })}
       <path className="trace2d-flow" d="M42 248H678" />
       <text className="trace2d-svg__caption" x="42" y="286">
-        {showEmbedding
-          ? `选中 Token 的向量形状：[1, ${trace.input.tokens.length}, ${trace.model.hiddenSize}]`
-          : 'Tokenizer 输出稳定的词表 ID；ID 本身不表达语义距离。'}
+        Tokenizer 输出稳定的词表 ID；ID 本身不表达语义距离。
       </text>
+    </svg>
+  )
+}
+
+function EmbeddingDiagram({
+  trace,
+  selectedTokenIndex,
+  showComposition,
+  onSelectToken,
+}: {
+  trace: ModelTrace
+  selectedTokenIndex: number | null
+  showComposition: boolean
+  onSelectToken: (index: number) => void
+}) {
+  const indexes = trace.input.tokens.map((_, index) => index)
+  const selected = selectedTokenIndex ?? 0
+  const x = scaleBand<number>().domain(indexes).range([42, 678]).padding(0.12)
+  const tokenVector = getEmbeddingSample(trace, selected, 'token-embedding')
+  const positionVector = getEmbeddingSample(trace, selected, 'position-embedding')
+  const hiddenVector = getEmbeddingSample(trace, selected, 'embedding')
+  const rows = showComposition
+    ? [
+        { label: 'Token 内容', role: 'token', values: tokenVector, y: 128 },
+        { label: 'Position 顺序', role: 'position', values: positionVector, y: 206 },
+        { label: 'Hidden 输入', role: 'hidden', values: hiddenVector, y: 284 },
+      ]
+    : [{ label: 'Token 内容', role: 'token', values: tokenVector, y: 206 }]
+  const cellWidth = 48
+  const cellGap = 4
+  const cellsStart = 220
+
+  return (
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="embedding-title embedding-desc">
+      <title id="embedding-title">
+        {showComposition ? 'Token Embedding 与 Position Embedding 相加图' : 'Token Embedding 查表图'}
+      </title>
+      <desc id="embedding-desc">
+        {showComposition
+          ? '选中 Token 的八维内容向量与八维位置向量逐项相加，得到形状不变的隐藏向量。'
+          : '选择任意 Token，查看它从 Embedding 表中查到的八维内容向量。'}
+      </desc>
+      <text className="trace2d-svg__axis-title" x="42" y="28">
+        选择 Token · 当前 T{selected + 1} “{trace.input.tokens[selected].trim()}”
+      </text>
+      {indexes.map((index) => (
+        <g
+          key={`embedding-token-${index}`}
+          className={`trace2d-embedding-token${selected === index ? ' is-selected' : ''}`}
+          transform={`translate(${x(index) ?? 0} 42)`}
+          role="button"
+          tabIndex={0}
+          aria-label={`选择 Token ${index + 1}：${trace.input.tokens[index].trim()}，查看 Embedding`}
+          onClick={() => onSelectToken(index)}
+          onKeyDown={(event) => activateWithKeyboard(event, () => onSelectToken(index))}
+        >
+          <rect width={x.bandwidth()} height="44" rx="6" />
+          <text x={x.bandwidth() / 2} y="19" textAnchor="middle">T{index + 1}</text>
+          <text x={x.bandwidth() / 2} y="34" textAnchor="middle">{trace.input.tokens[index].trim()}</text>
+        </g>
+      ))}
+      {rows.map((row) => (
+        <g key={row.role} className={`trace2d-embedding-row is-${row.role}`}>
+          <text className="trace2d-embedding-row__label" x="42" y={row.y + 22}>{row.label}</text>
+          <text className="trace2d-embedding-row__shape" x="42" y={row.y + 42}>[1, 6, 8]</text>
+          {row.values.map((value, dimension) => (
+            <g key={dimension} transform={`translate(${cellsStart + dimension * (cellWidth + cellGap)} ${row.y})`}>
+              <rect
+                className={`trace2d-embedding-cell${value < 0 ? ' is-negative' : ''}`}
+                width={cellWidth}
+                height="48"
+                rx="4"
+                fillOpacity={0.35 + Math.min(0.65, Math.abs(value))}
+              >
+                <title>{row.label}，维度 {dimension + 1}：{numberFormat(value)}</title>
+              </rect>
+              <text className="trace2d-embedding-cell__value" x={cellWidth / 2} y="29" textAnchor="middle">
+                {numberFormat(value)}
+              </text>
+            </g>
+          ))}
+        </g>
+      ))}
+      {showComposition && (
+        <>
+          <text className="trace2d-embedding-operator" x="192" y="199">＋</text>
+          <text className="trace2d-embedding-operator" x="192" y="277">＝</text>
+        </>
+      )}
     </svg>
   )
 }
@@ -377,7 +440,14 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
           <TokenDiagram
             trace={trace}
             selectedTokenIndex={selectedTokenIndex}
-            showEmbedding={currentStep.operation === 'embed'}
+            onSelectToken={(index) => store.getState().selectToken(index)}
+          />
+        )}
+        {stage === 'embedding' && (
+          <EmbeddingDiagram
+            trace={trace}
+            selectedTokenIndex={selectedTokenIndex}
+            showComposition={currentStep.operation === 'add-position-embedding'}
             onSelectToken={(index) => store.getState().selectToken(index)}
           />
         )}

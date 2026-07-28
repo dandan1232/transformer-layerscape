@@ -36,7 +36,8 @@ export function createSceneLayout(trace: ModelTrace): SceneLayout {
   }))
   const operations: SceneEntityLayout[] = [
     { id: 'operation:tokenize', kind: 'operation', position: [0, -1.65, 1.7] },
-    { id: 'operation:embedding', kind: 'operation', position: [0, -1.05, 1.05] },
+    { id: 'operation:embedding', kind: 'operation', position: [0, -1.18, 1.28] },
+    { id: 'operation:position-embedding', kind: 'operation', position: [0, -0.62, 0.82] },
     { id: 'operation:qkv', kind: 'operation', position: [-1.35, 0, 0.35] },
     { id: 'operation:attention', kind: 'operation', position: [0.2, 0, -0.15] },
     { id: 'operation:output', kind: 'operation', position: [2.75, 0, -0.5] },

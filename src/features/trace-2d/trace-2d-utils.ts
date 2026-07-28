@@ -1,11 +1,17 @@
 import type {
   ModelTrace,
+  TensorRole,
   TensorSummary,
   TraceOperation,
   TraceStep,
 } from '../../domain/trace/trace'
 
-export type Trace2DStage = 'token' | 'qkv' | 'attention' | 'output'
+export type Trace2DStage = 'token' | 'embedding' | 'qkv' | 'attention' | 'output'
+
+export type EmbeddingTensorRole = Extract<
+  TensorRole,
+  'token-embedding' | 'position-embedding' | 'embedding'
+>
 
 export interface AttentionCell {
   readonly row: number
@@ -15,7 +21,10 @@ export interface AttentionCell {
 }
 
 export function getTrace2DStage(operation: TraceOperation): Trace2DStage {
-  if (operation === 'tokenize' || operation === 'embed') return 'token'
+  if (operation === 'tokenize') return 'token'
+  if (operation === 'embed' || operation === 'add-position-embedding') {
+    return 'embedding'
+  }
   if (operation === 'project-qkv') return 'qkv'
   if (operation === 'apply-causal-mask' || operation === 'weighted-sum') {
     return 'attention'
@@ -67,9 +76,10 @@ export function getAttentionCells(
 export function getEmbeddingSample(
   trace: ModelTrace,
   tokenIndex: number,
+  role: EmbeddingTensorRole = 'embedding',
 ): readonly number[] {
   const tensor = Object.values(trace.tensors).find(
-    (candidate) => candidate.role === 'embedding',
+    (candidate) => candidate.role === role,
   )
   if (!tensor || tokenIndex < 0 || tokenIndex >= trace.input.tokens.length) return []
   const hiddenSize = trace.model.hiddenSize
@@ -88,6 +98,8 @@ export function createStepSummary(
       return `输入句子被切成 ${tokenCount} 个 Token，并映射为 ID：${trace.input.tokenIds.join('、')}。`
     case 'embed':
       return `${tokenCount} 个 Token 分别查表得到 ${trace.model.hiddenSize} 维向量，输出形状为 [1, ${tokenCount}, ${trace.model.hiddenSize}]。`
+    case 'add-position-embedding':
+      return `Token 向量与位置向量逐项相加，把内容和顺序合并为 [1, ${tokenCount}, ${trace.model.hiddenSize}]，张量形状保持不变。`
     case 'project-qkv':
       return `隐藏向量被投影为 Q、K、V，并拆成 ${trace.model.heads} 个 Attention Head；每个 Head 的维度为 ${trace.model.hiddenSize / trace.model.heads}。`
     case 'apply-causal-mask':

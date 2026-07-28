@@ -53,10 +53,10 @@ async function measureStepFeedback(page: Page) {
     () =>
       new Promise<number>((resolve, reject) => {
         const button = document.querySelector<HTMLButtonElement>(
-          'button[aria-label="跳到第 4 步：遮住未来 Token"]',
+          'button[aria-label="跳到第 5 步：遮住未来 Token"]',
         )
         if (!button) {
-          reject(new Error('找不到第 4 步导航按钮'))
+          reject(new Error('找不到第 5 步导航按钮'))
           return
         }
 

@@ -75,7 +75,7 @@ describe('中文学习工作台外壳', () => {
     expect(
       screen.getByRole('heading', { name: '把编号换成可以计算的向量' }),
     ).toBeVisible()
-    expect(screen.getByText('步骤 02 / 08')).toBeVisible()
+    expect(screen.getByText('步骤 02 / 09')).toBeVisible()
     expect(store.getState().selectedEntityId).toBe('operation:embedding')
 
     await user.click(screen.getByRole('button', { name: '上一项' }))
@@ -90,12 +90,12 @@ describe('中文学习工作台外壳', () => {
 
     await user.click(screen.getByRole('button', { name: '跳到Attention章节' }))
     expect(screen.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
-    expect(store.getState().currentStepIndex).toBe(2)
+    expect(store.getState().currentStepIndex).toBe(3)
 
     await user.click(screen.getByText('深入理解：线性投影'))
     expect(screen.getByText('Q = XW_Q，K = XW_K，V = XW_V')).toBeVisible()
     expect(screen.getByText('当前 Token 的隐藏向量')).toBeVisible()
-    expect(store.getState().currentStepIndex).toBe(2)
+    expect(store.getState().currentStepIndex).toBe(3)
   })
 
   it('课程未加载时禁用动作并展示安全的首项内容', () => {
@@ -104,7 +104,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByRole('heading', { name: '把句子切成模型的词块' })).toBeVisible()
     expect(screen.getByRole('button', { name: '下一项' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '跳到Token章节' })).toBeDisabled()
-    expect(screen.getByText('课程项 1 / 8')).toBeVisible()
+    expect(screen.getByText('课程项 1 / 9')).toBeVisible()
   })
 
   it('移动视图标签支持点击和方向键切换', async () => {
@@ -141,7 +141,7 @@ describe('中文学习工作台外壳', () => {
     const user = userEvent.setup()
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
-    store.getState().goToStep(3)
+    store.getState().goToStep(4)
     store.getState().setView('3d')
     render(<AppShell store={store} />)
 
@@ -194,14 +194,14 @@ describe('中文学习工作台外壳', () => {
     store.getState().setTrace(verticalSliceTrace)
     render(<AppShell store={store} />)
 
-    expect(screen.getByText('步骤 01 / 08')).toBeVisible()
+    expect(screen.getByText('步骤 01 / 09')).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toHaveTextContent(
       '把句子切成 Token',
     )
     expect(screen.getByRole('button', { name: '上一步' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '下一步' }))
-    expect(screen.getByText('步骤 02 / 08')).toBeVisible()
+    expect(screen.getByText('步骤 02 / 09')).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toHaveTextContent(
       '查找 Token 向量',
     )
@@ -210,7 +210,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByRole('button', { name: '暂停计算过程' })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: '重置' }))
-    expect(screen.getByText('步骤 01 / 08')).toBeVisible()
+    expect(screen.getByText('步骤 01 / 09')).toBeVisible()
     expect(store.getState().playback).toBe('paused')
   })
 
@@ -228,19 +228,19 @@ describe('中文学习工作台外壳', () => {
     expect(scrubber).toHaveValue('2')
 
     await user.click(screen.getByRole('button', { name: '播放计算过程' }))
-    fireEvent.change(scrubber, { target: { value: '4' } })
+    fireEvent.change(scrubber, { target: { value: '5' } })
     expect(store.getState()).toMatchObject({
-      currentStepIndex: 3,
+      currentStepIndex: 4,
       playback: 'paused',
     })
     expect(scrubber).toHaveAttribute(
       'aria-valuetext',
-      '第 4 步，共 8 步：遮住未来 Token',
+      '第 5 步，共 9 步：遮住未来 Token',
     )
 
     await user.click(screen.getByRole('button', { name: '重置' }))
-    expect(store.getState().currentStepIndex).toBe(2)
-    expect(scrubber).toHaveValue('3')
+    expect(store.getState().currentStepIndex).toBe(3)
+    expect(scrubber).toHaveValue('4')
     expect(screen.getByRole('button', { name: '重置' })).toBeDisabled()
     expect(
       screen.getByRole('heading', { name: '为信息准备三种角色' }),

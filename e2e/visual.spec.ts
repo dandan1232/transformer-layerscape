@@ -16,7 +16,7 @@ async function useDeterministicRendering(page: Page) {
 }
 
 async function stabilizePage(page: Page) {
-  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 09')).toBeVisible()
   await page.addStyleTag({
     content: `
       *, *::before, *::after {
@@ -49,7 +49,7 @@ test('桌面 Attention Head 2 联动视觉基线', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
   await stabilizePage(page)
-  await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
+  await page.getByRole('button', { name: '跳到第 5 步：遮住未来 Token' }).click()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
 

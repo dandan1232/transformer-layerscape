@@ -44,6 +44,12 @@
   text-shadow: none;
 }
 
+.scene3d-label--embedding {
+  color: var(--amber-300);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
 .scene3d-overlay {
   position: absolute;
   inset: var(--space-4);
@@ -135,6 +141,31 @@
 .scene3d-fallback__core {
   fill: oklch(67% 0.13 239 / 0.22) !important;
   stroke: var(--k-color) !important;
+}
+
+.scene3d-fallback__embedding rect {
+  stroke-width: 2;
+}
+
+.scene3d-fallback__embedding .is-token {
+  fill: oklch(68% 0.16 43 / 0.2);
+  stroke: var(--q-color);
+}
+
+.scene3d-fallback__embedding .is-position {
+  fill: oklch(67% 0.13 239 / 0.2);
+  stroke: var(--k-color);
+}
+
+.scene3d-fallback__embedding .is-hidden {
+  fill: oklch(76% 0.15 73 / 0.22);
+  stroke: var(--amber-400);
+}
+
+.scene3d-fallback__embedding .is-operator {
+  fill: var(--starlight-200);
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .scene3d-fallback__output-line {

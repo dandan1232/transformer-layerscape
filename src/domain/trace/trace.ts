@@ -16,6 +16,7 @@ export type TracePhase = 'token' | 'embedding' | 'attention' | 'output'
 export type TraceOperation =
   | 'tokenize'
   | 'embed'
+  | 'add-position-embedding'
   | 'project-qkv'
   | 'apply-causal-mask'
   | 'weighted-sum'
@@ -25,6 +26,8 @@ export type TraceOperation =
 
 export type TensorRole =
   | 'token-ids'
+  | 'token-embedding'
+  | 'position-embedding'
   | 'embedding'
   | 'query'
   | 'key'

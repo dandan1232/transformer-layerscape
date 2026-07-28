@@ -8,44 +8,60 @@ test('应用能够在浏览器中启动', async ({ page }) => {
     page.getByRole('heading', { name: '把句子切成模型的词块' }),
   ).toBeVisible()
 
-  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 09')).toBeVisible()
   const scrubber = page.getByRole('slider', { name: '定位模型计算步骤' })
   await scrubber.focus()
   await page.keyboard.press('End')
-  await expect(page.getByText('步骤 08 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 09 / 09')).toBeVisible()
   await page.keyboard.press('Home')
-  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 09')).toBeVisible()
 
   await page.getByRole('button', { name: '下一项' }).click()
   await expect(
     page.getByRole('heading', { name: '把编号换成可以计算的向量' }),
   ).toBeVisible()
-  await expect(page.getByText('步骤 02 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 02 / 09')).toBeVisible()
   await page.getByRole('button', { name: '上一项' }).click()
-  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 09')).toBeVisible()
 
   await page.getByRole('button', { name: '下一步' }).click()
-  await expect(page.getByText('步骤 02 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 02 / 09')).toBeVisible()
   await expect(page.getByRole('heading', { name: '查找 Token 向量' })).toBeVisible()
+
+  await page.getByRole('button', { name: '下一项' }).click()
+  await expect(
+    page.getByRole('heading', { name: '告诉模型每个 Token 排在第几位' }),
+  ).toBeVisible()
+  await expect(page.getByText('步骤 03 / 09')).toBeVisible()
+  await expect(
+    page.getByRole('img', {
+      name: /^Token Embedding 与 Position Embedding 相加图/,
+    }),
+  ).toBeVisible()
+  const positionEmbedding = page.getByRole('button', {
+    name: '三维实体：Position Embedding',
+  })
+  await positionEmbedding.click()
+  await expect(positionEmbedding).toHaveAttribute('aria-pressed', 'true')
 
   await page.getByRole('button', { name: '播放计算过程' }).click()
   await expect(page.getByRole('button', { name: '暂停计算过程' })).toBeVisible()
   await page.getByRole('button', { name: '重置' }).click()
-  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 09')).toBeVisible()
 
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await expect(page.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '生成 Q、K、V' })).toBeVisible()
   await expect(page.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
 
-  await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
+  await page.getByRole('button', { name: '跳到第 5 步：遮住未来 Token' }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
   await page.getByRole('button', { name: '重置' }).click()
-  await expect(page.getByText('步骤 03 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 04 / 09')).toBeVisible()
 
-  await page.getByRole('button', { name: '跳到第 7 步：把分数变成概率' }).click()
+  await page.getByRole('button', { name: '跳到第 8 步：把分数变成概率' }).click()
   await expect(page.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
   await expect(page.getByText('18.0%')).toBeVisible()
 
@@ -61,7 +77,7 @@ test('真实三维场景可以旋转、复位并与二维 Head 选择联动', as
     name: '可旋转的 Transformer 三维模型空间',
   })
   await expect(scene).toBeVisible()
-  await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
+  await page.getByRole('button', { name: '跳到第 5 步：遮住未来 Token' }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
 
   const head2 = page.getByRole('button', {
@@ -102,7 +118,7 @@ test('真实三维场景可以旋转、复位并与二维 Head 选择联动', as
 
 test('WebGL Context 丢失后保留进度并支持重建或切换二维', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: '跳到第 4 步：遮住未来 Token' }).click()
+  await page.getByRole('button', { name: '跳到第 5 步：遮住未来 Token' }).click()
 
   const loseReadyContext = async () => {
     const canvas = page.locator('canvas[data-context-listener="ready"]')
@@ -113,14 +129,14 @@ test('WebGL Context 丢失后保留进度并支持重建或切换二维', async 
   await loseReadyContext()
 
   await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
-  await expect(page.getByText('步骤 04 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 05 / 09')).toBeVisible()
   await expect(page.getByRole('img', { name: '三维场景安全预览' })).toBeVisible()
 
   await page.getByRole('button', { name: '尝试恢复三维' }).click()
   await expect(
     page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' }),
   ).toBeVisible()
-  await expect(page.getByText('步骤 04 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 05 / 09')).toBeVisible()
 
   await loseReadyContext()
   await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
@@ -161,7 +177,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
         version: 1,
         mode: 'explore',
         view: '2d',
-        currentStepIndex: 3,
+        currentStepIndex: 4,
         playbackRate: 2,
         selectedEntityId: 'head:1',
       }),
@@ -169,7 +185,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
   })
   await page.reload()
 
-  await expect(page.getByText('步骤 04 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 05 / 09')).toBeVisible()
   await expect(page.getByRole('button', { name: '自由探索' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -187,7 +203,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
     localStorage.setItem('transformer-layerscape:explorer:v1', '{broken')
   })
   await page.reload()
-  await expect(page.getByText('步骤 01 / 08')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 09')).toBeVisible()
   expect(
     await page.evaluate(() =>
       localStorage.getItem('transformer-layerscape:explorer:v1'),

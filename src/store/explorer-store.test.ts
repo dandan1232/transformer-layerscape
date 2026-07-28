@@ -136,13 +136,13 @@ describe('Explorer Store', () => {
   it('重置播放可以回到当前课程章节的合法起点', () => {
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
-    store.getState().goToStep(6)
+    store.getState().goToStep(7)
     store.getState().setCameraMode('manual')
 
-    store.getState().resetPlayback(5)
+    store.getState().resetPlayback(6)
 
     expect(store.getState()).toMatchObject({
-      currentStepIndex: 5,
+      currentStepIndex: 6,
       selectedEntityId: 'operation:output',
       playback: 'paused',
       cameraMode: 'guided',

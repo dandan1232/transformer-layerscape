@@ -14,6 +14,30 @@ function deterministicValues(length: number, phase: number) {
   )
 }
 
+function sinusoidalPositionValues(tokenCount: number, hiddenSize: number) {
+  return Array.from({ length: tokenCount * hiddenSize }, (_, index) => {
+    const position = Math.floor(index / hiddenSize)
+    const dimension = index % hiddenSize
+    const frequency = 10_000 ** ((2 * Math.floor(dimension / 2)) / hiddenSize)
+    const value = dimension % 2 === 0
+      ? Math.sin(position / frequency)
+      : Math.cos(position / frequency)
+    return Number((value * 0.28).toFixed(4))
+  })
+}
+
+function addVectors(left: readonly number[], right: readonly number[]) {
+  return left.map((value, index) => Number((value + (right[index] ?? 0)).toFixed(4)))
+}
+
+function tensorStats(values: readonly number[]) {
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+    mean: Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(4)),
+  }
+}
+
 function tensor(
   value: Omit<TensorSummary, 'sampleMethod'> & {
     readonly sampleMethod?: TensorSummary['sampleMethod']
@@ -21,6 +45,10 @@ function tensor(
 ): TensorSummary {
   return { ...value, sampleMethod: value.sampleMethod ?? 'full' }
 }
+
+const tokenEmbeddingValues = deterministicValues(tokens.length * 8, 0.73)
+const positionEmbeddingValues = sinusoidalPositionValues(tokens.length, 8)
+const hiddenInputValues = addVectors(tokenEmbeddingValues, positionEmbeddingValues)
 
 const tokenEntities = Object.fromEntries(
   tokens.map((token, index) => {
@@ -100,6 +128,12 @@ export const verticalSliceTrace = {
       label: 'Token Embedding',
       description: '为每个 Token 查找一组隐藏向量。',
     },
+    'operation:position-embedding': {
+      id: 'operation:position-embedding',
+      kind: 'operation',
+      label: 'Position Embedding',
+      description: '把每个 Token 的顺序信息逐项加入 Token 向量。',
+    },
     'operation:qkv': {
       id: 'operation:qkv',
       kind: 'operation',
@@ -153,16 +187,32 @@ export const verticalSliceTrace = {
       max: 11,
       mean: 6.33,
     }),
-    'tensor:embedding': tensor({
-      id: 'tensor:embedding',
-      role: 'embedding',
+    'tensor:token-embedding': tensor({
+      id: 'tensor:token-embedding',
+      role: 'token-embedding',
       name: 'token_embedding',
       dtype: 'float32',
       shape: [1, 6, 8],
-      values: deterministicValues(48, 0.73),
-      min: -0.42,
-      max: 0.42,
-      mean: 0.01,
+      values: tokenEmbeddingValues,
+      ...tensorStats(tokenEmbeddingValues),
+    }),
+    'tensor:position-embedding': tensor({
+      id: 'tensor:position-embedding',
+      role: 'position-embedding',
+      name: 'position_embedding',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: positionEmbeddingValues,
+      ...tensorStats(positionEmbeddingValues),
+    }),
+    'tensor:embedding': tensor({
+      id: 'tensor:embedding',
+      role: 'embedding',
+      name: 'hidden_input',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: hiddenInputValues,
+      ...tensorStats(hiddenInputValues),
     }),
     'tensor:q': tensor({
       id: 'tensor:q',
@@ -264,8 +314,22 @@ export const verticalSliceTrace = {
       description: '每个 Token ID 被映射成八维隐藏向量。',
       entityIds: ['operation:embedding', ...tokens.map((_, index) => `token:${index}`)],
       inputTensorIds: ['tensor:token-ids'],
-      outputTensorIds: ['tensor:embedding'],
+      outputTensorIds: ['tensor:token-embedding'],
       durationMs: 900,
+    },
+    {
+      id: 'step:position-embedding',
+      phase: 'embedding',
+      operation: 'add-position-embedding',
+      title: '加入 Token 的位置信息',
+      description: '位置向量与 Token 向量逐项相加，让模型区分相同 Token 的先后顺序。',
+      entityIds: [
+        'operation:position-embedding',
+        ...tokens.map((_, index) => `token:${index}`),
+      ],
+      inputTensorIds: ['tensor:token-embedding', 'tensor:position-embedding'],
+      outputTensorIds: ['tensor:embedding'],
+      durationMs: 1100,
     },
     {
       id: 'step:qkv',

@@ -62,7 +62,41 @@ export const coreLesson = {
               expression: '[batch, token, hidden] = [1, 6, 8]',
               explanation: '六个 Token 各自得到一条八维隐藏向量。',
             },
-            pseudocode: ['hidden = embedding_table[input_ids]'],
+            pseudocode: ['token_vectors = embedding_table[input_ids]'],
+          },
+        },
+        {
+          id: 'lesson-step:position-embedding',
+          kicker: 'POSITION EMBEDDING',
+          title: '告诉模型每个 Token 排在第几位',
+          plainExplanation:
+            'Token 向量只说明“它是什么”，没有记录“它在哪里”。模型为第 1、2、3……个位置准备另一组向量，再与 Token 向量逐项相加。',
+          action: {
+            traceStepId: 'step:position-embedding',
+            selectEntityId: 'operation:position-embedding',
+            cameraTargetId: 'operation:position-embedding',
+            twoDTargetId: 'operation:position-embedding',
+          },
+          deepDive: {
+            title: '深入理解：内容与顺序逐项相加',
+            explanation:
+              '教学轨迹使用稳定的正弦位置向量。真实模型也可能学习位置向量，但两种方式都要让每个位置获得可区分的顺序信号。',
+            formula: {
+              expression: 'X = E_token + E_position',
+              symbols: [
+                { symbol: 'E_token', meaning: '从词表查到的 Token 内容向量' },
+                { symbol: 'E_position', meaning: '表示当前顺序的位置向量' },
+                { symbol: 'X', meaning: '送入 Transformer Block 的隐藏向量' },
+              ],
+            },
+            tensorShape: {
+              expression: '[1, 6, 8] + [1, 6, 8] = [1, 6, 8]',
+              explanation: '两个张量形状相同，逐个 Token、逐个维度相加，形状保持不变。',
+            },
+            pseudocode: [
+              'positions = arange(token_count)',
+              'hidden = token_vectors + position_embedding[positions]',
+            ],
           },
         },
       ],

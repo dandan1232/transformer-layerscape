@@ -36,6 +36,9 @@ const palette = {
   token: new Color('#f6be55'),
   tokenSelected: new Color('#ffdf91'),
   tokenHover: new Color('#71b9eb'),
+  tokenEmbedding: '#e87a4d',
+  positionEmbedding: '#64aee0',
+  hiddenInput: '#f6be55',
   head: '#64aee0',
   headSelected: '#f6be55',
   output: '#6dcf9a',
@@ -119,6 +122,111 @@ function TokenInstances({
           <span aria-hidden="true">T{index + 1} · {trace.input.tokens[index].trim()}</span>
         </Html>
       ))}
+    </>
+  )
+}
+
+function EmbeddingLayer({
+  layout,
+  selectedEntityId,
+  onSelectTokenEmbedding,
+  onSelectPositionEmbedding,
+}: {
+  layout: SceneLayout
+  selectedEntityId: TraceEntityId | null
+  onSelectTokenEmbedding: () => void
+  onSelectPositionEmbedding: () => void
+}) {
+  const positions = useMemo(
+    () =>
+      layout.tokens.map((token) => ({
+        token: [token.position[0], -1.18, 1.28] as ScenePosition,
+        position: [token.position[0], -0.9, 1.04] as ScenePosition,
+        hidden: [token.position[0], -0.62, 0.82] as ScenePosition,
+      })),
+    [layout.tokens],
+  )
+  const tokenSelected = selectedEntityId === 'operation:embedding'
+  const positionSelected = selectedEntityId === 'operation:position-embedding'
+
+  return (
+    <>
+      {positions.map((position, index) => (
+        <group key={`embedding-${layout.tokens[index].id}`}>
+          <Line
+            points={[layout.tokens[index].position, position.token]}
+            color={tokenSelected ? palette.tokenSelected : '#8e7650'}
+            lineWidth={tokenSelected ? 1.8 : 0.8}
+          />
+          <Line
+            points={[position.token, position.hidden]}
+            color={tokenSelected ? palette.tokenEmbedding : '#6d493d'}
+            lineWidth={tokenSelected ? 1.8 : 0.8}
+          />
+          <Line
+            points={[position.position, position.hidden]}
+            color={positionSelected ? palette.positionEmbedding : '#37526e'}
+            lineWidth={positionSelected ? 1.8 : 0.8}
+          />
+          <mesh
+            position={position.token as [number, number, number]}
+            scale={tokenSelected ? 1.15 : 1}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelectTokenEmbedding()
+            }}
+          >
+            <boxGeometry args={[0.42, 0.14, 0.42]} />
+            <meshStandardMaterial
+              color={palette.tokenEmbedding}
+              emissive={tokenSelected ? palette.tokenEmbedding : palette.void}
+              emissiveIntensity={tokenSelected ? 0.3 : 0.02}
+              roughness={0.42}
+            />
+          </mesh>
+          <mesh
+            position={position.position as [number, number, number]}
+            scale={positionSelected ? 1.15 : 1}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelectPositionEmbedding()
+            }}
+          >
+            <boxGeometry args={[0.32, 0.12, 0.32]} />
+            <meshStandardMaterial
+              color={palette.positionEmbedding}
+              emissive={positionSelected ? palette.positionEmbedding : palette.void}
+              emissiveIntensity={positionSelected ? 0.32 : 0.03}
+              roughness={0.36}
+            />
+          </mesh>
+          <mesh
+            position={position.hidden as [number, number, number]}
+            rotation={[0, 0, Math.PI / 4]}
+            scale={positionSelected ? 1.16 : 1}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelectPositionEmbedding()
+            }}
+          >
+            <octahedronGeometry args={[0.2, 0]} />
+            <meshStandardMaterial
+              color={palette.hiddenInput}
+              emissive={positionSelected ? palette.hiddenInput : palette.void}
+              emissiveIntensity={positionSelected ? 0.28 : 0.03}
+              roughness={0.3}
+            />
+          </mesh>
+        </group>
+      ))}
+      <Html
+        center
+        distanceFactor={9}
+        position={[0, -0.42, 1.38]}
+        className="scene3d-label scene3d-label--embedding"
+      >
+        <span aria-hidden="true">TOKEN EMB ＋ POSITION → X</span>
+      </Html>
     </>
   )
 }
@@ -340,9 +448,9 @@ function SceneGraph({
           layout.heads.map((head) => (
             <Line
               key={`${token.id}-${head.id}`}
-              points={[token.position, head.position]}
-              color={selectedEntityId === token.id || selectedEntityId === head.id ? '#f6be55' : '#37526e'}
-              lineWidth={selectedEntityId === token.id || selectedEntityId === head.id ? 1.8 : 0.65}
+              points={[[token.position[0], -0.62, 0.82], head.position]}
+              color={selectedEntityId === token.id || selectedEntityId === head.id || selectedEntityId === 'operation:position-embedding' ? '#f6be55' : '#37526e'}
+              lineWidth={selectedEntityId === token.id || selectedEntityId === head.id || selectedEntityId === 'operation:position-embedding' ? 1.8 : 0.65}
               transparent
               opacity={0.72}
             />
@@ -363,6 +471,14 @@ function SceneGraph({
         layout={layout}
         selectedTokenIndex={selectedTokenIndex}
         onSelectToken={(index) => store.getState().selectToken(index)}
+      />
+      <EmbeddingLayer
+        layout={layout}
+        selectedEntityId={selectedEntityId}
+        onSelectTokenEmbedding={() => store.getState().selectEntity('operation:embedding')}
+        onSelectPositionEmbedding={() =>
+          store.getState().selectEntity('operation:position-embedding')
+        }
       />
       <QKVGate
         selected={selectedEntityId === 'operation:qkv'}
@@ -413,6 +529,16 @@ function SceneFallback({
     <div className="scene3d-fallback" role="img" aria-label="三维场景安全预览">
       <svg viewBox="0 0 760 390" aria-hidden="true">
         <path className="scene3d-fallback__plane" d="M80 300 430 92 695 226 342 350Z" />
+        <g className="scene3d-fallback__embedding" transform="translate(104 112)">
+          <rect className="is-token" width="112" height="34" rx="5" />
+          <text x="56" y="22" textAnchor="middle">TOKEN EMB</text>
+          <text className="is-operator" x="132" y="23">＋</text>
+          <rect className="is-position" x="154" width="112" height="34" rx="5" />
+          <text x="210" y="22" textAnchor="middle">POSITION</text>
+          <text className="is-operator" x="286" y="23">＝</text>
+          <rect className="is-hidden" x="310" width="72" height="34" rx="5" />
+          <text x="346" y="22" textAnchor="middle">X</text>
+        </g>
         {layout.tokens.map((token, index) => (
           <g key={token.id} transform={`translate(${125 + index * 82} ${290 - index * 34})`}>
             <circle r="13" />
@@ -589,6 +715,27 @@ export function Scene3DPanel({
                   T{index + 1}
                 </button>
               ))}
+            </div>
+            <div>
+              <span>Embedding</span>
+              <button
+                type="button"
+                aria-label="三维实体：Token Embedding"
+                aria-pressed={selectedEntityId === 'operation:embedding'}
+                onClick={() => store.getState().selectEntity('operation:embedding')}
+              >
+                TOKEN VEC
+              </button>
+              <button
+                type="button"
+                aria-label="三维实体：Position Embedding"
+                aria-pressed={selectedEntityId === 'operation:position-embedding'}
+                onClick={() =>
+                  store.getState().selectEntity('operation:position-embedding')
+                }
+              >
+                + POSITION
+              </button>
             </div>
             <div>
               <span>Attention</span>

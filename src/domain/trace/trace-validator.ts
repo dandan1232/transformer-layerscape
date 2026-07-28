@@ -41,6 +41,8 @@ const entityKinds = new Set<TraceEntityKind>([
 ])
 const tensorRoles = new Set<TensorRole>([
   'token-ids',
+  'token-embedding',
+  'position-embedding',
   'embedding',
   'query',
   'key',
@@ -67,6 +69,7 @@ const tracePhases = new Set<TracePhase>([
 const traceOperations = new Set<TraceOperation>([
   'tokenize',
   'embed',
+  'add-position-embedding',
   'project-qkv',
   'apply-causal-mask',
   'weighted-sum',
@@ -470,18 +473,44 @@ function validateCoreTensorShapes(
     }
   }
 
-  const embedding = byRole.get('embedding')?.[0]
-  if (
-    embedding &&
-    model &&
-    embedding.shape.join(',') !== [1, tokenCount, model.hiddenSize].join(',')
-  ) {
-    addIssue(
-      issues,
-      'INVALID_SHAPE',
-      embedding.id,
-      'Embedding Shape 必须为 [1, token, hidden]。',
-    )
+  const embeddingRoles = [
+    'token-embedding',
+    'position-embedding',
+    'embedding',
+  ] as const
+  if (model) {
+    const expectedEmbeddingShape = [1, tokenCount, model.hiddenSize].join(',')
+    for (const role of embeddingRoles) {
+      const tensor = byRole.get(role)?.[0]
+      if (tensor && tensor.shape.join(',') !== expectedEmbeddingShape) {
+        addIssue(
+          issues,
+          'INVALID_SHAPE',
+          tensor.id,
+          `${role} Shape 必须为 [1, token, hidden]。`,
+        )
+      }
+    }
+
+    const tokenEmbedding = byRole.get('token-embedding')?.[0]
+    const positionEmbedding = byRole.get('position-embedding')?.[0]
+    const embedding = byRole.get('embedding')?.[0]
+    if (tokenEmbedding && positionEmbedding && embedding) {
+      const compositionMatches = embedding.values.every((value, index) =>
+        approximatelyEqual(
+          value,
+          (tokenEmbedding.values[index] ?? 0) + (positionEmbedding.values[index] ?? 0),
+        ),
+      )
+      if (!compositionMatches) {
+        addIssue(
+          issues,
+          'INVALID_VALUE',
+          embedding.id,
+          'Embedding 必须等于 Token Embedding 与 Position Embedding 的逐项和。',
+        )
+      }
+    }
   }
 
   const qkv = (['query', 'key', 'value'] as const)

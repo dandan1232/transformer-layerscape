@@ -10,9 +10,10 @@ import {
 } from './trace-2d-utils'
 
 describe('二维 Trace 数据工具', () => {
-  it('把八种算子分为四个可视阶段', () => {
+  it('把九种算子分为五个可视阶段', () => {
     expect(getTrace2DStage('tokenize')).toBe('token')
-    expect(getTrace2DStage('embed')).toBe('token')
+    expect(getTrace2DStage('embed')).toBe('embedding')
+    expect(getTrace2DStage('add-position-embedding')).toBe('embedding')
     expect(getTrace2DStage('project-qkv')).toBe('qkv')
     expect(getTrace2DStage('apply-causal-mask')).toBe('attention')
     expect(getTrace2DStage('weighted-sum')).toBe('attention')
@@ -22,9 +23,9 @@ describe('二维 Trace 数据工具', () => {
   })
 
   it('解析当前步骤的输入与输出 Tensor', () => {
-    const tensors = resolveStepTensors(verticalSliceTrace, verticalSliceTrace.steps[2])
+    const tensors = resolveStepTensors(verticalSliceTrace, verticalSliceTrace.steps[3])
 
-    expect(tensors.inputs.map((tensor) => tensor.name)).toEqual(['token_embedding'])
+    expect(tensors.inputs.map((tensor) => tensor.name)).toEqual(['hidden_input'])
     expect(tensors.outputs.map((tensor) => tensor.name)).toEqual(['query', 'key', 'value'])
     expect(formatTensorShape(tensors.outputs[0])).toBe('[1, 2, 6, 4]')
     expect(formatTensorShape(null)).toBe('—')
@@ -44,6 +45,8 @@ describe('二维 Trace 数据工具', () => {
   it('提取每个 Token 对应的完整 Embedding 样本', () => {
     expect(getEmbeddingSample(verticalSliceTrace, 0)).toHaveLength(8)
     expect(getEmbeddingSample(verticalSliceTrace, 5)).toHaveLength(8)
+    expect(getEmbeddingSample(verticalSliceTrace, 0, 'token-embedding')).toHaveLength(8)
+    expect(getEmbeddingSample(verticalSliceTrace, 0, 'position-embedding')).toHaveLength(8)
     expect(getEmbeddingSample(verticalSliceTrace, -1)).toEqual([])
     expect(getEmbeddingSample(verticalSliceTrace, 99)).toEqual([])
   })
@@ -53,9 +56,10 @@ describe('二维 Trace 数据工具', () => {
       createStepSummary(verticalSliceTrace, step, 0),
     )
 
-    expect(summaries).toHaveLength(8)
+    expect(summaries).toHaveLength(9)
     expect(summaries.every((summary) => summary.length > 20)).toBe(true)
-    expect(summaries[3]).toContain('因果掩码')
+    expect(summaries[2]).toContain('逐项相加')
+    expect(summaries[4]).toContain('因果掩码')
     expect(summaries.at(-1)).toContain('Token ID 为 12')
   })
 })
