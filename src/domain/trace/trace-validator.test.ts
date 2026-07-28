@@ -96,6 +96,16 @@ describe('ModelTrace 运行时校验', () => {
     expectValidationCode(trace, 'INVALID_CAUSAL_MASK')
   })
 
+  it('拒绝没有按 Head 顺序拼接的 Attention 输出', () => {
+    const trace = structuredClone(verticalSliceTrace)
+    const output = trace.tensors['tensor:attention-output'] as unknown as {
+      values: number[]
+    }
+    output.values[4] = output.values[4] + 0.25
+
+    expectValidationCode(trace, 'INVALID_VALUE')
+  })
+
   it('拒绝概率和不等于一的输出', () => {
     const trace = structuredClone(verticalSliceTrace)
     const probabilities = trace.tensors['tensor:probabilities'] as unknown as {
@@ -335,6 +345,20 @@ describe('ModelTrace 运行时校验', () => {
         const tensor = record(record(trace.tensors)['tensor:attention-weights'])
         const values = tensor.values as number[]
         values[0] = -0.1
+      },
+    },
+    {
+      name: '单 Head Attention 输出 Shape 非法',
+      code: 'INVALID_SHAPE',
+      mutate: (trace) => {
+        record(record(trace.tensors)['tensor:attention-head-output']).shape = [1, 2, 4, 6]
+      },
+    },
+    {
+      name: '拼接后 Attention 输出 Shape 非法',
+      code: 'INVALID_SHAPE',
+      mutate: (trace) => {
+        record(record(trace.tensors)['tensor:attention-output']).shape = [1, 8, 6]
       },
     },
     {

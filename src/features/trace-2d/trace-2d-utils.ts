@@ -26,6 +26,26 @@ export interface AttentionCell {
   readonly masked: boolean
 }
 
+export interface AttentionHeadRow {
+  readonly headIndex: number
+  readonly rowIndex: number
+  readonly weights: readonly number[]
+  readonly sum: number
+  readonly dominantColumn: number
+  readonly dominantValue: number
+}
+
+export interface AttentionChecks {
+  readonly maskShape: readonly number[]
+  readonly causalMaskValid: boolean
+  readonly weightsShape: readonly number[]
+  readonly normalizedRowCount: number
+  readonly totalRowCount: number
+  readonly headOutputShape: readonly number[]
+  readonly concatenatedShape: readonly number[]
+  readonly concatenationValid: boolean
+}
+
 export function getTrace2DStage(operation: TraceOperation): Trace2DStage {
   if (operation === 'tokenize') return 'token'
   if (operation === 'embed' || operation === 'add-position-embedding') {
@@ -80,6 +100,100 @@ export function getAttentionCells(
   })
 }
 
+export function getAttentionHeadRows(
+  trace: ModelTrace,
+  rowIndex: number,
+): readonly AttentionHeadRow[] {
+  const tokenCount = trace.input.tokens.length
+  if (rowIndex < 0 || rowIndex >= tokenCount) return []
+
+  return Array.from({ length: trace.model.heads }, (_, headIndex) => {
+    const weights = getAttentionCells(trace, headIndex)
+      .filter((cell) => cell.row === rowIndex)
+      .map((cell) => cell.value)
+    const dominantValue = weights.length > 0 ? Math.max(...weights) : 0
+    return {
+      headIndex,
+      rowIndex,
+      weights,
+      sum: weights.reduce((total, value) => total + value, 0),
+      dominantColumn: weights.length > 0 ? weights.indexOf(dominantValue) : -1,
+      dominantValue,
+    }
+  })
+}
+
+export function getAttentionChecks(trace: ModelTrace): AttentionChecks {
+  const tokenCount = trace.input.tokens.length
+  const headSize = trace.model.hiddenSize / trace.model.heads
+  const mask = Object.values(trace.tensors).find(
+    (tensor) => tensor.role === 'attention-mask',
+  )
+  const weights = Object.values(trace.tensors).find(
+    (tensor) => tensor.role === 'attention-weights',
+  )
+  const headOutput = Object.values(trace.tensors).find(
+    (tensor) => tensor.role === 'attention-head-output',
+  )
+  const concatenated = Object.values(trace.tensors).find(
+    (tensor) => tensor.role === 'attention-output',
+  )
+  const expectedMaskShape = [tokenCount, tokenCount]
+  const expectedWeightsShape = [1, trace.model.heads, tokenCount, tokenCount]
+  const expectedHeadOutputShape = [1, trace.model.heads, tokenCount, headSize]
+  const expectedConcatenatedShape = [1, tokenCount, trace.model.hiddenSize]
+  const maskShapeValid = mask?.shape.join(',') === expectedMaskShape.join(',')
+  const causalMaskValid = Boolean(
+    maskShapeValid &&
+      mask?.values.every((value, index) => {
+        const row = Math.floor(index / tokenCount)
+        const column = index % tokenCount
+        return value === (column <= row ? 1 : 0)
+      }),
+  )
+
+  let normalizedRowCount = 0
+  const totalRowCount = trace.model.heads * tokenCount
+  if (weights?.shape.join(',') === expectedWeightsShape.join(',')) {
+    for (let headIndex = 0; headIndex < trace.model.heads; headIndex += 1) {
+      for (let rowIndex = 0; rowIndex < tokenCount; rowIndex += 1) {
+        const offset = (headIndex * tokenCount + rowIndex) * tokenCount
+        const sum = weights.values
+          .slice(offset, offset + tokenCount)
+          .reduce((total, value) => total + value, 0)
+        if (Math.abs(sum - 1) <= 1e-4) normalizedRowCount += 1
+      }
+    }
+  }
+
+  const outputShapesValid =
+    headOutput?.shape.join(',') === expectedHeadOutputShape.join(',') &&
+    concatenated?.shape.join(',') === expectedConcatenatedShape.join(',')
+  const concatenationValid = Boolean(
+    outputShapesValid &&
+      concatenated?.values.every((value, targetIndex) => {
+        const tokenIndex = Math.floor(targetIndex / trace.model.hiddenSize)
+        const hiddenDimension = targetIndex % trace.model.hiddenSize
+        const headIndex = Math.floor(hiddenDimension / headSize)
+        const dimension = hiddenDimension % headSize
+        const sourceIndex =
+          (headIndex * tokenCount + tokenIndex) * headSize + dimension
+        return Math.abs(value - (headOutput?.values[sourceIndex] ?? Number.NaN)) <= 1e-4
+      }),
+  )
+
+  return {
+    maskShape: mask?.shape ?? [],
+    causalMaskValid,
+    weightsShape: weights?.shape ?? [],
+    normalizedRowCount,
+    totalRowCount,
+    headOutputShape: headOutput?.shape ?? [],
+    concatenatedShape: concatenated?.shape ?? [],
+    concatenationValid,
+  }
+}
+
 export function getEmbeddingSample(
   trace: ModelTrace,
   tokenIndex: number,
@@ -124,7 +238,7 @@ export function createStepSummary(
     case 'apply-causal-mask':
       return `正在查看 Attention Head ${selectedHeadIndex + 1}。矩阵上三角被因果掩码遮住，当前位置不能读取未来 Token。`
     case 'weighted-sum':
-      return `正在查看 Attention Head ${selectedHeadIndex + 1}。每一行权重和为 1，用于加权汇总过去位置的 V。`
+      return `正在查看 Attention Head ${selectedHeadIndex + 1}。各 Head 分别汇总 V，再把 ${trace.model.heads} 个 ${trace.model.hiddenSize / trace.model.heads} 维结果拼接回 ${trace.model.hiddenSize} 维隐藏向量。`
     case 'project-logits':
       return `最后位置被投影到 ${trace.model.vocabularySize} 个词表候选，产生尚未归一化的 Logit。`
     case 'softmax':

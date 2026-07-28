@@ -3,7 +3,9 @@ import { verticalSliceTrace } from '../../content/traces/vertical-slice-trace'
 import {
   createStepSummary,
   formatTensorShape,
+  getAttentionChecks,
   getAttentionCells,
+  getAttentionHeadRows,
   getEmbeddingSample,
   getTrace2DStage,
   getVectorStats,
@@ -51,6 +53,32 @@ describe('二维 Trace 数据工具', () => {
     expect(head1.find((cell) => cell.row === 1 && cell.column === 0)?.value).toBe(0.65)
     expect(head0.find((cell) => cell.row === 0 && cell.column === 1)?.masked).toBe(true)
     expect(getAttentionCells(verticalSliceTrace, 99)).toEqual([])
+  })
+
+  it('对比同一查询行的多个 Head 并验证 Softmax 与拼接形状', () => {
+    const rows = getAttentionHeadRows(verticalSliceTrace, 5)
+    const checks = getAttentionChecks(verticalSliceTrace)
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({
+      sum: 1,
+      dominantColumn: 5,
+      dominantValue: 0.33,
+    })
+    expect(rows[1]).toMatchObject({
+      sum: 1,
+      dominantColumn: 4,
+      dominantValue: 0.42,
+    })
+    expect(getAttentionHeadRows(verticalSliceTrace, 99)).toEqual([])
+    expect(checks).toMatchObject({
+      causalMaskValid: true,
+      normalizedRowCount: 12,
+      totalRowCount: 12,
+      headOutputShape: [1, 2, 6, 4],
+      concatenatedShape: [1, 6, 8],
+      concatenationValid: true,
+    })
   })
 
   it('提取每个 Token 对应的完整 Embedding 样本', () => {

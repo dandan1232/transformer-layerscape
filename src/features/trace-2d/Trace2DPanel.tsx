@@ -1,5 +1,5 @@
 import { format, max, scaleBand, scaleLinear } from 'd3'
-import { type KeyboardEvent } from 'react'
+import { type KeyboardEvent, useState } from 'react'
 import { useStore } from 'zustand'
 import type { ModelTrace, TensorSummary } from '../../domain/trace/trace'
 import { selectCurrentStep } from '../../store/explorer-selectors'
@@ -7,7 +7,9 @@ import type { ExplorerStoreApi } from '../../store/explorer-store'
 import {
   createStepSummary,
   formatTensorShape,
+  getAttentionChecks,
   getAttentionCells,
+  getAttentionHeadRows,
   getEmbeddingSample,
   getTrace2DStage,
   getVectorStats,
@@ -308,15 +310,36 @@ function AttentionDiagram({
 }) {
   const cells = getAttentionCells(trace, headIndex)
   const indexes = trace.input.tokens.map((_, index) => index)
+  const [focusedCell, setFocusedCell] = useState(() => ({
+    row: Math.max(0, indexes.length - 1),
+    column: Math.max(0, indexes.length - 2),
+  }))
   const position = scaleBand<number>().domain(indexes).range([92, 338]).paddingInner(0.08)
   const opacity = scaleLinear().domain([0, max(cells, (cell) => cell.value) ?? 1]).range([0.14, 1])
   const size = position.bandwidth()
-  const selected = selectedTokenIndex
+  const selected = selectedTokenIndex ?? focusedCell.row
+  const comparisonRows = getAttentionHeadRows(trace, focusedCell.row)
+  const comparisonX = scaleBand<number>().domain(indexes).range([410, 690]).padding(0.24)
+  const comparisonMax = max(
+    comparisonRows.flatMap((row) => row.weights),
+  ) ?? 1
+  const comparisonHeight = scaleLinear().domain([0, comparisonMax]).range([0, 82])
+  const focusedValues = comparisonRows.map(
+    (row) => row.weights[focusedCell.column] ?? 0,
+  )
+  const focusedDelta = Math.max(...focusedValues) - Math.min(...focusedValues)
+  const focusedMasked = focusedCell.column > focusedCell.row
+  const headColors = ['var(--amber-400)', 'var(--k-color)', 'var(--v-color)']
+  const barWidth = Math.min(
+    12,
+    (comparisonX.bandwidth() - 4) / Math.max(1, trace.model.heads),
+  )
+  const baseline = 230
 
   return (
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="attention-title attention-desc">
       <title id="attention-title">Attention Head {headIndex + 1} 权重矩阵</title>
-      <desc id="attention-desc">行表示正在查询的 Token，列表示被读取的 Token；未来位置使用交叉图案遮挡。</desc>
+      <desc id="attention-desc">左侧展开 Head {headIndex + 1} 的完整权重矩阵，右侧对比全部 Head 在查询 Token {trace.input.tokens[focusedCell.row].trim()} 上的注意力分布；未来位置使用交叉图案遮挡。</desc>
       <defs>
         <pattern id="masked-cell-pattern" width="8" height="8" patternUnits="userSpaceOnUse">
           <path d="M0 0 8 8M8 0 0 8" className="trace2d-mask-pattern" />
@@ -335,12 +358,23 @@ function AttentionDiagram({
           key={`${cell.row}-${cell.column}`}
           role="button"
           tabIndex={0}
+          aria-pressed={
+            focusedCell.row === cell.row && focusedCell.column === cell.column
+          }
           aria-label={`${trace.input.tokens[cell.row].trim()} 读取 ${trace.input.tokens[cell.column].trim()}：${cell.masked ? '被因果掩码遮挡' : `权重 ${numberFormat(cell.value)}`}`}
-          onClick={() => onSelectToken(cell.row)}
-          onKeyDown={(event) => activateWithKeyboard(event, () => onSelectToken(cell.row))}
+          onClick={() => {
+            setFocusedCell({ row: cell.row, column: cell.column })
+            onSelectToken(cell.row)
+          }}
+          onKeyDown={(event) =>
+            activateWithKeyboard(event, () => {
+              setFocusedCell({ row: cell.row, column: cell.column })
+              onSelectToken(cell.row)
+            })
+          }
         >
           <rect
-            className={`trace2d-matrix-cell${selected === cell.row ? ' is-row-selected' : ''}`}
+            className={`trace2d-matrix-cell${selected === cell.row ? ' is-row-selected' : ''}${focusedCell.row === cell.row && focusedCell.column === cell.column ? ' is-cell-selected' : ''}`}
             x={position(cell.column)}
             y={position(cell.row)}
             width={size}
@@ -354,17 +388,115 @@ function AttentionDiagram({
           </text>
         </g>
       ))}
-      <g className="trace2d-matrix-note" transform="translate(410 108)">
-        <text className="trace2d-svg__axis-title">Head {headIndex + 1} · 因果注意力</text>
-        <text y="38">颜色越深，当前行从对应列</text>
-        <text y="60">读取的信息比例越高。</text>
-        <rect y="86" width="22" height="22" fill="url(#masked-cell-pattern)" />
-        <text x="34" y="102">未来位置：不可读取</text>
-        <rect y="124" width="22" height="22" fill="var(--amber-400)" />
-        <text x="34" y="140">已有位置：权重 0～1</text>
-        <text className="trace2d-svg__small" y="184">因果掩码：未来位置显示 ×</text>
+      <g className="trace2d-head-comparison">
+        <text className="trace2d-svg__axis-title" x="410" y="30">跨 Head · 查询 {trace.input.tokens[focusedCell.row].trim()}</text>
+        <text className="trace2d-svg__small" x="410" y="50">同一行 Softmax 后，对比关注分布。</text>
+        {comparisonRows.map((row, headRowIndex) => (
+          <g key={`comparison-head-${row.headIndex}`}>
+            <rect
+              className="trace2d-head-comparison__legend"
+              x={410 + headRowIndex * 76}
+              y="66"
+              width="11"
+              height="11"
+              fill={headColors[row.headIndex % headColors.length]}
+            />
+            <text className="trace2d-svg__small" x={426 + headRowIndex * 76} y="76">
+              H{row.headIndex + 1} · Σ {numberFormat(row.sum)}
+            </text>
+            {row.weights.map((value, column) => {
+              const groupX = comparisonX(column) ?? 0
+              const barX = groupX + 2 + headRowIndex * barWidth
+              const height = comparisonHeight(value)
+              return (
+                <rect
+                  key={`comparison-${row.headIndex}-${column}`}
+                  className={`trace2d-head-comparison__bar${row.headIndex === headIndex ? ' is-active' : ''}`}
+                  x={barX}
+                  y={baseline - height}
+                  width={barWidth}
+                  height={height}
+                  rx="2"
+                  fill={headColors[row.headIndex % headColors.length]}
+                >
+                  <title>Head {row.headIndex + 1} 读取 {trace.input.tokens[column].trim()}：{numberFormat(value)}</title>
+                </rect>
+              )
+            })}
+          </g>
+        ))}
+        <line className="trace2d-head-comparison__baseline" x1="410" x2="690" y1={baseline} y2={baseline} />
+        {indexes.map((index) => (
+          <g key={`comparison-label-${index}`}>
+            {index === focusedCell.column && (
+              <rect
+                className="trace2d-head-comparison__focus"
+                x={(comparisonX(index) ?? 0) - 2}
+                y="94"
+                width={comparisonX.bandwidth() + 4}
+                height="158"
+                rx="4"
+              />
+            )}
+            <text
+              className="trace2d-matrix-label"
+              x={(comparisonX(index) ?? 0) + comparisonX.bandwidth() / 2}
+              y="248"
+              textAnchor="middle"
+            >
+              {trace.input.tokens[index].trim()}
+            </text>
+          </g>
+        ))}
+        <text className="trace2d-head-comparison__focus-title" x="410" y="284">
+          局部展开 · {trace.input.tokens[focusedCell.row].trim()} → {trace.input.tokens[focusedCell.column].trim()}
+        </text>
+        <text className="trace2d-svg__small" x="410" y="307">
+          {focusedMasked
+            ? '两个 Head 都被因果掩码置为 0'
+            : comparisonRows.map((row) => `H${row.headIndex + 1} ${numberFormat(row.weights[focusedCell.column] ?? 0)}`).join(' · ')}
+        </text>
+        <text className="trace2d-svg__small" x="410" y="330">
+          {focusedMasked
+            ? '未来位置不可读取'
+            : `差值 Δ ${numberFormat(focusedDelta)} · 点击矩阵格继续比较`}
+        </text>
       </g>
     </svg>
+  )
+}
+
+function AttentionProof({ trace }: { trace: ModelTrace }) {
+  const checks = getAttentionChecks(trace)
+  const softmaxValid = checks.normalizedRowCount === checks.totalRowCount
+
+  return (
+    <section className="trace2d-attention-proof" aria-label="多头注意力校验">
+      <article data-valid={checks.causalMaskValid}>
+        <span aria-hidden="true">{checks.causalMaskValid ? '✓' : '!'}</span>
+        <div>
+          <strong>因果掩码</strong>
+          <code>[{checks.maskShape.join(', ')}]</code>
+          <small>上三角不可读取</small>
+        </div>
+      </article>
+      <article data-valid={softmaxValid}>
+        <span aria-hidden="true">{softmaxValid ? '✓' : '!'}</span>
+        <div>
+          <strong>Softmax · dim = −1</strong>
+          <code>[{checks.weightsShape.join(', ')}]</code>
+          <small>{checks.normalizedRowCount} / {checks.totalRowCount} 行 Σ = 1</small>
+        </div>
+      </article>
+      <article data-valid={checks.concatenationValid}>
+        <span aria-hidden="true">{checks.concatenationValid ? '✓' : '!'}</span>
+        <div>
+          <strong>Head 拼接</strong>
+          <code>[{checks.headOutputShape.join(', ')}] → [{checks.concatenatedShape.join(', ')}]</code>
+          <small>{trace.model.heads} × {trace.model.hiddenSize / trace.model.heads}D → {trace.model.hiddenSize}D</small>
+        </div>
+      </article>
+    </section>
   )
 }
 
@@ -572,6 +704,8 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
           />
         )}
       </div>
+
+      {stage === 'attention' && <AttentionProof trace={trace} />}
 
       <p className="calculation-summary trace2d-summary" aria-live="polite">
         <strong>当前观察：</strong>{summary}

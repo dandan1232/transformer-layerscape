@@ -68,6 +68,14 @@ describe('三维模型探索场景', () => {
     })
     expect(screen.getByText('Attention Head 2')).toBeVisible()
 
+    const concatButton = screen.getByRole('button', {
+      name: '三维实体：Multi-Head Concat',
+    })
+    await user.click(concatButton)
+    expect(store.getState().selectedEntityId).toBe('operation:attention')
+    expect(concatButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Masked Self-Attention')).toBeVisible()
+
     const outputButton = screen.getByRole('button', {
       name: '三维实体：输出 Token .',
     })

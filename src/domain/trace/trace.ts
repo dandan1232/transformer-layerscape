@@ -36,6 +36,7 @@ export type TensorRole =
   | 'value'
   | 'attention-mask'
   | 'attention-weights'
+  | 'attention-head-output'
   | 'attention-output'
   | 'logits'
   | 'probabilities'

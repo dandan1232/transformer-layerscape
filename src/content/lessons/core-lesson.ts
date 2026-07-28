@@ -176,7 +176,7 @@ export const coreLesson = {
           kicker: 'CAUSAL MASK',
           title: '不让当前位置偷看未来',
           plainExplanation:
-            '预测下一个 Token 时，当前位置只能读取自己和已经出现的内容。因果掩码把未来位置挡住，防止训练和生成时泄题。',
+            '预测下一个 Token 时，当前位置只能读取自己和已经出现的内容。两个 Head 共用同一张因果掩码，但会在可见范围内形成不同的关注分布。',
           action: {
             traceStepId: 'step:causal-mask',
             selectEntityId: 'operation:attention',
@@ -186,7 +186,7 @@ export const coreLesson = {
           deepDive: {
             title: '深入理解：下三角掩码',
             explanation:
-              '矩阵第 i 行代表第 i 个查询。列号大于 i 的位置属于未来，在 Softmax 前会被设为负无穷。',
+              '矩阵第 i 行代表第 i 个查询。列号大于 i 的位置属于未来，在 Softmax 前会被设为负无穷；Softmax 沿最后一个 Token 维度计算，让每个 Head 的每一行权重和为 1。',
             formula: {
               expression: 'M(i, j) = 0（j ≤ i），否则为 −∞',
               symbols: [
@@ -195,17 +195,22 @@ export const coreLesson = {
               ],
             },
             tensorShape: {
-              expression: '[token, token] = [6, 6]',
-              explanation: '六个查询位置分别对应六个可能被读取的位置。',
+              expression: 'Mask [6, 6] → Weights [1, 2, 6, 6]',
+              explanation: '一张下三角掩码广播到两个 Head，每个 Head 都产生六行注意力权重。',
             },
+            pseudocode: [
+              'scores = Q @ K.transpose(-1, -2) / sqrt(head_size)',
+              'scores = scores.masked_fill(mask == 0, -infinity)',
+              'weights = softmax(scores, dim=-1)',
+            ],
           },
         },
         {
           id: 'lesson-step:attention-output',
           kicker: 'WEIGHTED SUM',
-          title: '按相关程度收集上下文',
+          title: '让两个 Head 分工再合并',
           plainExplanation:
-            'Q 和 K 产生相关程度，Softmax 把它变成权重。每个位置再按这些权重混合 V，从过去的 Token 中取回真正需要的信息。',
+            'Q 和 K 产生相关程度，Softmax 把它变成权重。两个 Head 各自在四维子空间中混合 V，关注不同的过去位置，再把两份四维结果拼回八维隐藏向量。',
           action: {
             traceStepId: 'step:attention-output',
             selectEntityId: 'operation:attention',
@@ -215,7 +220,7 @@ export const coreLesson = {
           deepDive: {
             title: '深入理解：缩放点积注意力',
             explanation:
-              '除以根号 d_k 可以避免维度增大时点积过大；Softmax 让每行权重的总和等于 1。',
+              '除以根号 d_k 可以避免维度增大时点积过大；Softmax 让每行权重的总和等于 1。每个 Head 独立完成加权求和，最后沿隐藏维度拼接。',
             formula: {
               expression: 'Attention(Q, K, V) = softmax(QKᵀ / √d_k + M)V',
               symbols: [
@@ -225,6 +230,14 @@ export const coreLesson = {
                 { symbol: 'V', meaning: '按权重汇总的内容向量' },
               ],
             },
+            tensorShape: {
+              expression: '[1, 2, 6, 4] → concat(head) → [1, 6, 8]',
+              explanation: '两个 Head 各输出四维向量，按 Head 顺序拼接后恢复八维隐藏空间。',
+            },
+            pseudocode: [
+              'head_output = weights @ V',
+              'attention_output = concat(head_output, dim=head)',
+            ],
           },
         },
       ],

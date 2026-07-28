@@ -63,8 +63,17 @@ test('应用能够在浏览器中启动', async ({ page }) => {
 
   await page.getByRole('button', { name: '跳到第 6 步：遮住未来 Token' }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
+  const attentionProof = page.getByRole('region', { name: '多头注意力校验' })
+  await expect(attentionProof).toContainText('12 / 12 行 Σ = 1')
+  await expect(attentionProof).toContainText('2 × 4D → 8D')
+  await expect(page.getByText('局部展开 · blue → and')).toBeVisible()
+  await page.getByRole('button', { name: 'deep 读取 sky：权重 0.23' }).click()
+  await expect(page.getByText('H1 0.23 · H2 0.15')).toBeVisible()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  const concatButton = page.getByRole('button', { name: '三维实体：Multi-Head Concat' })
+  await concatButton.click()
+  await expect(concatButton).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: '重置' }).click()
   await expect(page.getByText('步骤 04 / 10')).toBeVisible()
 

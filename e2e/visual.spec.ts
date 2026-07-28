@@ -106,3 +106,29 @@ test('移动端二维 QKV 视觉基线', async ({ page }) => {
     maxDiffPixelRatio: 0.01,
   })
 })
+
+test('移动端多头注意力对比视觉基线', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.goto('/')
+  await stabilizePage(page)
+  await page.getByRole('button', { name: '跳到Attention章节' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('tab', { name: '二维计算' }).click()
+  await page.getByRole('button', { name: 'Head 2', exact: true }).click()
+  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: '多头注意力校验' })).toContainText(
+    '12 / 12 行 Σ = 1',
+  )
+  await page.getByRole('group', { name: '可横向滚动的二维计算图' }).evaluate(
+    (figure) => {
+      figure.scrollLeft = figure.scrollWidth
+    },
+  )
+
+  await expect(page).toHaveScreenshot('m2-mobile-multi-head.png', {
+    animations: 'disabled',
+    fullPage: true,
+    maxDiffPixelRatio: 0.01,
+  })
+})

@@ -337,7 +337,49 @@ function HeadNode({
         <meshStandardMaterial color={selected ? palette.headSelected : palette.output} />
       </mesh>
       <Html center distanceFactor={8} position={[0, -0.78, 0]} className="scene3d-label scene3d-label--head">
-        <span aria-hidden="true">HEAD {index + 1}</span>
+        <span aria-hidden="true">HEAD {index + 1} · 4D</span>
+      </Html>
+    </group>
+  )
+}
+
+function ConcatHub({
+  position,
+  headCount,
+  headSize,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  headCount: number
+  headSize: number
+  selected: boolean
+  onSelect: () => void
+}) {
+  const colors = [palette.headSelected, palette.head, palette.output]
+  return (
+    <group position={position as [number, number, number]} scale={selected ? 1.12 : 1}>
+      {Array.from({ length: headCount }, (_, index) => (
+        <mesh
+          key={`concat-segment-${index}`}
+          position={[0, (index - (headCount - 1) / 2) * 0.32, 0]}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSelect()
+          }}
+        >
+          <boxGeometry args={[0.62, 0.26, 0.52]} />
+          <meshStandardMaterial
+            color={colors[index % colors.length]}
+            emissive={selected ? colors[index % colors.length] : palette.void}
+            emissiveIntensity={selected ? 0.28 : 0.03}
+            roughness={0.34}
+            metalness={0.18}
+          />
+        </mesh>
+      ))}
+      <Html center distanceFactor={8} position={[0, -0.78, 0]} className="scene3d-label scene3d-label--concat">
+        <span aria-hidden="true">CONCAT · {headCount}×{headSize}D</span>
       </Html>
     </group>
   )
@@ -519,28 +561,37 @@ function SceneGraph({
       <gridHelper args={[11, 22, '#35516e', '#1c2b41']} position={[0, -2.03, 0.35]} />
 
       {!reducedDetail &&
-        layout.tokens.flatMap((token) =>
-          layout.heads.map((head) => (
-            <Line
-              key={`${token.id}-${head.id}`}
-              points={[[token.position[0], -0.25, 0.5], head.position]}
-              color={selectedEntityId === token.id || selectedEntityId === head.id || selectedEntityId === 'operation:position-embedding' ? '#f6be55' : '#37526e'}
-              lineWidth={selectedEntityId === token.id || selectedEntityId === head.id || selectedEntityId === 'operation:position-embedding' ? 1.8 : 0.65}
-              transparent
-              opacity={0.72}
-            />
-          )),
-        )}
+        layout.tokens.map((token) => (
+          <Line
+            key={`${token.id}-qkv`}
+            points={[[token.position[0], -0.25, 0.5], qkvPosition]}
+            color={selectedEntityId === token.id || selectedEntityId === 'operation:qkv' ? '#f6be55' : '#37526e'}
+            lineWidth={selectedEntityId === token.id || selectedEntityId === 'operation:qkv' ? 1.8 : 0.65}
+            transparent
+            opacity={0.72}
+          />
+        ))}
       {layout.heads.map((head) => (
         <Line
-          key={`${head.id}-output`}
-          points={[head.position, layout.output.position]}
-          color={selectedEntityId === head.id ? '#f6be55' : '#4f718e'}
-          lineWidth={selectedEntityId === head.id ? 2 : 0.9}
+          key={`qkv-${head.id}`}
+          points={[qkvPosition, head.position]}
+          color={selectedEntityId === head.id || selectedEntityId === 'operation:qkv' ? '#f6be55' : '#49647f'}
+          lineWidth={selectedEntityId === head.id || selectedEntityId === 'operation:qkv' ? 2 : 0.9}
         />
       ))}
-
-      <Line points={[qkvPosition, attentionPosition]} color="#8e7650" lineWidth={1.3} />
+      {layout.heads.map((head) => (
+        <Line
+          key={`${head.id}-concat`}
+          points={[head.position, attentionPosition]}
+          color={selectedEntityId === head.id || selectedEntityId === 'operation:attention' ? '#f6be55' : '#4f718e'}
+          lineWidth={selectedEntityId === head.id || selectedEntityId === 'operation:attention' ? 2 : 0.9}
+        />
+      ))}
+      <Line
+        points={[attentionPosition, layout.output.position]}
+        color={selectedEntityId === 'operation:attention' ? '#f6be55' : '#8e7650'}
+        lineWidth={selectedEntityId === 'operation:attention' ? 2 : 1.3}
+      />
       <TokenInstances
         trace={trace}
         layout={layout}
@@ -574,6 +625,13 @@ function SceneGraph({
           onSelect={() => store.getState().selectHead(index)}
         />
       ))}
+      <ConcatHub
+        position={attentionPosition}
+        headCount={trace.model.heads}
+        headSize={trace.model.hiddenSize / trace.model.heads}
+        selected={selectedEntityId === 'operation:attention'}
+        onSelect={() => store.getState().selectEntity('operation:attention')}
+      />
       <OutputNode
         position={layout.output.position}
         token={trace.output.sampledToken}
@@ -629,10 +687,17 @@ function SceneFallback({
             <text y="32" textAnchor="middle">T{index + 1}</text>
           </g>
         ))}
-        <circle className="scene3d-fallback__core" cx="550" cy="190" r="48" />
-        <text x="550" y="194" textAnchor="middle">HEAD × {trace.model.heads}</text>
-        <path className="scene3d-fallback__output-line" d="M590 165 680 112" />
-        <circle className="scene3d-fallback__output" cx="690" cy="105" r="20" />
+        <circle className="scene3d-fallback__core" cx="530" cy="164" r="32" />
+        <text x="530" y="168" textAnchor="middle">H1 · 4D</text>
+        <circle className="scene3d-fallback__core is-second-head" cx="565" cy="222" r="32" />
+        <text x="565" y="226" textAnchor="middle">H2 · 4D</text>
+        <path className="scene3d-fallback__head-line" d="M558 174 615 190M590 214 615 196" />
+        <rect className="scene3d-fallback__concat" x="614" y="176" width="72" height="34" rx="5" />
+        <text x="650" y="197" textAnchor="middle">
+          CONCAT {trace.model.heads}×{trace.model.hiddenSize / trace.model.heads}D
+        </text>
+        <path className="scene3d-fallback__output-line" d="M686 182 711 130" />
+        <circle className="scene3d-fallback__output" cx="718" cy="116" r="20" />
       </svg>
       <p>{message}</p>
     </div>
@@ -853,6 +918,14 @@ export function Scene3DPanel({
                   H{index + 1}
                 </button>
               ))}
+              <button
+                type="button"
+                aria-label="三维实体：Multi-Head Concat"
+                aria-pressed={selectedEntityId === 'operation:attention'}
+                onClick={() => store.getState().selectEntity('operation:attention')}
+              >
+                CONCAT
+              </button>
             </div>
             <div>
               <span>Output</span>

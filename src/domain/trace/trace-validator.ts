@@ -50,6 +50,7 @@ const tensorRoles = new Set<TensorRole>([
   'value',
   'attention-mask',
   'attention-weights',
+  'attention-head-output',
   'attention-output',
   'logits',
   'probabilities',
@@ -568,6 +569,58 @@ function validateCoreTensorShapes(
   const weights = byRole.get('attention-weights')?.[0]
   if (weights && model) {
     validateAttentionWeights(weights, tokenCount, model.heads, issues)
+  }
+
+  const headOutput = byRole.get('attention-head-output')?.[0]
+  const attentionOutput = byRole.get('attention-output')?.[0]
+  if (model) {
+    const headSize = model.hiddenSize / model.heads
+    const expectedHeadOutputShape = [1, model.heads, tokenCount, headSize].join(',')
+    const expectedAttentionOutputShape = [1, tokenCount, model.hiddenSize].join(',')
+
+    if (headOutput && headOutput.shape.join(',') !== expectedHeadOutputShape) {
+      addIssue(
+        issues,
+        'INVALID_SHAPE',
+        headOutput.id,
+        '每个 Head 的 Attention 输出 Shape 必须为 [1, head, token, headSize]。',
+      )
+    }
+    if (attentionOutput && attentionOutput.shape.join(',') !== expectedAttentionOutputShape) {
+      addIssue(
+        issues,
+        'INVALID_SHAPE',
+        attentionOutput.id,
+        '拼接后的 Attention 输出 Shape 必须为 [1, token, hidden]。',
+      )
+    }
+    if (
+      headOutput?.shape.join(',') === expectedHeadOutputShape &&
+      attentionOutput?.shape.join(',') === expectedAttentionOutputShape
+    ) {
+      for (let tokenIndex = 0; tokenIndex < tokenCount; tokenIndex += 1) {
+        for (let headIndex = 0; headIndex < model.heads; headIndex += 1) {
+          for (let dimension = 0; dimension < headSize; dimension += 1) {
+            const sourceIndex =
+              (headIndex * tokenCount + tokenIndex) * headSize + dimension
+            const targetIndex =
+              tokenIndex * model.hiddenSize + headIndex * headSize + dimension
+            if (!approximatelyEqual(
+              headOutput.values[sourceIndex],
+              attentionOutput.values[targetIndex],
+            )) {
+              addIssue(
+                issues,
+                'INVALID_VALUE',
+                `${attentionOutput.id}[${tokenIndex},${headIndex},${dimension}]`,
+                'Attention 输出必须按 Token 拼接全部 Head 的向量。',
+              )
+              return
+            }
+          }
+        }
+      }
+    }
   }
 
   for (const role of ['logits', 'probabilities'] as const) {

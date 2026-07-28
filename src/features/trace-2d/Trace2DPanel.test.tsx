@@ -102,18 +102,31 @@ describe('二维计算视图', () => {
     expect(store.getState().selectedTokenIndex).toBe(3)
   })
 
-  it('注意力矩阵显示掩码、Head 切换和真实权重', async () => {
+  it('注意力矩阵支持局部展开、跨 Head 对比与真实权重切换', async () => {
     const user = userEvent.setup()
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
     store.getState().goToStep(5)
     render(<Trace2DPanel store={store} isActive />)
 
-    expect(screen.getByText('因果掩码：未来位置显示 ×')).toBeVisible()
+    expect(screen.getByText('局部展开 · blue → and')).toBeVisible()
+    expect(screen.getByText('H1 0.22 · H2 0.42')).toBeVisible()
+    const proof = screen.getByRole('region', { name: '多头注意力校验' })
+    expect(within(proof).getByText('因果掩码')).toBeVisible()
+    expect(within(proof).getByText('Softmax · dim = −1')).toBeVisible()
+    expect(within(proof).getByText('12 / 12 行 Σ = 1')).toBeVisible()
+    expect(within(proof).getByText('Head 拼接')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Head 1' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
+
+    await user.click(
+      screen.getByRole('button', { name: 'deep 读取 sky：权重 0.23' }),
+    )
+    expect(screen.getByText('局部展开 · deep → sky')).toBeVisible()
+    expect(screen.getByText('H1 0.23 · H2 0.15')).toBeVisible()
+    expect(store.getState().selectedTokenIndex).toBe(3)
 
     await user.click(screen.getByRole('button', { name: 'Head 2' }))
     expect(store.getState().selectedHeadIndex).toBe(1)
@@ -123,6 +136,21 @@ describe('二维计算视图', () => {
       screen.getByRole('button', { name: 'blue 读取 and：权重 0.42' }),
     )
     expect(store.getState().selectedTokenIndex).toBe(5)
+  })
+
+  it('多头加权结果展示每个 Head 的输出与拼接后的隐藏向量', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(6)
+    render(<Trace2DPanel store={store} isActive />)
+
+    const tensors = screen.getByRole('region', { name: '当前步骤张量' })
+    const outputs = within(tensors).getByRole('heading', { name: '输出' }).parentElement!
+    expect(within(outputs).getByText('head_output')).toBeVisible()
+    expect(within(outputs).getByText('[1, 2, 6, 4]')).toBeVisible()
+    expect(within(outputs).getByText('attention_output')).toBeVisible()
+    expect(within(outputs).getByText('[1, 6, 8]')).toBeVisible()
+    expect(screen.getByText(/2 个 4 维结果拼接回 8 维隐藏向量/)).toBeVisible()
   })
 
   it('输出视图绘制候选概率并允许选择采样结果', async () => {

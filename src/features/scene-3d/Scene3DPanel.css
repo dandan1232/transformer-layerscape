@@ -56,6 +56,12 @@
   letter-spacing: 0.1em;
 }
 
+.scene3d-label--concat {
+  color: var(--amber-300);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
 .scene3d-overlay {
   position: absolute;
   inset: var(--space-4);
@@ -149,6 +155,11 @@
   stroke: var(--k-color) !important;
 }
 
+.scene3d-fallback__core.is-second-head {
+  fill: oklch(70% 0.11 155 / 0.2) !important;
+  stroke: var(--v-color) !important;
+}
+
 .scene3d-fallback__embedding rect {
   stroke-width: 2;
 }
@@ -190,6 +201,18 @@
   fill: none;
   stroke: var(--amber-300);
   stroke-dasharray: 4 5;
+}
+
+.scene3d-fallback__head-line {
+  fill: none;
+  stroke: var(--k-color);
+  stroke-width: 2;
+}
+
+.scene3d-fallback__concat {
+  fill: oklch(76% 0.15 73 / 0.2);
+  stroke: var(--amber-400);
+  stroke-width: 2;
 }
 
 .scene3d-fallback__output {

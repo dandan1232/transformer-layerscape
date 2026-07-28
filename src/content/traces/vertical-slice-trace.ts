@@ -44,6 +44,20 @@ function layerNormalize(values: readonly number[], tokenCount: number, hiddenSiz
   }).flat()
 }
 
+function concatenateHeadOutputs(
+  values: readonly number[],
+  headCount: number,
+  tokenCount: number,
+  headSize: number,
+) {
+  return Array.from({ length: tokenCount }, (_, tokenIndex) =>
+    Array.from({ length: headCount }, (_, headIndex) => {
+      const start = (headIndex * tokenCount + tokenIndex) * headSize
+      return values.slice(start, start + headSize)
+    }).flat(),
+  ).flat()
+}
+
 function tensorStats(values: readonly number[]) {
   return {
     min: Math.min(...values),
@@ -101,6 +115,13 @@ const head1 = [
   [0.05, 0.1, 0.15, 0.5, 0.2, 0],
   [0.04, 0.08, 0.12, 0.16, 0.42, 0.18],
 ]
+const attentionHeadOutputValues = deterministicValues(48, 1.61)
+const attentionOutputValues = concatenateHeadOutputs(
+  attentionHeadOutputValues,
+  2,
+  tokens.length,
+  4,
+)
 
 const probabilities = [
   0.01, 0.01, 0.02, 0.02, 0.03, 0.04, 0.05, 0.05, 0.06, 0.08, 0.1, 0.14,
@@ -171,6 +192,7 @@ export const verticalSliceTrace = {
       id: 'head:0',
       kind: 'attention-head',
       label: 'Attention Head 1',
+      description: '在四维子空间中形成第一组因果注意力分布。',
       parentId: 'operation:attention',
       layerIndex: 0,
       headIndex: 0,
@@ -179,6 +201,7 @@ export const verticalSliceTrace = {
       id: 'head:1',
       kind: 'attention-head',
       label: 'Attention Head 2',
+      description: '在另一组四维子空间中形成可对比的注意力分布。',
       parentId: 'operation:attention',
       layerIndex: 0,
       headIndex: 1,
@@ -290,13 +313,21 @@ export const verticalSliceTrace = {
       max: 1,
       mean: 0.1667,
     }),
+    'tensor:attention-head-output': tensor({
+      id: 'tensor:attention-head-output',
+      role: 'attention-head-output',
+      name: 'head_output',
+      dtype: 'float32',
+      shape: [1, 2, 6, 4],
+      values: attentionHeadOutputValues,
+    }),
     'tensor:attention-output': tensor({
       id: 'tensor:attention-output',
       role: 'attention-output',
       name: 'attention_output',
       dtype: 'float32',
       shape: [1, 6, 8],
-      values: deterministicValues(48, 1.61),
+      values: attentionOutputValues,
     }),
     'tensor:logits': tensor({
       id: 'tensor:logits',
@@ -402,7 +433,7 @@ export const verticalSliceTrace = {
       description: 'Attention 权重决定每个 Token 从过去位置取回多少内容。',
       entityIds: ['operation:attention', 'head:0', 'head:1'],
       inputTensorIds: ['tensor:attention-weights', 'tensor:v'],
-      outputTensorIds: ['tensor:attention-output'],
+      outputTensorIds: ['tensor:attention-head-output', 'tensor:attention-output'],
       durationMs: 1200,
     },
     {

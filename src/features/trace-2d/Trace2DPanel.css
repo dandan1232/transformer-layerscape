@@ -329,6 +329,11 @@
   stroke-width: 2.5;
 }
 
+.trace2d-matrix-cell.is-cell-selected {
+  stroke: var(--ink-900);
+  stroke-width: 3;
+}
+
 .trace2d-cell-value {
   fill: var(--amber-ink);
   font-family: var(--font-mono);
@@ -339,6 +344,96 @@
 .trace2d-matrix-label.is-selected {
   fill: var(--q-color);
   font-weight: 800;
+}
+
+.trace2d-head-comparison__bar {
+  opacity: 0.48;
+}
+
+.trace2d-head-comparison__bar.is-active {
+  opacity: 1;
+}
+
+.trace2d-head-comparison__baseline {
+  stroke: var(--ink-500);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.trace2d-head-comparison__focus {
+  fill: none;
+  stroke: var(--amber-500);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.trace2d-head-comparison__focus-title {
+  fill: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.trace2d-attention-proof {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--border-light);
+  border-block: 1px solid var(--border-light);
+  gap: 1px;
+}
+
+.trace2d-attention-proof article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--paper-50);
+}
+
+.trace2d-attention-proof article > span {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  color: var(--void-950);
+  background: var(--v-color);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 900;
+}
+
+.trace2d-attention-proof article[data-valid='false'] > span {
+  color: var(--paper-50);
+  background: var(--q-color);
+}
+
+.trace2d-attention-proof article > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.trace2d-attention-proof strong,
+.trace2d-attention-proof code,
+.trace2d-attention-proof small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace2d-attention-proof strong {
+  color: var(--ink-900);
+  font-size: var(--text-xs);
+}
+
+.trace2d-attention-proof code,
+.trace2d-attention-proof small {
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
 }
 
 .trace2d-candidate__track {
@@ -469,6 +564,7 @@
   .trace2d-heading,
   .trace2d-step-strip,
   .trace2d-head-switch,
+  .trace2d-attention-proof,
   .trace2d-scroll-hint,
   .trace2d-figure,
   .trace2d-summary,
@@ -501,6 +597,10 @@
   }
 
   .trace2d-tensors {
+    grid-template-columns: 1fr;
+  }
+
+  .trace2d-attention-proof {
     grid-template-columns: 1fr;
   }
 
