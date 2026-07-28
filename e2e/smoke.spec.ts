@@ -8,31 +8,31 @@ test('应用能够在浏览器中启动', async ({ page }) => {
     page.getByRole('heading', { name: '把句子切成模型的词块' }),
   ).toBeVisible()
 
-  await expect(page.getByText('步骤 01 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
   const scrubber = page.getByRole('slider', { name: '定位模型计算步骤' })
   await scrubber.focus()
   await page.keyboard.press('End')
-  await expect(page.getByText('步骤 10 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 14 / 14')).toBeVisible()
   await page.keyboard.press('Home')
-  await expect(page.getByText('步骤 01 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
 
   await page.getByRole('button', { name: '下一项' }).click()
   await expect(
     page.getByRole('heading', { name: '把编号换成可以计算的向量' }),
   ).toBeVisible()
-  await expect(page.getByText('步骤 02 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 02 / 14')).toBeVisible()
   await page.getByRole('button', { name: '上一项' }).click()
-  await expect(page.getByText('步骤 01 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
 
   await page.getByRole('button', { name: '下一步' }).click()
-  await expect(page.getByText('步骤 02 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 02 / 14')).toBeVisible()
   await expect(page.getByRole('heading', { name: '查找 Token 向量' })).toBeVisible()
 
   await page.getByRole('button', { name: '下一项' }).click()
   await expect(
     page.getByRole('heading', { name: '告诉模型每个 Token 排在第几位' }),
   ).toBeVisible()
-  await expect(page.getByText('步骤 03 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 03 / 14')).toBeVisible()
   await expect(
     page.getByRole('img', {
       name: /^Token Embedding 与 Position Embedding 相加图/,
@@ -47,7 +47,7 @@ test('应用能够在浏览器中启动', async ({ page }) => {
   await page.getByRole('button', { name: '播放计算过程' }).click()
   await expect(page.getByRole('button', { name: '暂停计算过程' })).toBeVisible()
   await page.getByRole('button', { name: '重置' }).click()
-  await expect(page.getByText('步骤 01 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
 
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await expect(page.getByRole('heading', { name: '先把每个 Token 调到稳定尺度' })).toBeVisible()
@@ -75,9 +75,18 @@ test('应用能够在浏览器中启动', async ({ page }) => {
   await concatButton.click()
   await expect(concatButton).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: '重置' }).click()
-  await expect(page.getByText('步骤 04 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 04 / 14')).toBeVisible()
 
-  await page.getByRole('button', { name: '跳到第 9 步：把分数变成概率' }).click()
+  await page.getByRole('button', { name: '跳到第 10 步：先扩维，再筛选信息' }).click()
+  await expect(page.getByRole('img', { name: /^Residual 与 MLP 计算路径图/ })).toBeVisible()
+  const blockProof = page.getByRole('region', { name: 'Residual 与 MLP 校验' })
+  await expect(blockProof).toContainText('Residual → LN → MLP')
+  await expect(blockProof).toContainText('8D → 32D → 8D')
+  const mlpButton = page.getByRole('button', { name: '三维实体：Feed-Forward MLP' })
+  await mlpButton.click()
+  await expect(mlpButton).toHaveAttribute('aria-pressed', 'true')
+
+  await page.getByRole('button', { name: '跳到第 13 步：把分数变成概率' }).click()
   await expect(page.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
   await expect(page.getByText('18.0%')).toBeVisible()
 
@@ -146,14 +155,14 @@ test('WebGL Context 丢失后保留进度并支持重建或切换二维', async 
   await loseReadyContext()
 
   await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
-  await expect(page.getByText('步骤 06 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 06 / 14')).toBeVisible()
   await expect(page.getByRole('img', { name: '三维场景安全预览' })).toBeVisible()
 
   await page.getByRole('button', { name: '尝试恢复三维' }).click()
   await expect(
     page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' }),
   ).toBeVisible()
-  await expect(page.getByText('步骤 06 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 06 / 14')).toBeVisible()
 
   await loseReadyContext()
   await expect(page.getByRole('alert')).toContainText('三维渲染环境已丢失')
@@ -202,7 +211,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
   })
   await page.reload()
 
-  await expect(page.getByText('步骤 06 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 06 / 14')).toBeVisible()
   await expect(page.getByRole('button', { name: '自由探索' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -220,7 +229,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
     localStorage.setItem('transformer-layerscape:explorer:v1', '{broken')
   })
   await page.reload()
-  await expect(page.getByText('步骤 01 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
   expect(
     await page.evaluate(() =>
       localStorage.getItem('transformer-layerscape:explorer:v1'),

@@ -26,12 +26,12 @@ function cloneLesson(): Lesson {
 }
 
 describe('中文课程校验器', () => {
-  it('接受覆盖完整 Trace 的三章中文课程', () => {
+  it('接受覆盖完整 Trace 的四章中文课程', () => {
     expect(() => validateLesson(coreLesson, verticalSliceTrace)).not.toThrow()
-    expect(coreLesson.chapters).toHaveLength(3)
+    expect(coreLesson.chapters).toHaveLength(4)
     expect(
       coreLesson.chapters.reduce((total, chapter) => total + chapter.steps.length, 0),
-    ).toBe(10)
+    ).toBe(14)
   })
 
   it('拒绝非对象根节点和未知版本', () => {

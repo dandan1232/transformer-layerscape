@@ -76,6 +76,22 @@ describe('三维模型探索场景', () => {
     expect(concatButton).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Masked Self-Attention')).toBeVisible()
 
+    const mlpButton = screen.getByRole('button', {
+      name: '三维实体：Feed-Forward MLP',
+    })
+    await user.click(mlpButton)
+    expect(store.getState().selectedEntityId).toBe('operation:mlp')
+    expect(mlpButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Feed-Forward MLP')).toBeVisible()
+
+    const residualButton = screen.getByRole('button', {
+      name: '三维实体：MLP Residual',
+    })
+    await user.click(residualButton)
+    expect(store.getState().selectedEntityId).toBe('operation:residual-mlp')
+    expect(residualButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('MLP Residual')).toBeVisible()
+
     const outputButton = screen.getByRole('button', {
       name: '三维实体：输出 Token .',
     })

@@ -243,6 +243,138 @@ export const coreLesson = {
       ],
     },
     {
+      id: 'chapter:feed-forward',
+      title: '残差与前馈网络',
+      shortTitle: 'Residual + MLP',
+      summary: '信息如何绕过子层、扩展维度，再安全回到主路。',
+      steps: [
+        {
+          id: 'lesson-step:attention-residual',
+          kicker: 'RESIDUAL CONNECTION',
+          title: '给 Attention 留一条信息旁路',
+          plainExplanation:
+            'Attention 负责重组上下文，但原来的 Token 信息不应该被迫全部重建。残差连接让输入 X 绕过 Attention，再与它的八维输出逐项相加。',
+          action: {
+            traceStepId: 'step:attention-residual',
+            selectEntityId: 'operation:residual-attention',
+            cameraTargetId: 'operation:residual-attention',
+            twoDTargetId: 'operation:residual-attention',
+          },
+          deepDive: {
+            title: '深入理解：残差不是复制层',
+            explanation:
+              '旁路不增加新的可训练变换，只把子层输入直接带到加法节点。模型可以学习“在原信息上修改多少”，梯度也获得更短的传播路径。',
+            formula: {
+              expression: 'R_attn = X + Attention(LN(X))',
+              symbols: [
+                { symbol: 'X', meaning: '进入 Attention 子层前的隐藏向量' },
+                { symbol: 'R_attn', meaning: 'Attention 残差相加后的隐藏向量' },
+              ],
+            },
+            tensorShape: {
+              expression: '[1, 6, 8] + [1, 6, 8] = [1, 6, 8]',
+              explanation: '残差相加要求两个张量形状完全一致，因此不会改变隐藏维度。',
+            },
+            pseudocode: ['attention_residual = hidden + attention_output'],
+          },
+        },
+        {
+          id: 'lesson-step:mlp-layernorm',
+          kicker: 'PRE-NORM ORDER',
+          title: '先稳定主路，再进入 MLP',
+          plainExplanation:
+            '这条教学轨迹使用 Pre-Norm：Attention 残差完成后，第二次 LayerNorm 才处理主路，然后把稳定后的结果交给 MLP。',
+          action: {
+            traceStepId: 'step:mlp-layernorm',
+            selectEntityId: 'operation:mlp-layernorm',
+            cameraTargetId: 'operation:mlp-layernorm',
+            twoDTargetId: 'operation:mlp-layernorm',
+          },
+          deepDive: {
+            title: '深入理解：顺序决定残差公式',
+            explanation:
+              'Pre-Norm 把 LayerNorm 放在每个子层之前，残差主路本身保持直接。另一类 Post-Norm 会先完成子层和残差相加，再归一化；两者不能混写。',
+            formula: {
+              expression: 'U = LN(R_attn)，F = MLP(U)',
+              symbols: [
+                { symbol: 'U', meaning: '送入 MLP 的归一化隐藏向量' },
+                { symbol: 'F', meaning: 'MLP 产生的特征变换' },
+              ],
+            },
+            tensorShape: {
+              expression: '[1, 6, 8] → LN → [1, 6, 8]',
+              explanation: 'LayerNorm 只改变数值分布，不改变 Token 数或隐藏维度。',
+            },
+          },
+        },
+        {
+          id: 'lesson-step:mlp',
+          kicker: 'FEED-FORWARD MLP',
+          title: '把每个 Token 放进更宽的工作区',
+          plainExplanation:
+            'Attention 在 Token 之间交换信息；MLP 则对每个 Token 独立使用同一组参数。它先把八维向量扩展到三十二维，让更多特征可以被组合，再用 GELU 筛选并压回八维。',
+          action: {
+            traceStepId: 'step:mlp',
+            selectEntityId: 'operation:mlp',
+            cameraTargetId: 'operation:mlp',
+            twoDTargetId: 'operation:mlp',
+          },
+          deepDive: {
+            title: '深入理解：扩维、非线性、降维',
+            explanation:
+              '如果只有两次线性投影，它们仍可合并成一次线性变换。GELU 插在中间，引入非线性，让模型能够选择性保留和组合扩展空间中的特征。',
+            formula: {
+              expression: 'MLP(U) = GELU(UW_up + b_up)W_down + b_down',
+              symbols: [
+                { symbol: 'W_up', meaning: '从八维投影到三十二维的权重' },
+                { symbol: 'GELU', meaning: '平滑筛选正负特征的非线性激活' },
+                { symbol: 'W_down', meaning: '从三十二维投影回八维的权重' },
+              ],
+            },
+            tensorShape: {
+              expression: '[1, 6, 8] → [1, 6, 32] → [1, 6, 8]',
+              explanation: 'Token 数保持六个，只有最后一个特征维度先扩展四倍再恢复。',
+            },
+            pseudocode: [
+              'expanded = linear_up(normalized)  # 8D -> 32D',
+              'activated = gelu(expanded)',
+              'mlp_output = linear_down(activated)  # 32D -> 8D',
+            ],
+          },
+        },
+        {
+          id: 'lesson-step:mlp-residual',
+          kicker: 'BLOCK OUTPUT',
+          title: '把 MLP 的修改合回主路',
+          plainExplanation:
+            'MLP 输出回到八维后，与 Attention 残差逐项相加。这样一个 Transformer Block 同时完成了跨 Token 的信息交换和逐 Token 的特征加工。',
+          action: {
+            traceStepId: 'step:mlp-residual',
+            selectEntityId: 'operation:residual-mlp',
+            cameraTargetId: 'operation:residual-mlp',
+            twoDTargetId: 'operation:residual-mlp',
+          },
+          deepDive: {
+            title: '深入理解：完整 Pre-Norm Block',
+            explanation:
+              '第二条残差继续保留 Attention 主路，同时叠加 MLP 学到的特征修正。最终形状仍是八维，因此可以继续堆叠下一个 Block 或进入词表投影。',
+            formula: {
+              expression: 'BlockOut = R_attn + MLP(LN(R_attn))',
+              symbols: [
+                { symbol: 'R_attn', meaning: 'Attention 子层完成后的残差主路' },
+                { symbol: 'BlockOut', meaning: '完整 Transformer Block 的输出' },
+              ],
+            },
+            tensorShape: {
+              expression: '[1, 6, 8] + [1, 6, 8] = [1, 6, 8]',
+              explanation: 'MLP 降回隐藏维度后才能与主路相加，并继续传给输出投影。',
+            },
+            pseudocode: ['block_output = attention_residual + mlp_output'],
+          },
+        },
+      ],
+    },
+    {
       id: 'chapter:output',
       title: '输出与选择',
       shortTitle: 'Output',

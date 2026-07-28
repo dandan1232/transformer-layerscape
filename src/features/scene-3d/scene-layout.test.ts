@@ -13,12 +13,15 @@ describe('三维场景布局', () => {
 
     expect(layout.tokens).toHaveLength(6)
     expect(layout.heads).toHaveLength(2)
-    expect(layout.operations).toHaveLength(7)
+    expect(layout.operations).toHaveLength(11)
     expect(layout.output.id).toBe('output-token:12')
-    expect(Object.keys(layout.byId)).toHaveLength(16)
+    expect(Object.keys(layout.byId)).toHaveLength(20)
     expect(layout.byId['operation:position-embedding'].kind).toBe('operation')
     expect(layout.byId['operation:layernorm'].kind).toBe('operation')
     expect(layout.byId['operation:attention'].kind).toBe('operation')
+    expect(layout.byId['operation:residual-attention'].kind).toBe('operation')
+    expect(layout.byId['operation:mlp'].kind).toBe('operation')
+    expect(layout.byId['operation:residual-mlp'].kind).toBe('operation')
   })
 
   it('Token 沿同一轴等距排列且 Head 围绕中心分布', () => {

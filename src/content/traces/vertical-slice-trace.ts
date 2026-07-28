@@ -58,6 +58,32 @@ function concatenateHeadOutputs(
   ).flat()
 }
 
+function projectTokenVectors(
+  values: readonly number[],
+  tokenCount: number,
+  inputSize: number,
+  outputSize: number,
+  phase: number,
+) {
+  return Array.from({ length: tokenCount }, (_, tokenIndex) =>
+    Array.from({ length: outputSize }, (_, outputIndex) => {
+      const offset = tokenIndex * inputSize
+      const projected = Array.from({ length: inputSize }, (_, inputIndex) => {
+        const weight = Math.sin((inputIndex + 1) * (outputIndex + 1) * phase) * 0.17
+        return (values[offset + inputIndex] ?? 0) * weight
+      }).reduce((sum, value) => sum + value, 0)
+      return Number(projected.toFixed(4))
+    }),
+  ).flat()
+}
+
+function gelu(values: readonly number[]) {
+  return values.map((value) => {
+    const curved = Math.sqrt(2 / Math.PI) * (value + 0.044715 * value ** 3)
+    return Number((0.5 * value * (1 + Math.tanh(curved))).toFixed(4))
+  })
+}
+
 function tensorStats(values: readonly number[]) {
   return {
     min: Math.min(...values),
@@ -122,6 +148,28 @@ const attentionOutputValues = concatenateHeadOutputs(
   tokens.length,
   4,
 )
+const attentionResidualValues = addVectors(hiddenInputValues, attentionOutputValues)
+const feedForwardNormalizedValues = layerNormalize(
+  attentionResidualValues,
+  tokens.length,
+  8,
+)
+const mlpExpandedValues = projectTokenVectors(
+  feedForwardNormalizedValues,
+  tokens.length,
+  8,
+  32,
+  0.37,
+)
+const mlpActivatedValues = gelu(mlpExpandedValues)
+const mlpOutputValues = projectTokenVectors(
+  mlpActivatedValues,
+  tokens.length,
+  32,
+  8,
+  0.19,
+)
+const blockOutputValues = addVectors(attentionResidualValues, mlpOutputValues)
 
 const probabilities = [
   0.01, 0.01, 0.02, 0.02, 0.03, 0.04, 0.05, 0.05, 0.06, 0.08, 0.1, 0.14,
@@ -205,6 +253,30 @@ export const verticalSliceTrace = {
       parentId: 'operation:attention',
       layerIndex: 0,
       headIndex: 1,
+    },
+    'operation:residual-attention': {
+      id: 'operation:residual-attention',
+      kind: 'operation',
+      label: 'Attention Residual',
+      description: '把 Attention 输出加回进入子层前的隐藏向量。',
+    },
+    'operation:mlp-layernorm': {
+      id: 'operation:mlp-layernorm',
+      kind: 'operation',
+      label: 'MLP LayerNorm',
+      description: '在进入前馈网络前稳定每个 Token 的隐藏向量。',
+    },
+    'operation:mlp': {
+      id: 'operation:mlp',
+      kind: 'operation',
+      label: 'Feed-Forward MLP',
+      description: '把八维隐藏向量扩展到三十二维、激活后再投影回八维。',
+    },
+    'operation:residual-mlp': {
+      id: 'operation:residual-mlp',
+      kind: 'operation',
+      label: 'MLP Residual',
+      description: '把 MLP 结果加回残差主路，形成 Transformer Block 输出。',
     },
     'operation:output': {
       id: 'operation:output',
@@ -329,6 +401,60 @@ export const verticalSliceTrace = {
       shape: [1, 6, 8],
       values: attentionOutputValues,
     }),
+    'tensor:attention-residual': tensor({
+      id: 'tensor:attention-residual',
+      role: 'attention-residual',
+      name: 'attention_residual',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: attentionResidualValues,
+      ...tensorStats(attentionResidualValues),
+    }),
+    'tensor:feed-forward-normalized': tensor({
+      id: 'tensor:feed-forward-normalized',
+      role: 'feed-forward-normalized',
+      name: 'mlp_normalized',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: feedForwardNormalizedValues,
+      ...tensorStats(feedForwardNormalizedValues),
+    }),
+    'tensor:mlp-expanded': tensor({
+      id: 'tensor:mlp-expanded',
+      role: 'mlp-expanded',
+      name: 'mlp_expanded',
+      dtype: 'float32',
+      shape: [1, 6, 32],
+      values: mlpExpandedValues,
+      ...tensorStats(mlpExpandedValues),
+    }),
+    'tensor:mlp-activated': tensor({
+      id: 'tensor:mlp-activated',
+      role: 'mlp-activated',
+      name: 'mlp_gelu',
+      dtype: 'float32',
+      shape: [1, 6, 32],
+      values: mlpActivatedValues,
+      ...tensorStats(mlpActivatedValues),
+    }),
+    'tensor:mlp-output': tensor({
+      id: 'tensor:mlp-output',
+      role: 'mlp-output',
+      name: 'mlp_output',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: mlpOutputValues,
+      ...tensorStats(mlpOutputValues),
+    }),
+    'tensor:block-output': tensor({
+      id: 'tensor:block-output',
+      role: 'block-output',
+      name: 'block_output',
+      dtype: 'float32',
+      shape: [1, 6, 8],
+      values: blockOutputValues,
+      ...tensorStats(blockOutputValues),
+    }),
     'tensor:logits': tensor({
       id: 'tensor:logits',
       role: 'logits',
@@ -437,13 +563,57 @@ export const verticalSliceTrace = {
       durationMs: 1200,
     },
     {
+      id: 'step:attention-residual',
+      phase: 'feed-forward',
+      operation: 'add-attention-residual',
+      title: '把 Attention 结果送回主路',
+      description: 'Attention 输出与进入子层前的隐藏向量逐项相加，保留原始信息。',
+      entityIds: ['operation:residual-attention'],
+      inputTensorIds: ['tensor:embedding', 'tensor:attention-output'],
+      outputTensorIds: ['tensor:attention-residual'],
+      durationMs: 1000,
+    },
+    {
+      id: 'step:mlp-layernorm',
+      phase: 'feed-forward',
+      operation: 'normalize-feed-forward',
+      title: '进入 MLP 前再次归一化',
+      description: '第二次 LayerNorm 位于残差相加之后、前馈网络之前。',
+      entityIds: ['operation:mlp-layernorm'],
+      inputTensorIds: ['tensor:attention-residual'],
+      outputTensorIds: ['tensor:feed-forward-normalized'],
+      durationMs: 900,
+    },
+    {
+      id: 'step:mlp',
+      phase: 'feed-forward',
+      operation: 'feed-forward',
+      title: '先扩维，再筛选信息',
+      description: 'MLP 把每个 Token 从八维扩展到三十二维，经过 GELU 后再压回八维。',
+      entityIds: ['operation:mlp'],
+      inputTensorIds: ['tensor:feed-forward-normalized'],
+      outputTensorIds: ['tensor:mlp-expanded', 'tensor:mlp-activated', 'tensor:mlp-output'],
+      durationMs: 1200,
+    },
+    {
+      id: 'step:mlp-residual',
+      phase: 'feed-forward',
+      operation: 'add-mlp-residual',
+      title: '把 MLP 结果加回主路',
+      description: '前馈结果与 Attention 残差逐项相加，得到完整 Block 输出。',
+      entityIds: ['operation:residual-mlp'],
+      inputTensorIds: ['tensor:attention-residual', 'tensor:mlp-output'],
+      outputTensorIds: ['tensor:block-output'],
+      durationMs: 1000,
+    },
+    {
       id: 'step:logits',
       phase: 'output',
       operation: 'project-logits',
       title: '生成词表分数',
       description: '最后一个位置的隐藏向量被投影为十六个候选分数。',
       entityIds: ['operation:output'],
-      inputTensorIds: ['tensor:attention-output'],
+      inputTensorIds: ['tensor:block-output'],
       outputTensorIds: ['tensor:logits'],
       durationMs: 900,
     },

@@ -52,6 +52,12 @@ const tensorRoles = new Set<TensorRole>([
   'attention-weights',
   'attention-head-output',
   'attention-output',
+  'attention-residual',
+  'feed-forward-normalized',
+  'mlp-expanded',
+  'mlp-activated',
+  'mlp-output',
+  'block-output',
   'logits',
   'probabilities',
 ])
@@ -66,6 +72,7 @@ const tracePhases = new Set<TracePhase>([
   'token',
   'embedding',
   'attention',
+  'feed-forward',
   'output',
 ])
 const traceOperations = new Set<TraceOperation>([
@@ -76,6 +83,10 @@ const traceOperations = new Set<TraceOperation>([
   'project-qkv',
   'apply-causal-mask',
   'weighted-sum',
+  'add-attention-residual',
+  'normalize-feed-forward',
+  'feed-forward',
+  'add-mlp-residual',
   'project-logits',
   'softmax',
   'sample-token',
@@ -141,6 +152,11 @@ function product(values: readonly number[]) {
 
 function approximatelyEqual(left: number, right: number) {
   return Math.abs(left - right) <= probabilityTolerance
+}
+
+function geluValue(value: number) {
+  const curved = Math.sqrt(2 / Math.PI) * (value + 0.044715 * value ** 3)
+  return 0.5 * value * (1 + Math.tanh(curved))
 }
 
 function validateMetadata(root: UnknownRecord, issues: TraceValidationIssue[]) {
@@ -619,6 +635,113 @@ function validateCoreTensorShapes(
             }
           }
         }
+      }
+    }
+  }
+
+  if (model) {
+    const hiddenShape = [1, tokenCount, model.hiddenSize].join(',')
+    const intermediateSize = model.hiddenSize * 4
+    const intermediateShape = [1, tokenCount, intermediateSize].join(',')
+    const attentionResidual = byRole.get('attention-residual')?.[0]
+    const feedForwardNormalized = byRole.get('feed-forward-normalized')?.[0]
+    const mlpExpanded = byRole.get('mlp-expanded')?.[0]
+    const mlpActivated = byRole.get('mlp-activated')?.[0]
+    const mlpOutput = byRole.get('mlp-output')?.[0]
+    const blockOutput = byRole.get('block-output')?.[0]
+
+    for (const tensor of [
+      attentionResidual,
+      feedForwardNormalized,
+      mlpOutput,
+      blockOutput,
+    ]) {
+      if (tensor && tensor.shape.join(',') !== hiddenShape) {
+        addIssue(
+          issues,
+          'INVALID_SHAPE',
+          tensor.id,
+          'Residual 与 MLP 隐藏 Tensor Shape 必须为 [1, token, hidden]。',
+        )
+      }
+    }
+    for (const tensor of [mlpExpanded, mlpActivated]) {
+      if (tensor && tensor.shape.join(',') !== intermediateShape) {
+        addIssue(
+          issues,
+          'INVALID_SHAPE',
+          tensor.id,
+          'MLP 中间 Tensor Shape 必须为 [1, token, hidden × 4]。',
+        )
+      }
+    }
+
+    const embedding = byRole.get('embedding')?.[0]
+    if (embedding && attentionOutput && attentionResidual) {
+      const residualMatches = attentionResidual.values.every((value, index) =>
+        approximatelyEqual(
+          value,
+          (embedding.values[index] ?? 0) + (attentionOutput.values[index] ?? 0),
+        ),
+      )
+      if (!residualMatches) {
+        addIssue(
+          issues,
+          'INVALID_VALUE',
+          attentionResidual.id,
+          'Attention Residual 必须等于输入隐藏向量与 Attention 输出的逐项和。',
+        )
+      }
+    }
+
+    if (feedForwardNormalized?.shape.join(',') === hiddenShape) {
+      for (let tokenIndex = 0; tokenIndex < tokenCount; tokenIndex += 1) {
+        const start = tokenIndex * model.hiddenSize
+        const sample = feedForwardNormalized.values.slice(start, start + model.hiddenSize)
+        const mean = sample.reduce((sum, value) => sum + value, 0) / sample.length
+        const variance = sample.reduce(
+          (sum, value) => sum + (value - mean) ** 2,
+          0,
+        ) / sample.length
+        if (Math.abs(mean) > 0.002 || Math.abs(variance - 1) > 0.01) {
+          addIssue(
+            issues,
+            'INVALID_VALUE',
+            `${feedForwardNormalized.id}[${tokenIndex}]`,
+            'MLP 前 LayerNorm 的每个 Token 必须接近零均值和单位方差。',
+          )
+        }
+      }
+    }
+
+    if (mlpExpanded && mlpActivated) {
+      const activationMatches = mlpActivated.values.every((value, index) =>
+        Math.abs(value - geluValue(mlpExpanded.values[index] ?? 0)) <= 1e-4,
+      )
+      if (!activationMatches) {
+        addIssue(
+          issues,
+          'INVALID_VALUE',
+          mlpActivated.id,
+          'MLP 激活 Tensor 必须等于扩维结果经过 GELU 的数值。',
+        )
+      }
+    }
+
+    if (attentionResidual && mlpOutput && blockOutput) {
+      const residualMatches = blockOutput.values.every((value, index) =>
+        approximatelyEqual(
+          value,
+          (attentionResidual.values[index] ?? 0) + (mlpOutput.values[index] ?? 0),
+        ),
+      )
+      if (!residualMatches) {
+        addIssue(
+          issues,
+          'INVALID_VALUE',
+          blockOutput.id,
+          'Block 输出必须等于 Attention Residual 与 MLP 输出的逐项和。',
+        )
       }
     }
   }

@@ -153,11 +153,37 @@ describe('二维计算视图', () => {
     expect(screen.getByText(/2 个 4 维结果拼接回 8 维隐藏向量/)).toBeVisible()
   })
 
+  it('展示两条残差、Pre-Norm 顺序与 MLP 四倍扩维', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(9)
+    render(<Trace2DPanel store={store} isActive />)
+
+    expect(screen.getByRole('heading', { name: '先扩维，再筛选信息' })).toBeVisible()
+    expect(
+      screen.getByRole('img', { name: /^Residual 与 MLP 计算路径图/ }),
+    ).toBeVisible()
+    const proof = screen.getByRole('region', { name: 'Residual 与 MLP 校验' })
+    expect(within(proof).getByText('Attention 残差')).toBeVisible()
+    expect(within(proof).getByText('Residual → LN → MLP')).toBeVisible()
+    expect(within(proof).getByText('8D → 32D → 8D')).toBeVisible()
+    expect(within(proof).getByText('Block 残差')).toBeVisible()
+    const tensors = screen.getByRole('region', { name: '当前步骤张量' })
+    expect(within(tensors).getByText('mlp_expanded')).toBeVisible()
+    expect(within(tensors).getByText('mlp_gelu')).toBeVisible()
+    expect(within(tensors).getByText('mlp_output')).toBeVisible()
+    expect(within(tensors).getAllByText('[1, 6, 32]')).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: 'RESIDUAL 02：＋' }))
+    expect(store.getState().selectedEntityId).toBe('operation:residual-mlp')
+  })
+
   it('输出视图绘制候选概率并允许选择采样结果', async () => {
     const user = userEvent.setup()
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)
-    store.getState().goToStep(8)
+    store.getState().goToStep(12)
     render(<Trace2DPanel store={store} isActive />)
 
     expect(screen.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
@@ -174,8 +200,8 @@ describe('二维计算视图', () => {
     )
     expect(store.getState().selectedEntityId).toBe('output-token:12')
 
-    await user.click(screen.getByRole('button', { name: '跳到第 10 步：选出下一个 Token' }))
-    expect(store.getState().currentStepIndex).toBe(9)
+    await user.click(screen.getByRole('button', { name: '跳到第 14 步：选出下一个 Token' }))
+    expect(store.getState().currentStepIndex).toBe(13)
     expect(screen.getByRole('heading', { name: '选出下一个 Token' })).toBeVisible()
   })
 })

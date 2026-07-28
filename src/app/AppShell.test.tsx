@@ -75,7 +75,7 @@ describe('中文学习工作台外壳', () => {
     expect(
       screen.getByRole('heading', { name: '把编号换成可以计算的向量' }),
     ).toBeVisible()
-    expect(screen.getByText('步骤 02 / 10')).toBeVisible()
+    expect(screen.getByText('步骤 02 / 14')).toBeVisible()
     expect(store.getState().selectedEntityId).toBe('operation:embedding')
 
     await user.click(screen.getByRole('button', { name: '上一项' }))
@@ -110,7 +110,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByRole('heading', { name: '把句子切成模型的词块' })).toBeVisible()
     expect(screen.getByRole('button', { name: '下一项' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '跳到Token章节' })).toBeDisabled()
-    expect(screen.getByText('课程项 1 / 10')).toBeVisible()
+    expect(screen.getByText('课程项 1 / 14')).toBeVisible()
   })
 
   it('移动视图标签支持点击和方向键切换', async () => {
@@ -200,14 +200,14 @@ describe('中文学习工作台外壳', () => {
     store.getState().setTrace(verticalSliceTrace)
     render(<AppShell store={store} />)
 
-    expect(screen.getByText('步骤 01 / 10')).toBeVisible()
+    expect(screen.getByText('步骤 01 / 14')).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toHaveTextContent(
       '把句子切成 Token',
     )
     expect(screen.getByRole('button', { name: '上一步' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '下一步' }))
-    expect(screen.getByText('步骤 02 / 10')).toBeVisible()
+    expect(screen.getByText('步骤 02 / 14')).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toHaveTextContent(
       '查找 Token 向量',
     )
@@ -216,7 +216,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByRole('button', { name: '暂停计算过程' })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: '重置' }))
-    expect(screen.getByText('步骤 01 / 10')).toBeVisible()
+    expect(screen.getByText('步骤 01 / 14')).toBeVisible()
     expect(store.getState().playback).toBe('paused')
   })
 
@@ -241,7 +241,7 @@ describe('中文学习工作台外壳', () => {
     })
     expect(scrubber).toHaveAttribute(
       'aria-valuetext',
-      '第 6 步，共 10 步：遮住未来 Token',
+      '第 6 步，共 14 步：遮住未来 Token',
     )
 
     await user.click(screen.getByRole('button', { name: '重置' }))

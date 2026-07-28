@@ -143,7 +143,7 @@ describe('Explorer Store', () => {
 
     expect(store.getState()).toMatchObject({
       currentStepIndex: 7,
-      selectedEntityId: 'operation:output',
+      selectedEntityId: 'operation:residual-attention',
       playback: 'paused',
       cameraMode: 'guided',
     })

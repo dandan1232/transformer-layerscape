@@ -79,7 +79,7 @@ describe('探索进度本地持久化', () => {
     expect(JSON.parse(storage.value ?? '{}')).toMatchObject({
       version: 1,
       currentStepIndex: 7,
-      selectedEntityId: 'operation:output',
+      selectedEntityId: 'operation:residual-attention',
     })
     controller.dispose()
   })

@@ -106,6 +106,36 @@ describe('ModelTrace 运行时校验', () => {
     expectValidationCode(trace, 'INVALID_VALUE')
   })
 
+  it('拒绝没有逐项相加的 Attention 残差', () => {
+    const trace = structuredClone(verticalSliceTrace)
+    const residual = trace.tensors['tensor:attention-residual'] as unknown as {
+      values: number[]
+    }
+    residual.values[0] += 0.25
+
+    expectValidationCode(trace, 'INVALID_VALUE')
+  })
+
+  it('拒绝与 GELU 不一致的 MLP 激活值', () => {
+    const trace = structuredClone(verticalSliceTrace)
+    const activated = trace.tensors['tensor:mlp-activated'] as unknown as {
+      values: number[]
+    }
+    activated.values[0] += 0.25
+
+    expectValidationCode(trace, 'INVALID_VALUE')
+  })
+
+  it('拒绝没有逐项相加的 Block 残差', () => {
+    const trace = structuredClone(verticalSliceTrace)
+    const output = trace.tensors['tensor:block-output'] as unknown as {
+      values: number[]
+    }
+    output.values[0] += 0.25
+
+    expectValidationCode(trace, 'INVALID_VALUE')
+  })
+
   it('拒绝概率和不等于一的输出', () => {
     const trace = structuredClone(verticalSliceTrace)
     const probabilities = trace.tensors['tensor:probabilities'] as unknown as {
@@ -359,6 +389,20 @@ describe('ModelTrace 运行时校验', () => {
       code: 'INVALID_SHAPE',
       mutate: (trace) => {
         record(record(trace.tensors)['tensor:attention-output']).shape = [1, 8, 6]
+      },
+    },
+    {
+      name: 'MLP 扩展维度非法',
+      code: 'INVALID_SHAPE',
+      mutate: (trace) => {
+        record(record(trace.tensors)['tensor:mlp-expanded']).shape = [1, 6, 16]
+      },
+    },
+    {
+      name: 'MLP 输出隐藏维度非法',
+      code: 'INVALID_SHAPE',
+      mutate: (trace) => {
+        record(record(trace.tensors)['tensor:mlp-output']).shape = [1, 8, 6]
       },
     },
     {

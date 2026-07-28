@@ -10,10 +10,10 @@ import {
 } from './lesson-navigation'
 
 describe('课程导航控制器', () => {
-  it('把三章课程展平为十个有序课程项', () => {
+  it('把四章课程展平为十四个有序课程项', () => {
     const steps = flattenLessonSteps(coreLesson)
 
-    expect(steps).toHaveLength(10)
+    expect(steps).toHaveLength(14)
     expect(steps[0].action.traceStepId).toBe('step:tokenize')
     expect(steps.at(-1)?.action.traceStepId).toBe('step:sample')
   })
@@ -25,7 +25,7 @@ describe('课程导航控制器', () => {
       chapterIndex: 1,
       stepIndex: 2,
       lessonStepIndex: 5,
-      totalLessonSteps: 10,
+      totalLessonSteps: 14,
     })
     expect(context?.chapter.id).toBe('chapter:attention')
     expect(findLessonStepContext(coreLesson, 'step:missing')).toBeNull()

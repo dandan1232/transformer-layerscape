@@ -7,13 +7,14 @@ import {
   getAttentionCells,
   getAttentionHeadRows,
   getEmbeddingSample,
+  getResidualMlpChecks,
   getTrace2DStage,
   getVectorStats,
   resolveStepTensors,
 } from './trace-2d-utils'
 
 describe('二维 Trace 数据工具', () => {
-  it('把十种算子分为六个可视阶段', () => {
+  it('把十四种算子分为七个可视阶段', () => {
     expect(getTrace2DStage('tokenize')).toBe('token')
     expect(getTrace2DStage('embed')).toBe('embedding')
     expect(getTrace2DStage('add-position-embedding')).toBe('embedding')
@@ -21,6 +22,10 @@ describe('二维 Trace 数据工具', () => {
     expect(getTrace2DStage('project-qkv')).toBe('qkv')
     expect(getTrace2DStage('apply-causal-mask')).toBe('attention')
     expect(getTrace2DStage('weighted-sum')).toBe('attention')
+    expect(getTrace2DStage('add-attention-residual')).toBe('feed-forward')
+    expect(getTrace2DStage('normalize-feed-forward')).toBe('feed-forward')
+    expect(getTrace2DStage('feed-forward')).toBe('feed-forward')
+    expect(getTrace2DStage('add-mlp-residual')).toBe('feed-forward')
     expect(getTrace2DStage('project-logits')).toBe('output')
     expect(getTrace2DStage('softmax')).toBe('output')
     expect(getTrace2DStage('sample-token')).toBe('output')
@@ -90,16 +95,32 @@ describe('二维 Trace 数据工具', () => {
     expect(getEmbeddingSample(verticalSliceTrace, 99)).toEqual([])
   })
 
+  it('验证两条残差、LayerNorm 顺序和 MLP 扩维链路', () => {
+    const checks = getResidualMlpChecks(verticalSliceTrace)
+
+    expect(checks).toEqual({
+      hiddenShape: [1, 6, 8],
+      intermediateShape: [1, 6, 32],
+      attentionResidualValid: true,
+      normalizationValid: true,
+      activationValid: true,
+      blockResidualValid: true,
+    })
+  })
+
   it('为全部 TraceStep 生成中文文字替代', () => {
     const summaries = verticalSliceTrace.steps.map((step) =>
       createStepSummary(verticalSliceTrace, step, 0),
     )
 
-    expect(summaries).toHaveLength(10)
+    expect(summaries).toHaveLength(14)
     expect(summaries.every((summary) => summary.length > 20)).toBe(true)
     expect(summaries[2]).toContain('逐项相加')
     expect(summaries[3]).toContain('零均值')
     expect(summaries[5]).toContain('因果掩码')
+    expect(summaries[7]).toContain('旁路')
+    expect(summaries[9]).toContain('32 维')
+    expect(summaries[10]).toContain('Block 输出')
     expect(summaries.at(-1)).toContain('Token ID 为 12')
   })
 })

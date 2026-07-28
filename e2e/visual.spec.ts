@@ -16,7 +16,7 @@ async function useDeterministicRendering(page: Page) {
 }
 
 async function stabilizePage(page: Page) {
-  await expect(page.getByText('步骤 01 / 10')).toBeVisible()
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
   await page.addStyleTag({
     content: `
       *, *::before, *::after {
@@ -127,6 +127,31 @@ test('移动端多头注意力对比视觉基线', async ({ page }) => {
   )
 
   await expect(page).toHaveScreenshot('m2-mobile-multi-head.png', {
+    animations: 'disabled',
+    fullPage: true,
+    maxDiffPixelRatio: 0.01,
+  })
+})
+
+test('移动端 Residual 与 MLP 视觉基线', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.goto('/')
+  await stabilizePage(page)
+  await page.getByRole('button', { name: '跳到Residual + MLP章节' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('tab', { name: '二维计算' }).click()
+  await expect(page.getByRole('img', { name: /^Residual 与 MLP 计算路径图/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Residual 与 MLP 校验' })).toContainText(
+    '8D → 32D → 8D',
+  )
+  await page.getByRole('group', { name: '可横向滚动的二维计算图' }).evaluate(
+    (figure) => {
+      figure.scrollLeft = Math.round(figure.scrollWidth / 3)
+    },
+  )
+
+  await expect(page).toHaveScreenshot('m2-mobile-residual-mlp.png', {
     animations: 'disabled',
     fullPage: true,
     maxDiffPixelRatio: 0.01,

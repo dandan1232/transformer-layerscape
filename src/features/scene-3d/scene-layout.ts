@@ -41,12 +41,16 @@ export function createSceneLayout(trace: ModelTrace): SceneLayout {
     { id: 'operation:layernorm', kind: 'operation', position: [0, -0.25, 0.5] },
     { id: 'operation:qkv', kind: 'operation', position: [-1.35, 0, 0.35] },
     { id: 'operation:attention', kind: 'operation', position: [1.35, 0, -0.35] },
-    { id: 'operation:output', kind: 'operation', position: [2.75, 0, -0.5] },
+    { id: 'operation:residual-attention', kind: 'operation', position: [2.15, 0, -0.35] },
+    { id: 'operation:mlp-layernorm', kind: 'operation', position: [2.65, 0.72, -0.05] },
+    { id: 'operation:mlp', kind: 'operation', position: [3.3, 0.72, -0.05] },
+    { id: 'operation:residual-mlp', kind: 'operation', position: [3.9, 0, -0.35] },
+    { id: 'operation:output', kind: 'operation', position: [4.45, 0, -0.5] },
   ]
   const output: SceneEntityLayout = {
     id: `output-token:${trace.output.sampledTokenId}`,
     kind: 'output-token',
-    position: [4.05, 0, -0.72],
+    position: [5.15, 0, -0.72],
   }
   const all = [...tokens, ...heads, ...operations, output]
 

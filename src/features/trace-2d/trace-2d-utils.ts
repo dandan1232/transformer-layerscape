@@ -12,6 +12,7 @@ export type Trace2DStage =
   | 'normalization'
   | 'qkv'
   | 'attention'
+  | 'feed-forward'
   | 'output'
 
 export type EmbeddingTensorRole = Extract<
@@ -46,6 +47,15 @@ export interface AttentionChecks {
   readonly concatenationValid: boolean
 }
 
+export interface ResidualMlpChecks {
+  readonly hiddenShape: readonly number[]
+  readonly intermediateShape: readonly number[]
+  readonly attentionResidualValid: boolean
+  readonly normalizationValid: boolean
+  readonly activationValid: boolean
+  readonly blockResidualValid: boolean
+}
+
 export function getTrace2DStage(operation: TraceOperation): Trace2DStage {
   if (operation === 'tokenize') return 'token'
   if (operation === 'embed' || operation === 'add-position-embedding') {
@@ -55,6 +65,14 @@ export function getTrace2DStage(operation: TraceOperation): Trace2DStage {
   if (operation === 'project-qkv') return 'qkv'
   if (operation === 'apply-causal-mask' || operation === 'weighted-sum') {
     return 'attention'
+  }
+  if (
+    operation === 'add-attention-residual' ||
+    operation === 'normalize-feed-forward' ||
+    operation === 'feed-forward' ||
+    operation === 'add-mlp-residual'
+  ) {
+    return 'feed-forward'
   }
   return 'output'
 }
@@ -194,6 +212,84 @@ export function getAttentionChecks(trace: ModelTrace): AttentionChecks {
   }
 }
 
+function geluValue(value: number) {
+  const curved = Math.sqrt(2 / Math.PI) * (value + 0.044715 * value ** 3)
+  return 0.5 * value * (1 + Math.tanh(curved))
+}
+
+export function getResidualMlpChecks(trace: ModelTrace): ResidualMlpChecks {
+  const tensorByRole = (role: TensorRole) =>
+    Object.values(trace.tensors).find((tensor) => tensor.role === role)
+  const hiddenShape = [1, trace.input.tokens.length, trace.model.hiddenSize]
+  const intermediateShape = [
+    1,
+    trace.input.tokens.length,
+    trace.model.hiddenSize * 4,
+  ]
+  const embedding = tensorByRole('embedding')
+  const attentionOutput = tensorByRole('attention-output')
+  const attentionResidual = tensorByRole('attention-residual')
+  const normalized = tensorByRole('feed-forward-normalized')
+  const expanded = tensorByRole('mlp-expanded')
+  const activated = tensorByRole('mlp-activated')
+  const mlpOutput = tensorByRole('mlp-output')
+  const blockOutput = tensorByRole('block-output')
+  const sameShape = (shape: readonly number[] | undefined, expected: readonly number[]) =>
+    shape?.join(',') === expected.join(',')
+  const attentionResidualValid = Boolean(
+    sameShape(attentionResidual?.shape, hiddenShape) &&
+      attentionResidual?.values.every(
+        (value, index) =>
+          Math.abs(
+            value -
+              ((embedding?.values[index] ?? Number.NaN) +
+                (attentionOutput?.values[index] ?? Number.NaN)),
+          ) <= 1e-4,
+      ),
+  )
+  let normalizationValid = sameShape(normalized?.shape, hiddenShape)
+  if (normalizationValid && normalized) {
+    for (let tokenIndex = 0; tokenIndex < trace.input.tokens.length; tokenIndex += 1) {
+      const start = tokenIndex * trace.model.hiddenSize
+      const values = normalized.values.slice(start, start + trace.model.hiddenSize)
+      const stats = getVectorStats(values)
+      if (Math.abs(stats.mean) > 0.002 || Math.abs(stats.variance - 1) > 0.01) {
+        normalizationValid = false
+        break
+      }
+    }
+  }
+  const activationValid = Boolean(
+    sameShape(expanded?.shape, intermediateShape) &&
+      sameShape(activated?.shape, intermediateShape) &&
+      activated?.values.every(
+        (value, index) =>
+          Math.abs(value - geluValue(expanded?.values[index] ?? Number.NaN)) <= 1e-4,
+      ),
+  )
+  const blockResidualValid = Boolean(
+    sameShape(mlpOutput?.shape, hiddenShape) &&
+      sameShape(blockOutput?.shape, hiddenShape) &&
+      blockOutput?.values.every(
+        (value, index) =>
+          Math.abs(
+            value -
+              ((attentionResidual?.values[index] ?? Number.NaN) +
+                (mlpOutput?.values[index] ?? Number.NaN)),
+          ) <= 1e-4,
+      ),
+  )
+
+  return {
+    hiddenShape,
+    intermediateShape,
+    attentionResidualValid,
+    normalizationValid,
+    activationValid,
+    blockResidualValid,
+  }
+}
+
 export function getEmbeddingSample(
   trace: ModelTrace,
   tokenIndex: number,
@@ -239,6 +335,14 @@ export function createStepSummary(
       return `正在查看 Attention Head ${selectedHeadIndex + 1}。矩阵上三角被因果掩码遮住，当前位置不能读取未来 Token。`
     case 'weighted-sum':
       return `正在查看 Attention Head ${selectedHeadIndex + 1}。各 Head 分别汇总 V，再把 ${trace.model.heads} 个 ${trace.model.hiddenSize / trace.model.heads} 维结果拼接回 ${trace.model.hiddenSize} 维隐藏向量。`
+    case 'add-attention-residual':
+      return `Attention 输出与子层输入逐项相加，形状保持 [1, ${tokenCount}, ${trace.model.hiddenSize}]；这条旁路让原始 Token 信息不必完全依赖 Attention 重建。`
+    case 'normalize-feed-forward':
+      return `第二次 LayerNorm 位于 Attention 残差之后、MLP 之前；它稳定每个 Token 的 ${trace.model.hiddenSize} 个隐藏维度，但不改变形状。`
+    case 'feed-forward':
+      return `每个 Token 独立经过同一组 MLP：${trace.model.hiddenSize} 维先扩展到 ${trace.model.hiddenSize * 4} 维，经 GELU 筛选后再压回 ${trace.model.hiddenSize} 维。`
+    case 'add-mlp-residual':
+      return `MLP 输出与 Attention 残差逐项相加，得到形状为 [1, ${tokenCount}, ${trace.model.hiddenSize}] 的完整 Transformer Block 输出。`
     case 'project-logits':
       return `最后位置被投影到 ${trace.model.vocabularySize} 个词表候选，产生尚未归一化的 Logit。`
     case 'softmax':

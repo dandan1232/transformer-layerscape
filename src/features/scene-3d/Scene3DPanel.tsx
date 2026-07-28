@@ -42,6 +42,8 @@ const palette = {
   normalized: '#8bcaa6',
   head: '#64aee0',
   headSelected: '#f6be55',
+  residual: '#f0a95b',
+  mlp: '#9d8ec9',
   output: '#6dcf9a',
   outputSelected: '#ffcf69',
   void: '#09111f',
@@ -385,6 +387,126 @@ function ConcatHub({
   )
 }
 
+function ResidualNode({
+  position,
+  index,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  index: number
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <group position={position as [number, number, number]} scale={selected ? 1.15 : 1}>
+      <mesh
+        rotation={[Math.PI / 2, 0, 0]}
+        onClick={(event) => {
+          event.stopPropagation()
+          onSelect()
+        }}
+      >
+        <torusGeometry args={[0.28, 0.09, 14, 32]} />
+        <meshStandardMaterial
+          color={palette.residual}
+          emissive={selected ? palette.residual : palette.void}
+          emissiveIntensity={selected ? 0.34 : 0.03}
+          roughness={0.32}
+          metalness={0.18}
+        />
+      </mesh>
+      <mesh scale={[0.28, 0.08, 0.08]}>
+        <boxGeometry />
+        <meshStandardMaterial color={palette.outputSelected} />
+      </mesh>
+      <mesh scale={[0.08, 0.28, 0.08]}>
+        <boxGeometry />
+        <meshStandardMaterial color={palette.outputSelected} />
+      </mesh>
+      <Html center distanceFactor={8} position={[0, -0.62, 0]} className="scene3d-label scene3d-label--residual">
+        <span aria-hidden="true">RESIDUAL {String(index).padStart(2, '0')} · ＋</span>
+      </Html>
+    </group>
+  )
+}
+
+function MlpNormNode({
+  position,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <group position={position as [number, number, number]} scale={selected ? 1.14 : 1}>
+      <mesh
+        onClick={(event) => {
+          event.stopPropagation()
+          onSelect()
+        }}
+      >
+        <cylinderGeometry args={[0.3, 0.3, 0.22, 28]} />
+        <meshStandardMaterial
+          color={palette.normalized}
+          emissive={selected ? palette.normalized : palette.void}
+          emissiveIntensity={selected ? 0.32 : 0.03}
+          roughness={0.36}
+        />
+      </mesh>
+      <Html center distanceFactor={8} position={[0, -0.58, 0]} className="scene3d-label scene3d-label--mlp-norm">
+        <span aria-hidden="true">LN · BEFORE MLP</span>
+      </Html>
+    </group>
+  )
+}
+
+function MlpTower({
+  position,
+  hiddenSize,
+  selected,
+  onSelect,
+}: {
+  position: ScenePosition
+  hiddenSize: number
+  selected: boolean
+  onSelect: () => void
+}) {
+  const slabs = [
+    { x: -0.38, height: 0.48, color: palette.head },
+    { x: 0, height: 1.18, color: palette.mlp },
+    { x: 0.38, height: 0.48, color: palette.output },
+  ]
+  return (
+    <group position={position as [number, number, number]} scale={selected ? 1.1 : 1}>
+      {slabs.map((slab, index) => (
+        <mesh
+          key={slab.x}
+          position={[slab.x, 0, 0]}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSelect()
+          }}
+        >
+          <boxGeometry args={[0.28, slab.height, 0.52]} />
+          <meshStandardMaterial
+            color={slab.color}
+            emissive={selected ? slab.color : palette.void}
+            emissiveIntensity={selected ? 0.3 : 0.03}
+            roughness={0.34}
+            metalness={index === 1 ? 0.2 : 0.08}
+          />
+        </mesh>
+      ))}
+      <Html center distanceFactor={8} position={[0, -0.86, 0]} className="scene3d-label scene3d-label--mlp">
+        <span aria-hidden="true">MLP · {hiddenSize}→{hiddenSize * 4}→{hiddenSize}</span>
+      </Html>
+    </group>
+  )
+}
+
 function OutputNode({
   position,
   token,
@@ -544,6 +666,10 @@ function SceneGraph({
   const focus = getSceneFocus(layout, selectedEntityId)
   const attentionPosition = layout.byId['operation:attention'].position
   const qkvPosition = layout.byId['operation:qkv'].position
+  const attentionResidualPosition = layout.byId['operation:residual-attention'].position
+  const mlpNormPosition = layout.byId['operation:mlp-layernorm'].position
+  const mlpPosition = layout.byId['operation:mlp'].position
+  const mlpResidualPosition = layout.byId['operation:residual-mlp'].position
   const controlsTarget = useMemo(() => new Vector3(...focus), [focus])
 
   return (
@@ -588,9 +714,35 @@ function SceneGraph({
         />
       ))}
       <Line
-        points={[attentionPosition, layout.output.position]}
-        color={selectedEntityId === 'operation:attention' ? '#f6be55' : '#8e7650'}
-        lineWidth={selectedEntityId === 'operation:attention' ? 2 : 1.3}
+        points={[attentionPosition, attentionResidualPosition]}
+        color={selectedEntityId === 'operation:residual-attention' ? '#f6be55' : '#8e7650'}
+        lineWidth={selectedEntityId === 'operation:residual-attention' ? 2 : 1.3}
+      />
+      <Line
+        points={[layout.byId['operation:position-embedding'].position, attentionResidualPosition]}
+        color={selectedEntityId === 'operation:residual-attention' ? '#f6be55' : '#6d5b43'}
+        lineWidth={selectedEntityId === 'operation:residual-attention' ? 1.8 : 0.75}
+        dashed
+        dashSize={0.18}
+        gapSize={0.12}
+      />
+      <Line
+        points={[attentionResidualPosition, mlpNormPosition, mlpPosition, mlpResidualPosition]}
+        color={selectedEntityId === 'operation:mlp' || selectedEntityId === 'operation:mlp-layernorm' ? '#f6be55' : '#6d628a'}
+        lineWidth={selectedEntityId === 'operation:mlp' || selectedEntityId === 'operation:mlp-layernorm' ? 2 : 1.05}
+      />
+      <Line
+        points={[attentionResidualPosition, mlpResidualPosition]}
+        color={selectedEntityId === 'operation:residual-mlp' ? '#f6be55' : '#8e7650'}
+        lineWidth={selectedEntityId === 'operation:residual-mlp' ? 1.8 : 0.75}
+        dashed
+        dashSize={0.18}
+        gapSize={0.12}
+      />
+      <Line
+        points={[mlpResidualPosition, layout.output.position]}
+        color={selectedEntityId === 'operation:residual-mlp' ? '#f6be55' : '#597a69'}
+        lineWidth={selectedEntityId === 'operation:residual-mlp' ? 2 : 1.3}
       />
       <TokenInstances
         trace={trace}
@@ -631,6 +783,29 @@ function SceneGraph({
         headSize={trace.model.hiddenSize / trace.model.heads}
         selected={selectedEntityId === 'operation:attention'}
         onSelect={() => store.getState().selectEntity('operation:attention')}
+      />
+      <ResidualNode
+        position={attentionResidualPosition}
+        index={1}
+        selected={selectedEntityId === 'operation:residual-attention'}
+        onSelect={() => store.getState().selectEntity('operation:residual-attention')}
+      />
+      <MlpNormNode
+        position={mlpNormPosition}
+        selected={selectedEntityId === 'operation:mlp-layernorm'}
+        onSelect={() => store.getState().selectEntity('operation:mlp-layernorm')}
+      />
+      <MlpTower
+        position={mlpPosition}
+        hiddenSize={trace.model.hiddenSize}
+        selected={selectedEntityId === 'operation:mlp'}
+        onSelect={() => store.getState().selectEntity('operation:mlp')}
+      />
+      <ResidualNode
+        position={mlpResidualPosition}
+        index={2}
+        selected={selectedEntityId === 'operation:residual-mlp'}
+        onSelect={() => store.getState().selectEntity('operation:residual-mlp')}
       />
       <OutputNode
         position={layout.output.position}
@@ -687,17 +862,26 @@ function SceneFallback({
             <text y="32" textAnchor="middle">T{index + 1}</text>
           </g>
         ))}
-        <circle className="scene3d-fallback__core" cx="530" cy="164" r="32" />
-        <text x="530" y="168" textAnchor="middle">H1 · 4D</text>
-        <circle className="scene3d-fallback__core is-second-head" cx="565" cy="222" r="32" />
-        <text x="565" y="226" textAnchor="middle">H2 · 4D</text>
-        <path className="scene3d-fallback__head-line" d="M558 174 615 190M590 214 615 196" />
-        <rect className="scene3d-fallback__concat" x="614" y="176" width="72" height="34" rx="5" />
-        <text x="650" y="197" textAnchor="middle">
-          CONCAT {trace.model.heads}×{trace.model.hiddenSize / trace.model.heads}D
+        <circle className="scene3d-fallback__core" cx="430" cy="154" r="28" />
+        <text x="430" y="158" textAnchor="middle">H1 · 4D</text>
+        <circle className="scene3d-fallback__core is-second-head" cx="462" cy="210" r="28" />
+        <text x="462" y="214" textAnchor="middle">H2 · 4D</text>
+        <path className="scene3d-fallback__head-line" d="M454 164 510 184M486 204 510 190" />
+        <rect className="scene3d-fallback__concat" x="508" y="170" width="58" height="34" rx="5" />
+        <text x="537" y="191" textAnchor="middle">CONCAT</text>
+        <path className="scene3d-fallback__block-line" d="M566 187H586M610 187H628M690 187H708" />
+        <circle className="scene3d-fallback__residual" cx="598" cy="187" r="13" />
+        <text x="598" y="192" textAnchor="middle">＋</text>
+        <path className="scene3d-fallback__bypass" d="M537 204v38h61v-42M598 200v52h122v-52" />
+        <rect className="scene3d-fallback__mlp" x="628" y="158" width="62" height="58" rx="4" />
+        <text x="659" y="181" textAnchor="middle">MLP</text>
+        <text className="is-dimension" x="659" y="200" textAnchor="middle">
+          {trace.model.hiddenSize}→{trace.model.hiddenSize * 4}→{trace.model.hiddenSize}
         </text>
-        <path className="scene3d-fallback__output-line" d="M686 182 711 130" />
-        <circle className="scene3d-fallback__output" cx="718" cy="116" r="20" />
+        <circle className="scene3d-fallback__residual" cx="720" cy="187" r="13" />
+        <text x="720" y="192" textAnchor="middle">＋</text>
+        <path className="scene3d-fallback__output-line" d="M733 187 744 144" />
+        <circle className="scene3d-fallback__output" cx="748" cy="132" r="12" />
       </svg>
       <p>{message}</p>
     </div>
@@ -925,6 +1109,41 @@ export function Scene3DPanel({
                 onClick={() => store.getState().selectEntity('operation:attention')}
               >
                 CONCAT
+              </button>
+            </div>
+            <div>
+              <span>Block</span>
+              <button
+                type="button"
+                aria-label="三维实体：Attention Residual"
+                aria-pressed={selectedEntityId === 'operation:residual-attention'}
+                onClick={() => store.getState().selectEntity('operation:residual-attention')}
+              >
+                RES 1
+              </button>
+              <button
+                type="button"
+                aria-label="三维实体：MLP LayerNorm"
+                aria-pressed={selectedEntityId === 'operation:mlp-layernorm'}
+                onClick={() => store.getState().selectEntity('operation:mlp-layernorm')}
+              >
+                LN 2
+              </button>
+              <button
+                type="button"
+                aria-label="三维实体：Feed-Forward MLP"
+                aria-pressed={selectedEntityId === 'operation:mlp'}
+                onClick={() => store.getState().selectEntity('operation:mlp')}
+              >
+                MLP
+              </button>
+              <button
+                type="button"
+                aria-label="三维实体：MLP Residual"
+                aria-pressed={selectedEntityId === 'operation:residual-mlp'}
+                onClick={() => store.getState().selectEntity('operation:residual-mlp')}
+              >
+                RES 2
               </button>
             </div>
             <div>

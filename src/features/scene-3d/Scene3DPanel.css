@@ -62,6 +62,22 @@
   letter-spacing: 0.1em;
 }
 
+.scene3d-label--residual {
+  color: oklch(82% 0.13 68);
+  font-weight: 800;
+}
+
+.scene3d-label--mlp-norm {
+  color: oklch(82% 0.1 155);
+  font-weight: 800;
+}
+
+.scene3d-label--mlp {
+  color: oklch(78% 0.11 305);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
 .scene3d-overlay {
   position: absolute;
   inset: var(--space-4);
@@ -207,6 +223,36 @@
   fill: none;
   stroke: var(--k-color);
   stroke-width: 2;
+}
+
+.scene3d-fallback__block-line {
+  fill: none;
+  stroke: var(--starlight-400);
+  stroke-width: 2;
+}
+
+.scene3d-fallback__bypass {
+  fill: none;
+  stroke: var(--amber-300);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.scene3d-fallback__residual {
+  fill: oklch(74% 0.15 68 / 0.24) !important;
+  stroke: var(--amber-400) !important;
+  stroke-width: 2 !important;
+}
+
+.scene3d-fallback__mlp {
+  fill: oklch(65% 0.1 305 / 0.22);
+  stroke: oklch(76% 0.1 305);
+  stroke-width: 2;
+}
+
+.scene3d-fallback .is-dimension {
+  fill: var(--starlight-400);
+  font-size: 8px;
 }
 
 .scene3d-fallback__concat {

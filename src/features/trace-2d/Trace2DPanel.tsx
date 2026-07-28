@@ -1,7 +1,7 @@
 import { format, max, scaleBand, scaleLinear } from 'd3'
 import { type KeyboardEvent, useState } from 'react'
 import { useStore } from 'zustand'
-import type { ModelTrace, TensorSummary } from '../../domain/trace/trace'
+import type { ModelTrace, TensorSummary, TraceOperation } from '../../domain/trace/trace'
 import { selectCurrentStep } from '../../store/explorer-selectors'
 import type { ExplorerStoreApi } from '../../store/explorer-store'
 import {
@@ -11,6 +11,7 @@ import {
   getAttentionCells,
   getAttentionHeadRows,
   getEmbeddingSample,
+  getResidualMlpChecks,
   getTrace2DStage,
   getVectorStats,
   resolveStepTensors,
@@ -500,6 +501,149 @@ function AttentionProof({ trace }: { trace: ModelTrace }) {
   )
 }
 
+function ResidualMLPDiagram({
+  trace,
+  operation,
+  onSelectOperation,
+}: {
+  trace: ModelTrace
+  operation: TraceOperation
+  onSelectOperation: (entityId: string) => void
+}) {
+  const hiddenSize = trace.model.hiddenSize
+  const intermediateSize = hiddenSize * 4
+  const nodes = [
+    {
+      operation: 'add-attention-residual',
+      entityId: 'operation:residual-attention',
+      x: 142,
+      label: '＋',
+      detail: 'RESIDUAL 01',
+    },
+    {
+      operation: 'normalize-feed-forward',
+      entityId: 'operation:mlp-layernorm',
+      x: 262,
+      label: 'LN',
+      detail: 'PRE-NORM',
+    },
+    {
+      operation: 'feed-forward',
+      entityId: 'operation:mlp',
+      x: 450,
+      label: 'MLP',
+      detail: `${hiddenSize} → ${intermediateSize} → ${hiddenSize}`,
+    },
+    {
+      operation: 'add-mlp-residual',
+      entityId: 'operation:residual-mlp',
+      x: 650,
+      label: '＋',
+      detail: 'RESIDUAL 02',
+    },
+  ] as const
+
+  return (
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="residual-mlp-title residual-mlp-desc">
+      <title id="residual-mlp-title">Residual 与 MLP 计算路径图</title>
+      <desc id="residual-mlp-desc">
+        Attention 输出先与原始隐藏向量相加，再经过 LayerNorm、八维到三十二维再回八维的 MLP，最后与残差主路相加。
+      </desc>
+      <path className="trace2d-block-flow" d="M52 174H690" />
+      <path className="trace2d-residual-bypass" d="M52 76H142V142" />
+      <path className="trace2d-residual-bypass" d="M142 206V286H650V206" />
+      <text className="trace2d-svg__axis-title" x="52" y="44">TRANSFORMER BLOCK · PRE-NORM</text>
+      <text className="trace2d-svg__small" x="52" y="70">X · [1, {trace.input.tokens.length}, {hiddenSize}]</text>
+      <text className="trace2d-svg__small" x="52" y="164">ATTENTION · {hiddenSize}D</text>
+      <text className="trace2d-svg__small" x="350" y="310">残差主路保持 {hiddenSize}D</text>
+      <text className="trace2d-svg__small" x="594" y="164">MLP OUT · {hiddenSize}D</text>
+      <text className="trace2d-svg__small" x="640" y="338">BLOCK OUT · [1, {trace.input.tokens.length}, {hiddenSize}]</text>
+
+      {nodes.map((node) => {
+        const active = operation === node.operation
+        const isMlp = node.operation === 'feed-forward'
+        return (
+          <g
+            key={node.operation}
+            className={`trace2d-block-node${active ? ' is-active' : ''}${isMlp ? ' is-mlp' : ''}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`${node.detail}：${node.label}`}
+            onClick={() => onSelectOperation(node.entityId)}
+            onKeyDown={(event) =>
+              activateWithKeyboard(event, () => onSelectOperation(node.entityId))
+            }
+          >
+            {isMlp ? (
+              <>
+                <path d={`M${node.x - 74} 136H${node.x + 74}L${node.x + 50} 212H${node.x - 50}Z`} />
+                <line x1={node.x - 25} x2={node.x - 25} y1="148" y2="200" />
+                <line x1={node.x + 25} x2={node.x + 25} y1="148" y2="200" />
+                <text x={node.x} y="179" textAnchor="middle">{node.label}</text>
+                <text className="trace2d-svg__small" x={node.x} y="232" textAnchor="middle">{node.detail}</text>
+                <text className="trace2d-svg__micro" x={node.x - 50} y="126">UP</text>
+                <text className="trace2d-svg__micro" x={node.x} y="126" textAnchor="middle">GELU</text>
+                <text className="trace2d-svg__micro" x={node.x + 50} y="126" textAnchor="end">DOWN</text>
+              </>
+            ) : (
+              <>
+                <circle cx={node.x} cy="174" r="32" />
+                <text x={node.x} y="182" textAnchor="middle">{node.label}</text>
+                <text className="trace2d-svg__small" x={node.x} y="232" textAnchor="middle">{node.detail}</text>
+              </>
+            )}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+function ResidualMLPProof({ trace }: { trace: ModelTrace }) {
+  const checks = getResidualMlpChecks(trace)
+  const cards = [
+    {
+      label: 'Attention 残差',
+      code: `[${checks.hiddenShape.join(', ')}]`,
+      detail: 'X + Attention，形状不变',
+      valid: checks.attentionResidualValid,
+    },
+    {
+      label: 'LayerNorm 顺序',
+      code: 'Residual → LN → MLP',
+      detail: 'Pre-Norm 前馈子层',
+      valid: checks.normalizationValid,
+    },
+    {
+      label: 'MLP 扩维',
+      code: `${trace.model.hiddenSize}D → ${trace.model.hiddenSize * 4}D → ${trace.model.hiddenSize}D`,
+      detail: 'Linear → GELU → Linear',
+      valid: checks.activationValid,
+    },
+    {
+      label: 'Block 残差',
+      code: `[${checks.hiddenShape.join(', ')}]`,
+      detail: 'Residual + MLP，形状不变',
+      valid: checks.blockResidualValid,
+    },
+  ]
+
+  return (
+    <section className="trace2d-block-proof" aria-label="Residual 与 MLP 校验">
+      {cards.map((card) => (
+        <article key={card.label} data-valid={card.valid}>
+          <span aria-hidden="true">{card.valid ? '✓' : '!'}</span>
+          <div>
+            <strong>{card.label}</strong>
+            <code>{card.code}</code>
+            <small>{card.detail}</small>
+          </div>
+        </article>
+      ))}
+    </section>
+  )
+}
+
 function OutputDiagram({
   trace,
   selectedEntityId,
@@ -692,6 +836,13 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
             onSelectToken={(index) => store.getState().selectToken(index)}
           />
         )}
+        {stage === 'feed-forward' && (
+          <ResidualMLPDiagram
+            trace={trace}
+            operation={currentStep.operation}
+            onSelectOperation={(entityId) => store.getState().selectEntity(entityId)}
+          />
+        )}
         {stage === 'output' && (
           <OutputDiagram
             trace={trace}
@@ -706,6 +857,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
       </div>
 
       {stage === 'attention' && <AttentionProof trace={trace} />}
+      {stage === 'feed-forward' && <ResidualMLPProof trace={trace} />}
 
       <p className="calculation-summary trace2d-summary" aria-live="polite">
         <strong>当前观察：</strong>{summary}

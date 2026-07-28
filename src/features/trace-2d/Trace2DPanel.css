@@ -436,6 +436,130 @@
   font-size: 0.5625rem;
 }
 
+.trace2d-block-flow {
+  fill: none;
+  stroke: var(--ink-400);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.trace2d-residual-bypass {
+  fill: none;
+  stroke: var(--amber-500);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+.trace2d-block-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.trace2d-block-node circle,
+.trace2d-block-node > path {
+  fill: var(--paper-50);
+  stroke: var(--ink-400);
+  stroke-width: 2;
+  transition:
+    fill 160ms ease,
+    stroke 160ms ease;
+}
+
+.trace2d-block-node > line {
+  stroke: var(--ink-400);
+  stroke-width: 1;
+}
+
+.trace2d-block-node > text:not(.trace2d-svg__small, .trace2d-svg__micro) {
+  fill: var(--ink-900);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.trace2d-block-node.is-active circle,
+.trace2d-block-node.is-active > path,
+.trace2d-block-node:focus-visible circle,
+.trace2d-block-node:focus-visible > path {
+  fill: var(--amber-300);
+  stroke: var(--amber-ink);
+  stroke-width: 3;
+}
+
+.trace2d-block-node.is-mlp.is-active > path {
+  fill: color-mix(in oklch, var(--v-color) 30%, var(--paper-50));
+  stroke: var(--ink-700);
+}
+
+.trace2d-block-node .trace2d-svg__micro {
+  fill: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.trace2d-block-proof {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--border-light);
+  border-block: 1px solid var(--border-light);
+  gap: 1px;
+}
+
+.trace2d-block-proof article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--paper-50);
+}
+
+.trace2d-block-proof article > span {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  color: var(--void-950);
+  background: var(--v-color);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 900;
+}
+
+.trace2d-block-proof article[data-valid='false'] > span {
+  color: var(--paper-50);
+  background: var(--q-color);
+}
+
+.trace2d-block-proof article > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.trace2d-block-proof strong,
+.trace2d-block-proof code,
+.trace2d-block-proof small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace2d-block-proof strong {
+  color: var(--ink-900);
+  font-size: var(--text-xs);
+}
+
+.trace2d-block-proof code,
+.trace2d-block-proof small {
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+}
+
 .trace2d-candidate__track {
   fill: var(--paper-200);
 }
@@ -565,6 +689,7 @@
   .trace2d-step-strip,
   .trace2d-head-switch,
   .trace2d-attention-proof,
+  .trace2d-block-proof,
   .trace2d-scroll-hint,
   .trace2d-figure,
   .trace2d-summary,
@@ -601,6 +726,10 @@
   }
 
   .trace2d-attention-proof {
+    grid-template-columns: 1fr;
+  }
+
+  .trace2d-block-proof {
     grid-template-columns: 1fr;
   }
 

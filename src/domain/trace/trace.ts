@@ -11,7 +11,7 @@ export type TraceEntityKind =
   | 'attention-head'
   | 'output-token'
 
-export type TracePhase = 'token' | 'embedding' | 'attention' | 'output'
+export type TracePhase = 'token' | 'embedding' | 'attention' | 'feed-forward' | 'output'
 
 export type TraceOperation =
   | 'tokenize'
@@ -21,6 +21,10 @@ export type TraceOperation =
   | 'project-qkv'
   | 'apply-causal-mask'
   | 'weighted-sum'
+  | 'add-attention-residual'
+  | 'normalize-feed-forward'
+  | 'feed-forward'
+  | 'add-mlp-residual'
   | 'project-logits'
   | 'softmax'
   | 'sample-token'
@@ -38,6 +42,12 @@ export type TensorRole =
   | 'attention-weights'
   | 'attention-head-output'
   | 'attention-output'
+  | 'attention-residual'
+  | 'feed-forward-normalized'
+  | 'mlp-expanded'
+  | 'mlp-activated'
+  | 'mlp-output'
+  | 'block-output'
   | 'logits'
   | 'probabilities'
 
