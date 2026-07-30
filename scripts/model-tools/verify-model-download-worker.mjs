@@ -160,73 +160,81 @@ export async function main() {
       throw new Error(`Worker unexpectedly fetched ${networkModelRequests.length} model resources from the network`)
     }
 
-    await page.reload()
-    const traceProbe = await page.evaluate(async () => {
-      const [{ createModelWorkerClient }, { OnnxTraceAdapter }, { DISTILGPT2_RESOURCE_MANIFEST }] =
-        await Promise.all([
-          import('/src/platform/model-runtime/create-model-worker-client.ts'),
-          import('/src/adapters/onnx/onnx-trace-adapter.ts'),
-          import('/src/platform/model-runtime/model-resources.ts'),
-        ])
-      const client = createModelWorkerClient()
-      try {
-        await client.loadModel({
-          resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
-          preferredExecutionProviders: ['wasm'],
-        })
-        const adapter = new OnnxTraceAdapter(client, {
-          text: 'The sky is blue',
-          selectedLayerIndex: 5,
-          sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
-        })
-        let trace
-        const traceStartedAt = performance.now()
-        try {
-          trace = await adapter.load()
-        } catch (error) {
-          throw new Error(JSON.stringify({
-            message: error instanceof Error ? error.message : String(error),
-            issues: error?.issues,
-          }))
+    const experimentInput = page.getByRole('textbox', { name: /英文输入/ })
+    await experimentInput.fill(
+      'one two three four five six seven eight nine ten eleven twelve thirteen fourteen',
+    )
+    await page.getByRole('button', { name: '生成真实轨迹' }).click()
+    const tokenLimitAlert = page.getByRole('alert')
+    await tokenLimitAlert.waitFor({ timeout: 30_000 })
+    const tokenLimitMessage = await tokenLimitAlert.textContent()
+    if (!tokenLimitMessage?.includes('最多支持 12 个')) {
+      throw new Error(`Unexpected token limit message: ${tokenLimitMessage}`)
+    }
+
+    await experimentInput.fill('The sky is blue')
+    await page.getByRole('combobox', { name: '观察 Layer' }).selectOption('5')
+    const traceStartedAt = performance.now()
+    await page.getByRole('button', { name: '生成真实轨迹' }).click()
+    await page.locator('.real-model-modal').waitFor({ state: 'hidden', timeout: 120_000 })
+    const traceMilliseconds = performance.now() - traceStartedAt
+
+    const readTraceProbe = () => page.evaluate(async () => {
+      const { explorerStore } = await import('/src/store/explorer-store.ts')
+      const trace = explorerStore.getState().trace
+      if (!trace) throw new Error('Explorer Store did not receive a trace')
+      const tensorByRole = (role) =>
+        Object.values(trace.tensors).find((tensor) => tensor.role === role)
+      const blockInput = tensorByRole('block-input')
+      const embedding = tensorByRole('embedding')
+      const probabilities = tensorByRole('probabilities')
+      const attentionWeights = tensorByRole('attention-weights')
+      const tokenCount = trace.input.tokens.length
+      const rowSums = []
+      for (let head = 0; head < trace.model.heads; head += 1) {
+        for (let row = 0; row < tokenCount; row += 1) {
+          const offset = (head * tokenCount + row) * tokenCount
+          rowSums.push(attentionWeights.values
+            .slice(offset, offset + tokenCount)
+            .reduce((total, value) => total + value, 0))
         }
-        const tensorByRole = (role) =>
-          Object.values(trace.tensors).find((tensor) => tensor.role === role)
-        const blockInput = tensorByRole('block-input')
-        const embedding = tensorByRole('embedding')
-        const probabilities = tensorByRole('probabilities')
-        const attentionWeights = tensorByRole('attention-weights')
-        const tokenCount = trace.input.tokens.length
-        const rowSums = []
-        for (let head = 0; head < trace.model.heads; head += 1) {
-          for (let row = 0; row < tokenCount; row += 1) {
-            const offset = (head * tokenCount + row) * tokenCount
-            rowSums.push(attentionWeights.values
-              .slice(offset, offset + tokenCount)
-              .reduce((total, value) => total + value, 0))
-          }
-        }
-        return {
-          schemaVersion: trace.schemaVersion,
-          source: trace.source,
-          model: trace.model,
-          tokenIds: trace.input.tokenIds,
-          tokens: trace.input.tokens,
-          tensorCount: Object.keys(trace.tensors).length,
-          candidateCount: trace.output.candidates.length,
-          sampledTokenId: trace.output.sampledTokenId,
-          sampledToken: trace.output.sampledToken,
-          traceMilliseconds: performance.now() - traceStartedAt,
-          probabilitySum: probabilities.values.reduce((total, value) => total + value, 0),
-          maximumAttentionRowError: Math.max(...rowSums.map((sum) => Math.abs(1 - sum))),
-          selectedLayerInputDiffersFromEmbedding: blockInput.values.some(
-            (value, index) => Math.abs(value - embedding.values[index]) > 1e-5,
-          ),
-        }
-      } finally {
-        await client.disposeModel().catch(() => undefined)
-        client.terminate()
+      }
+      return {
+        schemaVersion: trace.schemaVersion,
+        source: trace.source,
+        model: trace.model,
+        tokenIds: trace.input.tokenIds,
+        tokens: trace.input.tokens,
+        tensorCount: Object.keys(trace.tensors).length,
+        candidateCount: trace.output.candidates.length,
+        sampledTokenId: trace.output.sampledTokenId,
+        sampledToken: trace.output.sampledToken,
+        probabilitySum: probabilities.values.reduce((total, value) => total + value, 0),
+        maximumAttentionRowError: Math.max(...rowSums.map((sum) => Math.abs(1 - sum))),
+        selectedLayerInputDiffersFromEmbedding: blockInput.values.some(
+          (value, index) => Math.abs(value - embedding.values[index]) > 1e-5,
+        ),
       }
     })
+    const firstTraceProbe = await readTraceProbe()
+
+    await page.getByRole('button', { name: '真实模型已就绪' }).click()
+    await page.getByRole('button', { name: '生成真实轨迹' }).click()
+    await page.locator('.real-model-modal').waitFor({ state: 'hidden', timeout: 120_000 })
+    const secondTraceProbe = await readTraceProbe()
+    const traceProbe = {
+      ...firstTraceProbe,
+      traceMilliseconds: Number(traceMilliseconds.toFixed(1)),
+      tokenLimitMessage,
+      deterministicSeed:
+        firstTraceProbe.sampledTokenId === secondTraceProbe.sampledTokenId &&
+        firstTraceProbe.sampledToken === secondTraceProbe.sampledToken,
+    }
+    if (!traceProbe.deterministicSeed) throw new Error('Identical Seed did not reproduce sampling')
+
+    await page.getByRole('button', { name: '真实模型已就绪' }).click()
+    await page.getByRole('button', { name: '恢复预置案例' }).click()
+    await page.locator('.source-badge').filter({ hasText: '预置案例已就绪' }).waitFor()
     if (traceProbe.source !== 'onnx' || traceProbe.tensorCount !== 22) {
       throw new Error(`Unexpected ONNX trace summary ${JSON.stringify(traceProbe)}`)
     }

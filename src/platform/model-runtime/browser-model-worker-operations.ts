@@ -266,6 +266,17 @@ export function createBrowserModelWorkerOperations(
       try {
         abortIfNeeded(context.signal)
         const tokenized = tokenizer.tokenize(payload.text)
+        if (tokenized.tokenIds.length === 0) {
+          throw new ModelWorkerOperationError(
+            'INPUT_VALIDATION_FAILED', '输入没有产生可推理的 Token，请输入英文文本。',
+          )
+        }
+        if (tokenized.tokenIds.length > 12) {
+          throw new ModelWorkerOperationError(
+            'INPUT_VALIDATION_FAILED',
+            `输入被分为 ${tokenized.tokenIds.length} 个 Token，真实模型最多支持 12 个。`,
+          )
+        }
         const startedAt = performance.now()
         const outputs = await session.run(tokenized.tokenIds)
         abortIfNeeded(context.signal)

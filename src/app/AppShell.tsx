@@ -526,6 +526,7 @@ export function AppShell({
   const learningMode = useStore(store, (state) => state.mode)
   const mobileView = useStore(store, (state) => state.view)
   const traceStatus = useStore(store, (state) => state.traceStatus)
+  const traceSource = useStore(store, (state) => state.trace?.source)
   const traceError = useStore(store, (state) => state.traceError)
   const traceRequestId = useStore(store, (state) => state.traceRequestId)
   const capabilities = useDeviceCapabilities()
@@ -607,7 +608,9 @@ export function AppShell({
 
         <div className="topbar__status">
           <span className="source-badge" data-status={traceStatus}>
-            <span aria-hidden="true" /> {traceStatusLabels[traceStatus]}
+            <span aria-hidden="true" /> {traceStatus === 'ready' && traceSource === 'onnx'
+              ? '真实模型已就绪'
+              : traceStatusLabels[traceStatus]}
           </span>
           <span
             className="capability-badge"
@@ -620,7 +623,7 @@ export function AppShell({
         </div>
 
         <div className="topbar__tools">
-          <RealModelDownload />
+          <RealModelDownload store={store} />
           <button type="button" disabled aria-label="打开帮助" title="帮助中心即将开放">
             <CircleHelp size={19} aria-hidden="true" />
           </button>

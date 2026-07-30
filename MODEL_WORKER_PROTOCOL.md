@@ -26,7 +26,7 @@ WP-32 建立 `MODEL_WORKER_PROTOCOL_VERSION = 1` 的主线程与模型 Worker �
 | 主线程 → Worker | `dispose-model` | 释放 Session 与模型资源 |
 | Worker → 主线程 | `worker-error` | 稳定错误码、中文消息、可重试标记和可选细节 |
 
-运行时校验拒绝空请求 ID、未知版本/类型、非法执行提供器、非有限采样参数、负进度、超出总量的已下载字节和未知错误码。
+运行时校验拒绝空请求 ID、未知版本/类型、非法执行提供器、非有限采样参数、负进度、超出总量的已下载字节和未知错误码。WP-35 增加 `INPUT_VALIDATION_FAILED`，用于在 ONNX 执行前返回空输入、超过 12 Token 等可修正的输入问题。
 
 ## 张量所有权
 

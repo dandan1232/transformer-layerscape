@@ -96,4 +96,18 @@ describe('DistilGPT-2 inference payload', () => {
       inferenceMilliseconds: 1, model,
     })).toThrow('真实模型缺少输出 trace.layer.1.attentionWeights')
   })
+
+  it('reproduces the sampled token for identical parameters and Seed', () => {
+    const options = {
+      text: 'Hello world', tokenized: tokenizer.tokenize('Hello world'), tokenizer,
+      selectedLayerIndex: 1,
+      sampling: { temperature: 1.3, topK: 4, topP: 0.8, seed: 91 },
+      inferenceMilliseconds: 1, model,
+    }
+    const first = createDistilgpt2InferencePayload({ ...options, outputs: outputs() })
+    const second = createDistilgpt2InferencePayload({ ...options, outputs: outputs() })
+
+    expect(second.output.sampledTokenId).toBe(first.output.sampledTokenId)
+    expect(second.output.sampledToken).toBe(first.output.sampledToken)
+  })
 })

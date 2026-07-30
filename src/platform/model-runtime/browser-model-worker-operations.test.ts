@@ -138,4 +138,33 @@ describe('browser model Worker operations', () => {
     await operations.disposeModel(context())
     expect(release).toHaveBeenCalledOnce()
   })
+
+  it('rejects more than 12 exact tokenizer tokens before ONNX inference', async () => {
+    const run = vi.fn(async () => ({}))
+    const operations = createBrowserModelWorkerOperations(dependencies({
+      createSession: vi.fn(async () => ({
+        run,
+        release: vi.fn(async () => undefined),
+      })),
+      createTokenizer: vi.fn(async () => ({
+        tokenize: () => ({
+          tokenIds: Array.from({ length: 13 }, (_, index) => index),
+          tokens: Array.from({ length: 13 }, (_, index) => `T${index}`),
+        }),
+        decodeToken: (tokenId: number) => `T${tokenId}`,
+      })),
+    }))
+    await operations.loadModel({
+      resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
+      preferredExecutionProviders: ['wasm'],
+    }, context())
+
+    await expect(operations.runInference({
+      text: 'too many tokens', selectedLayerIndex: 0,
+      sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+    }, context())).rejects.toMatchObject({
+      code: 'INPUT_VALIDATION_FAILED', retryable: false,
+    })
+    expect(run).not.toHaveBeenCalled()
+  })
 })

@@ -19,7 +19,7 @@
 }
 
 .real-model-dialog {
-  width: min(100%, 34rem);
+  width: min(100%, 42rem);
   display: grid;
   gap: var(--space-5);
   padding: clamp(var(--space-5), 5vw, var(--space-8));
@@ -120,10 +120,81 @@
   padding-inline: var(--space-5);
 }
 
+.real-model-experiment {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.real-model-experiment label {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--starlight-300);
+  font-size: var(--text-xs);
+}
+
+.real-model-experiment textarea,
+.real-model-experiment input,
+.real-model-experiment select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  color: var(--starlight-100);
+  background: color-mix(in oklch, var(--void-950) 72%, transparent);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.real-model-experiment textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.real-model-experiment textarea:focus-visible,
+.real-model-experiment input:focus-visible,
+.real-model-experiment select:focus-visible {
+  outline: 2px solid var(--amber-300);
+  outline-offset: 2px;
+}
+
+.real-model-experiment [aria-invalid='true'] {
+  border-color: var(--rose-400, oklch(67% 0.2 25));
+}
+
+.real-model-experiment small,
+.real-model-experiment__error {
+  color: var(--starlight-500);
+  font-size: var(--text-xs);
+}
+
+.real-model-experiment__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.real-model-experiment__error {
+  padding: var(--space-3);
+  color: var(--starlight-100) !important;
+  background: color-mix(in oklch, var(--rose-400, oklch(67% 0.2 25)) 12%, transparent);
+  border: 1px solid color-mix(in oklch, var(--rose-400, oklch(67% 0.2 25)) 55%, transparent);
+  border-radius: var(--radius-sm);
+}
+
 @keyframes real-model-spin {
   to { transform: rotate(1turn); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .real-model-trigger__spinner { animation: none; }
+}
+
+@media (max-width: 42rem) {
+  .real-model-experiment__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .real-model-dialog__actions {
+    flex-wrap: wrap;
+  }
 }

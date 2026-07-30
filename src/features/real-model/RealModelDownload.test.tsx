@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { verticalSliceTrace } from '../../content/traces/vertical-slice-trace'
+import { createExplorerStore } from '../../store/explorer-store'
 import {
   RealModelDownload,
   type RealModelDownloadClient,
@@ -18,8 +20,11 @@ function deferred<T>() {
 
 function client(
   loadModel: RealModelDownloadClient['loadModel'],
+  runInference: RealModelDownloadClient['runInference'] = vi.fn(async () => {
+    throw new Error('测试未配置真实推理。')
+  }),
 ): RealModelDownloadClient {
-  return { loadModel, terminate: vi.fn() }
+  return { loadModel, runInference, terminate: vi.fn() }
 }
 
 describe('real model download consent', () => {
@@ -98,5 +103,52 @@ describe('real model download consent', () => {
     await user.click(screen.getByRole('button', { name: '确认并下载' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('网络连接中断')
     expect(screen.getByRole('button', { name: /重试下载/ })).toBeVisible()
+  })
+
+  it('validates parameters, publishes a real trace and restores the preset trace', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    const loadModel = vi.fn(async () => ({
+      modelId: 'distilgpt2', executionProvider: 'wasm' as const, cacheHit: true,
+    }))
+    const realTrace = { ...verticalSliceTrace, source: 'onnx' as const }
+    const loadTrace = vi.fn(async () => realTrace)
+    const createTraceAdapter = vi.fn(() => ({ load: loadTrace }))
+    render(
+      <RealModelDownload
+        store={store}
+        createClient={() => client(loadModel)}
+        createTraceAdapter={createTraceAdapter}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    await user.click(screen.getByRole('button', { name: '确认并下载' }))
+    expect(await screen.findByRole('textbox', { name: /英文输入/ })).toHaveValue('The sky is blue')
+
+    const temperature = screen.getByLabelText('Temperature')
+    await user.clear(temperature)
+    await user.type(temperature, '3')
+    await user.click(screen.getByRole('button', { name: '生成真实轨迹' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Temperature 必须位于 0.2 到 2')
+    expect(createTraceAdapter).not.toHaveBeenCalled()
+
+    await user.clear(temperature)
+    await user.type(temperature, '1')
+    await user.click(screen.getByRole('button', { name: '生成真实轨迹' }))
+    await vi.waitFor(() => expect(store.getState().trace?.source).toBe('onnx'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(createTraceAdapter).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        text: 'The sky is blue', selectedLayerIndex: 5,
+        sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: '真实模型已就绪' }))
+    await user.click(screen.getByRole('button', { name: '恢复预置案例' }))
+    expect(store.getState().trace?.source).toBe('preset')
   })
 })

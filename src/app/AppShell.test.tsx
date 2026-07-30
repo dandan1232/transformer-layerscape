@@ -12,6 +12,17 @@ function renderAppShell({ withTrace = false } = {}) {
 }
 
 describe('中文学习工作台外壳', () => {
+  it('在 Store 切换真实 Trace 后更新来源徽标', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    const view = render(<AppShell store={store} />)
+    expect(screen.getByText('预置案例已就绪')).toBeInTheDocument()
+
+    store.getState().setTrace({ ...verticalSliceTrace, source: 'onnx' })
+    view.rerender(<AppShell store={store} />)
+    expect(screen.getByText('真实模型已就绪')).toBeInTheDocument()
+  })
+
   it('提供课程、二维计算、三维空间和时间轴语义区域', async () => {
     const user = userEvent.setup()
     renderAppShell({ withTrace: true })
