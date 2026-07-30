@@ -20,7 +20,10 @@ import {
 } from './model-worker-runtime'
 
 interface RuntimeSession {
-  run(tokenIds: readonly number[]): Promise<Readonly<Record<string, RuntimeInferenceTensor>>>
+  run(
+    tokenIds: readonly number[],
+    selectedLayerIndex: number,
+  ): Promise<Readonly<Record<string, RuntimeInferenceTensor>>>
   release(): Promise<void>
 }
 
@@ -47,7 +50,7 @@ async function createWasmSession(model: ArrayBuffer): Promise<RuntimeSession> {
     graphOptimizationLevel: 'all',
   })
   return {
-    async run(tokenIds) {
+    async run(tokenIds, selectedLayerIndex) {
       const sequenceLength = tokenIds.length
       const feeds: Record<string, OrtTensor> = {
         input_ids: new ort.Tensor(
@@ -67,7 +70,10 @@ async function createWasmSession(model: ArrayBuffer): Promise<RuntimeSession> {
           )
         }
       }
-      const result = await session.run(feeds)
+      const result = await session.run(
+        feeds,
+        requiredDistilgpt2OutputNames(selectedLayerIndex),
+      )
       return result
     },
     release: () => session.release(),
@@ -85,16 +91,11 @@ async function createBrowserTokenizer(
   const tokenizerConfig = JSON.parse(decoder.decode(configBytes)) as object
   const { Tokenizer } = await import('@huggingface/tokenizers')
   const tokenizer = new Tokenizer(tokenizerJson, tokenizerConfig)
-  const decodedTokens = new Map<number, string>()
   const decodeToken = (tokenId: number) => {
-    const cached = decodedTokens.get(tokenId)
-    if (cached !== undefined) return cached
-    const decoded = tokenizer.decode([tokenId], {
+    return tokenizer.decode([tokenId], {
       skip_special_tokens: false,
       clean_up_tokenization_spaces: false,
     })
-    decodedTokens.set(tokenId, decoded)
-    return decoded
   }
 
   return {
@@ -107,6 +108,36 @@ async function createBrowserTokenizer(
     },
     decodeToken,
   }
+}
+
+export function requiredDistilgpt2OutputNames(selectedLayerIndex: number) {
+  if (!Number.isInteger(selectedLayerIndex) || selectedLayerIndex < 0 || selectedLayerIndex >= 6) {
+    throw new Error(`Layer ${selectedLayerIndex} 超出 DistilGPT-2 范围。`)
+  }
+  const layerPrefix = `trace.layer.${selectedLayerIndex}`
+  const blockInputName = selectedLayerIndex === 0
+    ? 'trace.embedding.sum'
+    : `trace.layer.${selectedLayerIndex - 1}.blockOutput`
+  return [...new Set([
+    'trace.embedding.token',
+    'trace.embedding.position',
+    'trace.embedding.sum',
+    blockInputName,
+    `${layerPrefix}.layerNorm1`,
+    `${layerPrefix}.query`,
+    `present.${selectedLayerIndex}.key`,
+    `present.${selectedLayerIndex}.value`,
+    `${layerPrefix}.attentionWeights`,
+    `${layerPrefix}.attentionHeadOutput`,
+    `${layerPrefix}.attentionProjected`,
+    `${layerPrefix}.attentionResidual`,
+    `${layerPrefix}.layerNorm2`,
+    `${layerPrefix}.mlpHidden`,
+    `${layerPrefix}.mlpActivated`,
+    `${layerPrefix}.mlpProjected`,
+    `${layerPrefix}.blockOutput`,
+    'logits',
+  ])]
 }
 
 function defaultDependencies(): BrowserModelWorkerDependencies {
@@ -278,9 +309,9 @@ export function createBrowserModelWorkerOperations(
           )
         }
         const startedAt = performance.now()
-        const outputs = await session.run(tokenized.tokenIds)
+        const outputs = await session.run(tokenized.tokenIds, payload.selectedLayerIndex)
         abortIfNeeded(context.signal)
-        return dependencies.createInferencePayload({
+        return await dependencies.createInferencePayload({
           text: payload.text,
           tokenized,
           tokenizer,
@@ -288,6 +319,7 @@ export function createBrowserModelWorkerOperations(
           selectedLayerIndex: payload.selectedLayerIndex,
           sampling: payload.sampling,
           inferenceMilliseconds: performance.now() - startedAt,
+          signal: context.signal,
         })
       } catch (error) {
         if (context.signal.aborted) throw error

@@ -38,6 +38,7 @@ export interface RealModelDownloadClient {
     payload: Parameters<ModelWorkerClient['runInference']>[0],
     options: Parameters<ModelWorkerClient['runInference']>[1],
   ): ReturnType<ModelWorkerClient['runInference']>
+  disposeModel(): ReturnType<ModelWorkerClient['disposeModel']>
   terminate(): void
 }
 
@@ -89,6 +90,7 @@ export function RealModelDownload({
   >>({})
   const [experimentError, setExperimentError] = useState<string | null>(null)
   const [inferencePending, setInferencePending] = useState(false)
+  const [releasePending, setReleasePending] = useState(false)
   const clientRef = useRef<RealModelDownloadClient | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const inferenceControllerRef = useRef<AbortController | null>(null)
@@ -136,6 +138,10 @@ export function RealModelDownload({
         setState('idle')
         setProgress(null)
         return
+      }
+      if (clientRef.current === client) {
+        client.terminate()
+        clientRef.current = null
       }
       setError(loadError instanceof Error ? loadError.message : '真实模型加载失败。')
       setState('error')
@@ -207,7 +213,27 @@ export function RealModelDownload({
   const restorePresetTrace = () => {
     if (!presetTraceRef.current) return
     store.getState().setTrace(presetTraceRef.current)
-    setState('ready-closed')
+  }
+
+  const releaseModel = async (restorePreset = false) => {
+    inferenceControllerRef.current?.abort('真实模型 Session 正在释放')
+    inferenceControllerRef.current = null
+    setInferencePending(false)
+    if (restorePreset) restorePresetTrace()
+    const client = clientRef.current
+    clientRef.current = null
+    setReleasePending(true)
+    try {
+      await client?.disposeModel()
+    } catch {
+      // Terminating the Worker below is the final resource-release fallback.
+    } finally {
+      client?.terminate()
+      setReleasePending(false)
+      setProgress(null)
+      setExperimentError(null)
+      setState('idle')
+    }
   }
 
   const percentage = progress && progress.totalBytes > 0
@@ -225,7 +251,7 @@ export function RealModelDownload({
         data-state={isReady ? 'ready' : state}
         onClick={() => setState(isReady ? 'ready' : 'confirming')}
       >
-        {state === 'loading' || inferencePending ? (
+        {state === 'loading' || inferencePending || releasePending ? (
           <LoaderCircle className="real-model-trigger__spinner" size={19} aria-hidden="true" />
         ) : (
           <Download size={19} aria-hidden="true" />
@@ -355,10 +381,13 @@ export function RealModelDownload({
                 {experimentError && <p className="real-model-experiment__error" role="alert">{experimentError}</p>}
                 <div className="real-model-dialog__actions">
                   {traceSource === 'onnx' && presetTraceRef.current && (
-                    <button type="button" className="secondary-action" onClick={restorePresetTrace}>
-                      恢复预置案例
+                    <button type="button" className="secondary-action" onClick={() => void releaseModel(true)}>
+                      恢复预置并释放模型
                     </button>
                   )}
+                  <button type="button" className="secondary-action" onClick={() => void releaseModel()}>
+                    释放模型内存
+                  </button>
                   <button type="button" className="secondary-action" onClick={() => setState('ready-closed')}>
                     完成
                   </button>

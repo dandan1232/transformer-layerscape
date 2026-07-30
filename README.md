@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30～WP-34 已完成资源固定、插桩、Worker、下载缓存和统一 Trace 适配，WP-35 已开放带输入保护的真实模型参数实验。
+项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30～WP-35 已完成资源固定、插桩、Worker、下载缓存、统一 Trace 适配和参数实验，WP-36 已完成浏览器推理的性能与内存治理。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
@@ -17,6 +17,7 @@
 - [真实模型下载与缓存](./MODEL_DOWNLOAD_CACHE.md)已实现下载前确认、流式进度、取消、重试、SHA-256 校验和按 Revision 隔离的 Cache Storage；浏览器实测从缓存读取 87,020,477 字节并在 Worker 内完成插桩与 WASM Session 初始化，主线程保持响应。
 - [真实模型轨迹适配器](./MODEL_TRACE_ADAPTER.md)把所选 DistilGPT-2 层映射为 22 个语义张量，并与预置适配器复用同一运行时契约；浏览器第 6 层实测覆盖 12 Heads、50,257 个词表候选，概率和 Attention 归一化及残差/MLP 数值校验均通过。
 - [真实模型参数实验](./MODEL_EXPERIMENTS.md)支持英文输入、Layer 1～6、Temperature、Top-k、Top-p 与 Seed；精确 GPT-2 Token 数在 ONNX 执行前限制为最多 12，合法结果可切入工作台并随时恢复预置案例。
+- [真实模型性能与内存](./MODEL_RUNTIME_PERFORMANCE.md)只请求所选层必需输出，分块构建可取消摘要，并提供显式 Session 释放；12 Token Trace 的 Transferable 预算不超过 1.3MB，真实浏览器恢复预置后 Worker 数回到基线。
 
 ## 目标体验
 
@@ -35,7 +36,7 @@
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
 | M1 | Token→Attention→Output 联动垂直切片 | 已完成 |
 | M2 | 完整预置 Transformer 课程 | 已完成 |
-| M3 | 浏览器真实模型模式 | 进行中（WP-35 / 37） |
+| M3 | 浏览器真实模型模式 | 进行中（WP-36 / 37） |
 | M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
 
 ## M2 验收摘要

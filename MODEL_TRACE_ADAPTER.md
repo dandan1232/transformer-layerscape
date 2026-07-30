@@ -7,7 +7,7 @@ WP-34 让固定 DistilGPT-2 的浏览器推理结果进入与预置课程相同�
 - Tokenizer 直接由已经校验并缓存的 `tokenizer.json` 与 `tokenizer_config.json` 构造，不发起第二套模型请求。
 - merged decoder 首次推理显式传入 `use_cache_branch=false`，并为 6 层 Key/Value 提供 `[1, 12, 0, 64]` 空 Cache。
 - 推理请求携带文本、所选 Layer 与 Temperature、Top-k、Top-p、Seed；WP-35 已开放带精确 Token 预检的参数界面。
-- Worker 只把所选层的教学张量、最后位置的完整 Logits/Probabilities 和候选 Token 转移回主线程，不把 81 个插桩输出全部复制到 UI。
+- Worker 的 ONNX Fetch List 只请求所选层必需的 18 个输出，再把 22 个教学张量、最后位置的完整 Logits/Probabilities 和候选 Token 转移回主线程，不让其余插桩输出进入峰值载荷。
 
 ## 22 个统一张量
 
@@ -34,6 +34,8 @@ WP-34 让固定 DistilGPT-2 的浏览器推理结果进入与预置课程相同�
 - 完整 50,257 维 Logits、Softmax 概率、候选 Token 和确定性采样。
 
 学习型 LayerNorm 含训练得到的缩放与偏置，因此真实来源只校验完整 Shape 与有限数值，不沿用教学 Fixture 的“严格零均值、单位方差”假设。纯空白词表项使用可见 Unicode Code Point 标签展示，Token ID 与概率不变。
+
+WP-36 把默认采样复验改为只保留 Top-k 的轻量路径，并让二维面板只在进入 Output 阶段时计算完整采样实验，避免真实 Trace 切入第一步时同步排序 50,257 个候选。统一契约内容不变，主线程实测最大 Tick 间隙由约 1.07 秒降至 250.6ms。
 
 ## 浏览器验收
 

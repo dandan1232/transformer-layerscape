@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createDistilgpt2InferencePayload,
   type Distilgpt2ModelSpec,
@@ -51,9 +51,36 @@ function outputs(): Record<string, RuntimeInferenceTensor> {
   }
 }
 
+function maximumInputOutputs(): Record<string, RuntimeInferenceTensor> {
+  const hidden = [1, 12, 768]
+  const heads = [1, 12, 12, 64]
+  const weights = [1, 12, 12, 12]
+  const intermediate = [1, 12, 3072]
+  return {
+    'trace.embedding.token': tensor(hidden),
+    'trace.embedding.position': tensor(hidden),
+    'trace.embedding.sum': tensor(hidden),
+    'trace.layer.4.blockOutput': tensor(hidden),
+    'trace.layer.5.layerNorm1': tensor(hidden),
+    'trace.layer.5.query': tensor(heads),
+    'present.5.key': tensor(heads),
+    'present.5.value': tensor(heads),
+    'trace.layer.5.attentionWeights': tensor(weights),
+    'trace.layer.5.attentionHeadOutput': tensor(heads),
+    'trace.layer.5.attentionProjected': tensor(hidden),
+    'trace.layer.5.attentionResidual': tensor(hidden),
+    'trace.layer.5.layerNorm2': tensor(hidden),
+    'trace.layer.5.mlpHidden': tensor(intermediate),
+    'trace.layer.5.mlpActivated': tensor(intermediate),
+    'trace.layer.5.mlpProjected': tensor(hidden),
+    'trace.layer.5.blockOutput': tensor(hidden),
+    logits: tensor([1, 12, 50_257]),
+  }
+}
+
 describe('DistilGPT-2 inference payload', () => {
-  it('maps the selected real layer into semantic transferable tensors', () => {
-    const payload = createDistilgpt2InferencePayload({
+  it('maps the selected real layer into semantic transferable tensors', async () => {
+    const payload = await createDistilgpt2InferencePayload({
       text: 'Hello world',
       tokenized: tokenizer.tokenize('Hello world'),
       tokenizer,
@@ -85,29 +112,66 @@ describe('DistilGPT-2 inference payload', () => {
     expect(payload.output.sampledTokenId).toBeGreaterThanOrEqual(0)
   })
 
-  it('rejects a missing promoted output instead of fabricating a trace', () => {
+  it('rejects a missing promoted output instead of fabricating a trace', async () => {
     const incomplete = outputs()
     delete incomplete['trace.layer.1.attentionWeights']
 
-    expect(() => createDistilgpt2InferencePayload({
+    await expect(createDistilgpt2InferencePayload({
       text: 'Hello world', tokenized: tokenizer.tokenize('Hello world'), tokenizer,
       outputs: incomplete, selectedLayerIndex: 1,
       sampling: { temperature: 1, topK: 3, topP: 0.9, seed: 7 },
       inferenceMilliseconds: 1, model,
-    })).toThrow('真实模型缺少输出 trace.layer.1.attentionWeights')
+    })).rejects.toThrow('真实模型缺少输出 trace.layer.1.attentionWeights')
   })
 
-  it('reproduces the sampled token for identical parameters and Seed', () => {
+  it('reproduces the sampled token for identical parameters and Seed', async () => {
     const options = {
       text: 'Hello world', tokenized: tokenizer.tokenize('Hello world'), tokenizer,
       selectedLayerIndex: 1,
       sampling: { temperature: 1.3, topK: 4, topP: 0.8, seed: 91 },
       inferenceMilliseconds: 1, model,
     }
-    const first = createDistilgpt2InferencePayload({ ...options, outputs: outputs() })
-    const second = createDistilgpt2InferencePayload({ ...options, outputs: outputs() })
+    const first = await createDistilgpt2InferencePayload({ ...options, outputs: outputs() })
+    const second = await createDistilgpt2InferencePayload({ ...options, outputs: outputs() })
 
     expect(second.output.sampledTokenId).toBe(first.output.sampledTokenId)
     expect(second.output.sampledToken).toBe(first.output.sampledToken)
+  })
+
+  it('yields between summary chunks and stops promptly when cancelled', async () => {
+    const controller = new AbortController()
+    const yieldControl = vi.fn(async () => controller.abort('用户取消摘要'))
+
+    await expect(createDistilgpt2InferencePayload({
+      text: 'Hello world', tokenized: tokenizer.tokenize('Hello world'), tokenizer,
+      outputs: outputs(), selectedLayerIndex: 1,
+      sampling: { temperature: 1, topK: 3, topP: 0.9, seed: 7 },
+      inferenceMilliseconds: 1, model, signal: controller.signal,
+      chunkSize: 2, yieldControl,
+    })).rejects.toMatchObject({ name: 'AbortError', message: '用户取消摘要' })
+    expect(yieldControl).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the maximum 12-token transferable trace within its peak payload budget', async () => {
+    const yieldControl = vi.fn(async () => undefined)
+    const tokenIds = Array.from({ length: 12 }, (_, index) => index)
+    const payload = await createDistilgpt2InferencePayload({
+      text: 'maximum input',
+      tokenized: { tokenIds, tokens: tokenIds.map((id) => `T${id}`) },
+      tokenizer: { tokenize: () => ({ tokenIds, tokens: [] }), decodeToken: (id) => `T${id}` },
+      outputs: maximumInputOutputs(), selectedLayerIndex: 5,
+      sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+      inferenceMilliseconds: 1,
+      chunkSize: 4_096,
+      yieldControl,
+    })
+    const transferableBytes = payload.tensors.reduce(
+      (total, value) => total + value.data.byteLength,
+      0,
+    )
+
+    expect(transferableBytes).toBeLessThanOrEqual(1_300_000)
+    expect(payload.output.candidates).toHaveLength(50_257)
+    expect(yieldControl.mock.calls.length).toBeGreaterThan(40)
   })
 })

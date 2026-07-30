@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createBrowserModelWorkerOperations,
+  requiredDistilgpt2OutputNames,
   type BrowserModelWorkerDependencies,
 } from './browser-model-worker-operations'
 import { DISTILGPT2_RESOURCE_MANIFEST } from './model-resources'
@@ -49,7 +50,7 @@ function dependencies(
       tokenize: () => ({ tokenIds: [15496], tokens: ['Hello'] }),
       decodeToken: () => '!',
     })),
-    createInferencePayload: vi.fn(() => inferenceResult),
+    createInferencePayload: vi.fn(async () => inferenceResult),
     ...overrides,
   }
 }
@@ -59,6 +60,15 @@ function context(signal = new AbortController().signal) {
 }
 
 describe('browser model Worker operations', () => {
+  it('requests only the selected layer outputs needed by the teaching trace', () => {
+    const names = requiredDistilgpt2OutputNames(5)
+    expect(names).toHaveLength(18)
+    expect(names).toContain('trace.layer.4.blockOutput')
+    expect(names).toContain('trace.layer.5.mlpActivated')
+    expect(names).not.toContain('trace.layer.0.mlpActivated')
+    expect(() => requiredDistilgpt2OutputNames(6)).toThrow('超出 DistilGPT-2 范围')
+  })
+
   it('downloads, verifies, instruments and initializes without blocking the caller thread', async () => {
     const deps = dependencies()
     const operations = createBrowserModelWorkerOperations(deps)
@@ -112,7 +122,7 @@ describe('browser model Worker operations', () => {
   it('requires a loaded Session, runs inference and releases it on disposal', async () => {
     const release = vi.fn(async () => undefined)
     const run = vi.fn(async () => ({}))
-    const createInferencePayload = vi.fn(() => inferenceResult)
+    const createInferencePayload = vi.fn(async () => inferenceResult)
     const operations = createBrowserModelWorkerOperations(dependencies({
       createSession: vi.fn(async () => ({ run, release })),
       createInferencePayload,
@@ -133,7 +143,7 @@ describe('browser model Worker operations', () => {
       text: 'Hello', selectedLayerIndex: 0,
       sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
     }, context())).resolves.toBe(inferenceResult)
-    expect(run).toHaveBeenCalledWith([15496])
+    expect(run).toHaveBeenCalledWith([15496], 0)
     expect(createInferencePayload).toHaveBeenCalledOnce()
     await operations.disposeModel(context())
     expect(release).toHaveBeenCalledOnce()

@@ -92,6 +92,61 @@ function seededRandom(seed: number) {
   return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296
 }
 
+export function sampleTraceCandidate(
+  sourceCandidates: readonly TraceCandidate[],
+  requestedParameters: Partial<SamplingParameters> = DEFAULT_SAMPLING_PARAMETERS,
+): TraceCandidate | null {
+  if (sourceCandidates.length === 0) return null
+  const parameters = normalizeSamplingParameters(
+    requestedParameters,
+    sourceCandidates.length,
+  )
+  const compare = (left: TraceCandidate, right: TraceCandidate) =>
+    right.logit - left.logit || left.tokenId - right.tokenId
+  let ranked: TraceCandidate[]
+  if (parameters.topK <= 256) {
+    ranked = []
+    for (const candidate of sourceCandidates) {
+      let insertionIndex = ranked.findIndex((value) => compare(candidate, value) < 0)
+      if (insertionIndex < 0) insertionIndex = ranked.length
+      if (insertionIndex < parameters.topK) {
+        ranked.splice(insertionIndex, 0, candidate)
+        if (ranked.length > parameters.topK) ranked.pop()
+      }
+    }
+  } else {
+    ranked = [...sourceCandidates].sort(compare).slice(0, parameters.topK)
+  }
+
+  const scaledMaximum = ranked.reduce(
+    (maximum, candidate) => Math.max(maximum, candidate.logit / parameters.temperature),
+    Number.NEGATIVE_INFINITY,
+  )
+  const weights = ranked.map((candidate) =>
+    Math.exp(candidate.logit / parameters.temperature - scaledMaximum),
+  )
+  const topKTotal = weights.reduce((total, value) => total + value, 0)
+  let eligibleCount = ranked.length
+  let cumulative = 0
+  for (let index = 0; index < weights.length; index += 1) {
+    cumulative += (weights[index] ?? 0) / topKTotal
+    if (cumulative >= parameters.topP) {
+      eligibleCount = index + 1
+      break
+    }
+  }
+  const eligibleTotal = weights
+    .slice(0, eligibleCount)
+    .reduce((total, value) => total + value, 0)
+  const randomValue = seededRandom(parameters.seed)
+  cumulative = 0
+  for (let index = 0; index < eligibleCount; index += 1) {
+    cumulative += (weights[index] ?? 0) / eligibleTotal
+    if (randomValue <= cumulative) return ranked[index] ?? null
+  }
+  return ranked[eligibleCount - 1] ?? null
+}
+
 export function runSamplingExperiment(
   sourceCandidates: readonly TraceCandidate[],
   requestedParameters: Partial<SamplingParameters> = DEFAULT_SAMPLING_PARAMETERS,

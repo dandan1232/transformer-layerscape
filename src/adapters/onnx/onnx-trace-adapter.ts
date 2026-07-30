@@ -211,7 +211,7 @@ export function adaptOnnxInferenceToModelTrace(
       sampledTokenId: payload.output.sampledTokenId,
       sampledToken: payload.output.sampledToken,
       defaultSampling: request.sampling,
-      candidates: payload.output.candidates.map((candidate) => ({ ...candidate })),
+      candidates: payload.output.candidates,
     },
   }
   validateModelTrace(trace)

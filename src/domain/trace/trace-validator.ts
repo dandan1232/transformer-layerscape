@@ -11,8 +11,7 @@ import {
   type TraceCandidate,
 } from './trace'
 import {
-  runSamplingExperiment,
-  softmaxLogits,
+  sampleTraceCandidate,
   type SamplingParameters,
 } from '../sampling/sampling'
 import {
@@ -160,6 +159,22 @@ function product(values: readonly number[]) {
 
 function approximatelyEqual(left: number, right: number) {
   return Math.abs(left - right) <= probabilityTolerance
+}
+
+function probabilitiesMatchSoftmax(
+  logits: readonly number[],
+  probabilities: readonly number[],
+) {
+  if (logits.length !== probabilities.length || logits.length === 0) return false
+  let maximum = Number.NEGATIVE_INFINITY
+  for (const logit of logits) maximum = Math.max(maximum, logit)
+  let total = 0
+  for (const logit of logits) total += Math.exp(logit - maximum)
+  for (let index = 0; index < logits.length; index += 1) {
+    const expected = Math.exp((logits[index] ?? maximum) - maximum) / total
+    if (!approximatelyEqual(probabilities[index] ?? Number.NaN, expected)) return false
+  }
+  return true
 }
 
 function geluValue(value: number) {
@@ -1049,21 +1064,18 @@ function validateOutput(
       value.probability >= 0 &&
       value.probability <= 1
     ) {
-      validatedCandidates.push({
-        tokenId: value.tokenId,
-        token: value.token,
-        logit: value.logit,
-        probability: value.probability,
-      })
+      validatedCandidates.push(value as unknown as TraceCandidate)
     }
   })
 
-  if (
-    vocabularySize > 0 &&
-    Array.from({ length: vocabularySize }, (_, tokenId) => tokenId).some(
-      (tokenId) => !candidateTokens.has(tokenId),
-    )
-  ) {
+  let missingCandidate = false
+  for (let tokenId = 0; tokenId < vocabularySize; tokenId += 1) {
+    if (!candidateTokens.has(tokenId)) {
+      missingCandidate = true
+      break
+    }
+  }
+  if (vocabularySize > 0 && missingCandidate) {
     addIssue(
       issues,
       'INVALID_SHAPE',
@@ -1073,8 +1085,7 @@ function validateOutput(
   }
 
   if (logits && probabilities && logits.values.length === probabilities.values.length) {
-    const expected = softmaxLogits(logits.values)
-    if (probabilities.values.some((value, index) => !approximatelyEqual(value, expected[index]))) {
+    if (!probabilitiesMatchSoftmax(logits.values, probabilities.values)) {
       addIssue(
         issues,
         'INVALID_PROBABILITY',
@@ -1112,10 +1123,10 @@ function validateOutput(
     validatedCandidates.length === root.output.candidates.length &&
     isNonNegativeInteger(root.output.sampledTokenId)
   ) {
-    const defaultResult = runSamplingExperiment(
+    const defaultResult = sampleTraceCandidate(
       validatedCandidates,
       defaultSampling,
-    ).sampledCandidate
+    )
     if (defaultResult?.tokenId !== root.output.sampledTokenId) {
       addIssue(
         issues,

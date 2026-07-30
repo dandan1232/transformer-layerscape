@@ -4,6 +4,7 @@ import {
   DEFAULT_SAMPLING_PARAMETERS,
   normalizeSamplingParameters,
   runSamplingExperiment,
+  sampleTraceCandidate,
   softmaxLogits,
 } from './sampling'
 
@@ -66,6 +67,26 @@ describe('采样实验', () => {
 
     expect(first.sampledCandidate).toEqual(second.sampledCandidate)
     expect(first.candidates).toEqual(second.candidates)
+  })
+
+  it('轻量采样路径与完整实验选择相同 Token', () => {
+    const parameters = { temperature: 1.4, topK: 3, topP: 0.8, seed: 91 }
+    expect(sampleTraceCandidate(candidates, parameters)?.tokenId).toBe(
+      runSamplingExperiment(candidates, parameters).sampledCandidate?.tokenId,
+    )
+  })
+
+  it('轻量采样在大 Top-k 排序路径保持相同结果', () => {
+    const largeCandidates = Array.from({ length: 300 }, (_, tokenId) => ({
+      tokenId,
+      token: ` T${tokenId}`,
+      logit: Math.cos(tokenId / 7) * 3 + tokenId / 1_000,
+      probability: 1 / 300,
+    }))
+    const parameters = { temperature: 0.8, topK: 300, topP: 0.95, seed: 73 }
+    expect(sampleTraceCandidate(largeCandidates, parameters)?.tokenId).toBe(
+      runSamplingExperiment(largeCandidates, parameters).sampledCandidate?.tokenId,
+    )
   })
 
   it('把越界和非有限参数夹紧到教学范围', () => {

@@ -24,7 +24,12 @@ function client(
     throw new Error('测试未配置真实推理。')
   }),
 ): RealModelDownloadClient {
-  return { loadModel, runInference, terminate: vi.fn() }
+  return {
+    loadModel,
+    runInference,
+    disposeModel: vi.fn(async () => undefined),
+    terminate: vi.fn(),
+  }
 }
 
 describe('real model download consent', () => {
@@ -97,12 +102,45 @@ describe('real model download consent', () => {
     const loadModel = vi.fn(async () => {
       throw new Error('网络连接中断')
     })
-    render(<RealModelDownload createClient={() => client(loadModel)} />)
+    const fakeClient = client(loadModel)
+    render(<RealModelDownload createClient={() => fakeClient} />)
 
     await user.click(screen.getByRole('button', { name: '加载真实模型' }))
     await user.click(screen.getByRole('button', { name: '确认并下载' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('网络连接中断')
     expect(screen.getByRole('button', { name: /重试下载/ })).toBeVisible()
+    expect(fakeClient.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('returns immediate UI feedback and aborts trace processing when inference is cancelled', async () => {
+    const user = userEvent.setup()
+    const loadModel = vi.fn(async () => ({
+      modelId: 'distilgpt2', executionProvider: 'wasm' as const, cacheHit: true,
+    }))
+    let inferenceSignal: AbortSignal | undefined
+    const createTraceAdapter = vi.fn(() => ({
+      load: vi.fn(({ signal }: { signal?: AbortSignal } = {}) => {
+        inferenceSignal = signal
+        return new Promise<typeof verticalSliceTrace>((_, reject) => signal?.addEventListener('abort', () => {
+          reject(new DOMException('用户取消真实推理', 'AbortError'))
+        }, { once: true }))
+      }),
+    }))
+    render(
+      <RealModelDownload
+        store={createExplorerStore()}
+        createClient={() => client(loadModel)}
+        createTraceAdapter={createTraceAdapter}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    await user.click(screen.getByRole('button', { name: '确认并下载' }))
+    await user.click(await screen.findByRole('button', { name: '生成真实轨迹' }))
+    await user.click(screen.getByRole('button', { name: '取消推理' }))
+
+    expect(inferenceSignal?.aborted).toBe(true)
+    expect(screen.getByRole('button', { name: '生成真实轨迹' })).toBeVisible()
   })
 
   it('validates parameters, publishes a real trace and restores the preset trace', async () => {
@@ -115,10 +153,11 @@ describe('real model download consent', () => {
     const realTrace = { ...verticalSliceTrace, source: 'onnx' as const }
     const loadTrace = vi.fn(async () => realTrace)
     const createTraceAdapter = vi.fn(() => ({ load: loadTrace }))
+    const fakeClient = client(loadModel)
     render(
       <RealModelDownload
         store={store}
-        createClient={() => client(loadModel)}
+        createClient={() => fakeClient}
         createTraceAdapter={createTraceAdapter}
       />,
     )
@@ -148,7 +187,11 @@ describe('real model download consent', () => {
     )
 
     await user.click(screen.getByRole('button', { name: '真实模型已就绪' }))
-    await user.click(screen.getByRole('button', { name: '恢复预置案例' }))
+    const restoreButton = screen.getByRole('button', { name: '恢复预置并释放模型' })
+    await user.click(restoreButton)
     expect(store.getState().trace?.source).toBe('preset')
+    expect(fakeClient.disposeModel).toHaveBeenCalledOnce()
+    expect(fakeClient.terminate).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: '加载真实模型' })).toBeVisible()
   })
 })

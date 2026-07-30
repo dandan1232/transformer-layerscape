@@ -962,13 +962,13 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
 
   const samplingExperiment = useMemo(
     () =>
-      trace
+      trace && currentStep?.phase === 'output'
         ? runSamplingExperiment(trace.output.candidates, samplingParameters)
         : null,
-    [samplingParameters, trace],
+    [currentStep?.phase, samplingParameters, trace],
   )
 
-  if (!trace || !currentStep || !samplingExperiment) {
+  if (!trace || !currentStep) {
     return (
       <section
         id="view-panel-2d"
@@ -990,13 +990,14 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
   const primaryTensor = tensors.outputs.at(-1) ?? tensors.inputs.at(-1)
   const activeHead = selectedHeadIndex ?? 0
   const summary =
-    currentStep.operation === 'softmax'
+    currentStep.operation === 'softmax' && samplingExperiment
       ? `Temperature ${samplingExperiment.parameters.temperature.toFixed(1)} 时，最高候选“${samplingExperiment.candidates[0]?.token.trim() || '空格'}”的概率为 ${((samplingExperiment.candidates[0]?.temperatureProbability ?? 0) * 100).toFixed(1)}%。`
-      : currentStep.operation === 'sample-token'
+      : currentStep.operation === 'sample-token' && samplingExperiment
         ? `Top-k 与 Top-p 留下 ${samplingExperiment.eligibleCount} 个候选；Seed ${samplingExperiment.parameters.seed} 可复现地采样出“${samplingExperiment.sampledCandidate?.token.trim() || '空格'}”。`
         : createStepSummary(trace, currentStep, activeHead)
   const probabilityTensor = trace.tensors[trace.output.probabilitiesTensorId]
-  const experimentProbabilityTensor = probabilityTensor
+  const experimentProbabilityTensor = probabilityTensor &&
+    currentStep.operation === 'softmax' && samplingExperiment
     ? {
         ...probabilityTensor,
         values: samplingExperiment.candidates
@@ -1080,7 +1081,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
       )}
 
       {(currentStep.operation === 'softmax' ||
-        currentStep.operation === 'sample-token') && (
+        currentStep.operation === 'sample-token') && samplingExperiment && (
         <SamplingControls
           mode={
             currentStep.operation === 'sample-token'
@@ -1147,7 +1148,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
             onSelectOperation={(entityId) => store.getState().selectEntity(entityId)}
           />
         )}
-        {stage === 'output' && (
+        {stage === 'output' && samplingExperiment && (
           <OutputDiagram
             trace={trace}
             operation={currentStep.operation}
@@ -1185,7 +1186,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
             displayedOutputTensors.map((tensor) => <TensorCard key={tensor.id} tensor={tensor} />)
           ) : (
             <p className="trace2d-tensors__empty">
-              采样结果：{samplingExperiment.sampledCandidate?.token ?? trace.output.sampledToken}
+              采样结果：{samplingExperiment?.sampledCandidate?.token ?? trace.output.sampledToken}
             </p>
           )}
         </div>

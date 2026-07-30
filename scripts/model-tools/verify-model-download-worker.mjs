@@ -87,8 +87,24 @@ export async function main() {
     browser = await chromium.launch({
       executablePath: findChromiumExecutable(),
       headless: true,
+      args: ['--enable-precise-memory-info'],
     })
     page = await browser.newPage()
+    const browserCdp = await browser.newBrowserCDPSession()
+    const countModelWorkers = async () => {
+      const { targetInfos } = await browserCdp.send('Target.getTargets')
+      return targetInfos.filter((target) =>
+        target.type === 'worker' && target.url.includes('model-runtime.worker'),
+      ).length
+    }
+    const waitForModelWorkerCount = async (expected) => {
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        const count = await countModelWorkers()
+        if (count === expected) return count
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 100))
+      }
+      return countModelWorkers()
+    }
     page.on('crash', () => diagnostics.push('page crashed'))
     page.on('pageerror', (error) => diagnostics.push(`page error: ${error.message}`))
     page.on('console', (message) => {
@@ -99,6 +115,7 @@ export async function main() {
     })
 
     await page.goto(baseUrl)
+    const initialModelWorkers = await countModelWorkers()
     await page.evaluate(async ({ cacheName, resourceEntries }) => {
       await caches.delete(cacheName)
       const cache = await caches.open(cacheName)
@@ -159,6 +176,10 @@ export async function main() {
     if (networkModelRequests.length > 0) {
       throw new Error(`Worker unexpectedly fetched ${networkModelRequests.length} model resources from the network`)
     }
+    const loadedModelWorkers = await countModelWorkers()
+    if (loadedModelWorkers <= initialModelWorkers) {
+      throw new Error('The loaded model Worker was not observable in the browser target list')
+    }
 
     const experimentInput = page.getByRole('textbox', { name: /英文输入/ })
     await experimentInput.fill(
@@ -174,6 +195,25 @@ export async function main() {
 
     await experimentInput.fill('The sky is blue')
     await page.getByRole('combobox', { name: '观察 Layer' }).selectOption('5')
+    await page.evaluate(() => {
+      const probe = globalThis
+      probe.__modelInferenceTicks = [performance.now()]
+      probe.__modelInferenceLongTasks = []
+      probe.__modelInferenceHeapBefore = performance.memory?.usedJSHeapSize
+      probe.__modelInferenceTimer = setInterval(() => {
+        probe.__modelInferenceTicks.push(performance.now())
+      }, 16)
+      probe.__modelInferenceLongTaskObserver = new PerformanceObserver((entries) => {
+        probe.__modelInferenceLongTasks.push(
+          ...entries.getEntries().map((entry) => entry.duration),
+        )
+      })
+      try {
+        probe.__modelInferenceLongTaskObserver.observe({ type: 'longtask' })
+      } catch {
+        // Tick gaps below remain the cross-browser responsiveness fallback.
+      }
+    })
     const traceStartedAt = performance.now()
     await page.getByRole('button', { name: '生成真实轨迹' }).click()
     await page.locator('.real-model-modal').waitFor({ state: 'hidden', timeout: 120_000 })
@@ -233,8 +273,47 @@ export async function main() {
     if (!traceProbe.deterministicSeed) throw new Error('Identical Seed did not reproduce sampling')
 
     await page.getByRole('button', { name: '真实模型已就绪' }).click()
-    await page.getByRole('button', { name: '恢复预置案例' }).click()
+    await page.getByRole('button', { name: '恢复预置并释放模型' }).click()
     await page.locator('.source-badge').filter({ hasText: '预置案例已就绪' }).waitFor()
+    await page.getByRole('button', { name: '加载真实模型' }).waitFor({ timeout: 120_000 })
+    const releasedModelWorkers = await waitForModelWorkerCount(initialModelWorkers)
+    if (releasedModelWorkers !== initialModelWorkers) {
+      throw new Error(
+        `Model Worker count did not return to baseline: ${initialModelWorkers} -> ${releasedModelWorkers}`,
+      )
+    }
+    const inferencePerformance = await page.evaluate(() => {
+      clearInterval(globalThis.__modelInferenceTimer)
+      globalThis.__modelInferenceLongTaskObserver?.disconnect()
+      const ticks = globalThis.__modelInferenceTicks
+      const gaps = ticks.slice(1).map((value, index) => value - ticks[index])
+      return {
+        tickCount: ticks.length,
+        maximumTickGapMs: gaps.length > 0 ? Math.max(...gaps) : 0,
+        longTaskCount: globalThis.__modelInferenceLongTasks.length,
+        maximumLongTaskMs: globalThis.__modelInferenceLongTasks.length > 0
+          ? Math.max(...globalThis.__modelInferenceLongTasks)
+          : 0,
+        heapBeforeBytes: globalThis.__modelInferenceHeapBefore,
+        heapAfterReleaseBytes: performance.memory?.usedJSHeapSize,
+      }
+    })
+    if (inferencePerformance.maximumTickGapMs > 300) {
+      throw new Error(
+        `Main-thread inference tick gap was ${inferencePerformance.maximumTickGapMs}ms`,
+      )
+    }
+    if (inferencePerformance.maximumLongTaskMs > 300) {
+      throw new Error(
+        `Main-thread inference long task was ${inferencePerformance.maximumLongTaskMs}ms`,
+      )
+    }
+    if (
+      inferencePerformance.heapBeforeBytes &&
+      inferencePerformance.heapAfterReleaseBytes - inferencePerformance.heapBeforeBytes > 32_000_000
+    ) {
+      throw new Error('The released model retained more than 32MB of additional page heap')
+    }
     if (traceProbe.source !== 'onnx' || traceProbe.tensorCount !== 22) {
       throw new Error(`Unexpected ONNX trace summary ${JSON.stringify(traceProbe)}`)
     }
@@ -259,6 +338,14 @@ export async function main() {
       cachedBytes: probe.cacheEntries.reduce((total, entry) => total + entry.bytes, 0),
       networkModelRequests: networkModelRequests.length,
       readyState: probe.readyState,
+      modelWorkers: {
+        initial: initialModelWorkers,
+        loaded: loadedModelWorkers,
+        released: releasedModelWorkers,
+      },
+      inferencePerformance: {
+        ...inferencePerformance,
+      },
       trace: traceProbe,
       diagnostics,
     }, null, 2)}\n`)

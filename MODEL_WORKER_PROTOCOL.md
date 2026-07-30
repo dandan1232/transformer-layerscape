@@ -39,4 +39,6 @@ WP-32 建立 `MODEL_WORKER_PROTOCOL_VERSION = 1` 的主线程与模型 Worker �
 
 WP-34 的真实推理结果固定输出 22 个语义张量，覆盖 Token、Embedding、当前 Block 输入、Q/K/V、Attention 权重、各 Head 输出、多头拼接、`c_proj` 投影、两条残差、MLP、Logits 与 Probabilities。多头拼接和输出投影保持为两个角色，避免把 GPT-2 的学习型 `c_proj` 错写成恒等映射。
 
+WP-36 把 ONNX Fetch List 收窄为所选 Layer 所需的 18 个原始输出，不再让 Session 返回全部 81 个插桩输出；完整序列 Logits 只复制最后 Token 的 50,257 维切片。张量统计和候选整理每 4,096 项让出一次 Worker 事件循环并检查 AbortSignal，12 Token 的 22 个语义张量 Transferable 总量限制在 1.3MB 内。
+
 `ModelWorkerClient` 负责握手、请求关联、进度回调、AbortSignal 和结构化错误；`attachModelWorkerRuntime` 负责 Worker 侧取消控制、错误归一化和 Transferable 投递。WP-33 与 WP-34 分别注入下载缓存、Session 和真实推理操作，沿用同一协议而不另建消息格式。
