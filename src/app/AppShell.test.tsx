@@ -64,6 +64,58 @@ describe('中文学习工作台外壳', () => {
     expect(exploreButton).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('自由探索可跨步骤选择算子、Token、Block 与 Head，并返回课程锚点', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(3)
+    render(<AppShell store={store} />)
+
+    await user.click(screen.getByRole('button', { name: '自由探索' }))
+    const dock = screen.getByRole('complementary', { name: '自由探索台' })
+    expect(dock).toHaveTextContent('课程锚点 04 · 稳定每个 Token 的数值尺度')
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: '选择算子' }),
+      '12',
+    )
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 12,
+      guidedStepIndex: 3,
+    })
+
+    await user.click(screen.getByRole('button', { name: '探索 Attention Head 2' }))
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 5,
+      selectedHeadIndex: 1,
+      selectedEntityId: 'head:1',
+    })
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: '选择 Token' }),
+      '2',
+    )
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 0,
+      selectedTokenIndex: 2,
+      selectedEntityId: 'token:2',
+    })
+
+    await user.click(screen.getByRole('button', { name: 'B1' }))
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 4,
+      selectedLayerIndex: 0,
+    })
+
+    await user.click(screen.getByRole('button', { name: '回到课程当前位置' }))
+    expect(store.getState()).toMatchObject({
+      mode: 'guided',
+      currentStepIndex: 3,
+      selectedEntityId: 'operation:layernorm',
+    })
+    expect(screen.queryByRole('complementary', { name: '自由探索台' })).not.toBeInTheDocument()
+  })
+
   it('中文课程前后导航会同步 Trace 步骤和选中实体', async () => {
     const user = userEvent.setup()
     const store = createExplorerStore()

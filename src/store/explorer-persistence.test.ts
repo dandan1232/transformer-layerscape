@@ -41,7 +41,8 @@ describe('探索进度本地持久化', () => {
       version: 1,
       mode: 'explore',
       view: '3d',
-      currentStepIndex: 4,
+      currentStepIndex: 5,
+      guidedStepIndex: 0,
       playbackRate: 1.5,
       selectedEntityId: 'head:1',
     })
@@ -72,6 +73,7 @@ describe('探索进度本地持久化', () => {
     controller.restoreProgress()
     expect(store.getState()).toMatchObject({
       currentStepIndex: 3,
+      guidedStepIndex: 3,
       selectedEntityId: 'head:1',
     })
 
@@ -79,6 +81,7 @@ describe('探索进度本地持久化', () => {
     expect(JSON.parse(storage.value ?? '{}')).toMatchObject({
       version: 1,
       currentStepIndex: 7,
+      guidedStepIndex: 3,
       selectedEntityId: 'operation:residual-attention',
     })
     controller.dispose()
@@ -128,6 +131,7 @@ describe('探索进度本地持久化', () => {
         mode: 'guided',
         view: 'lesson',
         currentStepIndex: 0,
+        guidedStepIndex: 0,
         playbackRate: 1,
         selectedEntityId: null,
       }),

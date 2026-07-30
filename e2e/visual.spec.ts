@@ -17,6 +17,11 @@ async function useDeterministicRendering(page: Page) {
 
 async function stabilizePage(page: Page) {
   await expect(page.getByText('步骤 01 / 14')).toBeVisible()
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await expect(page.getByRole('img', { name: '三维场景安全预览' })).toBeVisible({
+      timeout: 15_000,
+    })
+  }
   await page.addStyleTag({
     content: `
       *, *::before, *::after {
@@ -28,6 +33,12 @@ async function stabilizePage(page: Page) {
     `,
   })
   await page.evaluate(() => document.fonts.ready)
+}
+
+async function resetLessonScroll(page: Page) {
+  await page.locator('.lesson-panel').evaluate((panel) => {
+    panel.scrollTop = 0
+  })
 }
 
 test.beforeEach(async ({ page }) => {
@@ -53,6 +64,7 @@ test('桌面 LayerNorm 分布视觉基线', async ({ page }) => {
   await expect(
     page.getByRole('img', { name: /^LayerNorm 归一化前后分布图/ }),
   ).toBeVisible()
+  await resetLessonScroll(page)
 
   await expect(page).toHaveScreenshot('m2-desktop-layernorm.png', {
     animations: 'disabled',
@@ -67,8 +79,30 @@ test('桌面 Attention Head 2 联动视觉基线', async ({ page }) => {
   await page.getByRole('button', { name: '跳到第 6 步：遮住未来 Token' }).click()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
   await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await resetLessonScroll(page)
 
   await expect(page).toHaveScreenshot('m1-desktop-attention-head-2.png', {
+    animations: 'disabled',
+    maxDiffPixelRatio: 0.01,
+  })
+})
+
+test('桌面自由探索工具条视觉基线', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await stabilizePage(page)
+  await page.getByRole('button', { name: '跳到Attention章节' }).click()
+  await page.getByRole('button', { name: '自由探索' }).click()
+  const dock = page.getByRole('complementary', { name: '自由探索台' })
+  await dock.getByRole('button', { name: '探索 Attention Head 2' }).click()
+  await expect(dock).toContainText('课程锚点 04')
+  await expect(page.getByRole('button', { name: 'Head 2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await resetLessonScroll(page)
+
+  await expect(page).toHaveScreenshot('m2-desktop-explore.png', {
     animations: 'disabled',
     maxDiffPixelRatio: 0.01,
   })

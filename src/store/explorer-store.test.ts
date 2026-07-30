@@ -17,6 +17,7 @@ describe('Explorer Store', () => {
     expect(state.trace).toBeNull()
     expect(state.playback).toBe('paused')
     expect(state.currentStepIndex).toBe(0)
+    expect(state.guidedStepIndex).toBe(0)
     expect(state.mode).toBe('guided')
     expect(state.view).toBe('lesson')
   })
@@ -209,6 +210,51 @@ describe('Explorer Store', () => {
       mode: 'explore',
       view: '3d',
       reducedMotion: true,
+    })
+  })
+
+  it('自由探索定位实体但保留课程锚点，并能一键返回', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace(verticalSliceTrace)
+    store.getState().goToStep(3)
+    store.getState().setMode('explore')
+
+    store.getState().goToStep(12)
+    expect(store.getState()).toMatchObject({
+      mode: 'explore',
+      currentStepIndex: 12,
+      guidedStepIndex: 3,
+    })
+
+    store.getState().selectHead(1)
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 5,
+      selectedHeadIndex: 1,
+      selectedEntityId: 'head:1',
+      guidedStepIndex: 3,
+    })
+
+    store.getState().selectToken(2)
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 0,
+      selectedTokenIndex: 2,
+      selectedEntityId: 'token:2',
+      guidedStepIndex: 3,
+    })
+
+    store.getState().selectLayer(0)
+    expect(store.getState()).toMatchObject({
+      currentStepIndex: 4,
+      selectedLayerIndex: 0,
+      guidedStepIndex: 3,
+    })
+
+    store.getState().setMode('guided')
+    expect(store.getState()).toMatchObject({
+      mode: 'guided',
+      currentStepIndex: 3,
+      guidedStepIndex: 3,
+      selectedEntityId: 'operation:layernorm',
     })
   })
 

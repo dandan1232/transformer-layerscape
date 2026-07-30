@@ -21,6 +21,7 @@ export interface ExplorerSnapshot {
   readonly mode: LearningMode
   readonly view: ExplorerView
   readonly currentStepIndex: number
+  readonly guidedStepIndex: number
   readonly playbackRate: PlaybackRate
   readonly selectedEntityId: TraceEntityId | null
 }
@@ -35,7 +36,11 @@ const modes = new Set<LearningMode>(['guided', 'explore'])
 const views = new Set<ExplorerView>(['lesson', '2d', '3d'])
 const playbackRates = new Set<PlaybackRate>([0.5, 1, 1.5, 2])
 
-function isSnapshot(value: unknown): value is ExplorerSnapshot {
+type StoredExplorerSnapshot = Omit<ExplorerSnapshot, 'guidedStepIndex'> & {
+  readonly guidedStepIndex?: number
+}
+
+function isSnapshot(value: unknown): value is StoredExplorerSnapshot {
   if (!value || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
   return (
@@ -44,6 +49,9 @@ function isSnapshot(value: unknown): value is ExplorerSnapshot {
     views.has(record.view as ExplorerView) &&
     Number.isInteger(record.currentStepIndex) &&
     Number(record.currentStepIndex) >= 0 &&
+    (record.guidedStepIndex === undefined ||
+      (Number.isInteger(record.guidedStepIndex) &&
+        Number(record.guidedStepIndex) >= 0)) &&
     playbackRates.has(record.playbackRate as PlaybackRate) &&
     (record.selectedEntityId === null || typeof record.selectedEntityId === 'string')
   )
@@ -57,7 +65,12 @@ export function readExplorerSnapshot(
     const serialized = storage.getItem(EXPLORER_STORAGE_KEY)
     if (!serialized) return null
     const value: unknown = JSON.parse(serialized)
-    if (isSnapshot(value)) return value
+    if (isSnapshot(value)) {
+      return {
+        ...value,
+        guidedStepIndex: value.guidedStepIndex ?? value.currentStepIndex,
+      }
+    }
     storage.removeItem(EXPLORER_STORAGE_KEY)
   } catch {
     try {
@@ -75,6 +88,7 @@ export function createExplorerSnapshot(state: ExplorerStore): ExplorerSnapshot {
     mode: state.mode,
     view: state.view,
     currentStepIndex: state.currentStepIndex,
+    guidedStepIndex: state.guidedStepIndex,
     playbackRate: state.playbackRate,
     selectedEntityId: state.selectedEntityId,
   }
@@ -133,10 +147,13 @@ export function createExplorerPersistenceController(
     restoreProgress: () => {
       if (disposed) return
       if (snapshot && store.getState().trace) {
-        store.getState().goToStep(snapshot.currentStepIndex)
-        if (snapshot.selectedEntityId) {
-          store.getState().selectEntity(snapshot.selectedEntityId)
-        }
+        store
+          .getState()
+          .restoreProgress(
+            snapshot.currentStepIndex,
+            snapshot.guidedStepIndex,
+            snapshot.selectedEntityId,
+          )
       }
       enableSaving()
     },

@@ -7,6 +7,10 @@
   overflow-x: clip;
 }
 
+.app-shell.is-explore {
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
 .skip-link {
   position: fixed;
   z-index: var(--z-skip-link);
@@ -131,6 +135,129 @@
 
 .topbar__status {
   display: none;
+}
+
+.explore-dock {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  color: var(--starlight-100);
+  background: var(--void-900);
+  border-block-end: 1px solid var(--border-dark);
+}
+
+.explore-dock__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.explore-dock__heading > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.explore-dock__heading strong {
+  font-size: var(--text-sm);
+}
+
+.explore-dock__heading span,
+.explore-dock__focus,
+.explore-dock label > span,
+.explore-dock legend {
+  color: var(--starlight-400);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+}
+
+.explore-dock__heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explore-dock__heading button,
+.explore-dock fieldset button {
+  min-height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--starlight-200);
+  background: var(--void-850);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.explore-dock__heading button {
+  flex: 0 0 auto;
+  padding-inline: var(--space-3);
+}
+
+.explore-dock__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.explore-dock label,
+.explore-dock fieldset {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.explore-dock select {
+  width: 100%;
+  min-height: 2.5rem;
+  padding-inline: var(--space-2);
+  color: var(--starlight-100);
+  background: var(--void-850);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+}
+
+.explore-dock fieldset > div {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.explore-dock fieldset button {
+  min-width: 2.5rem;
+  padding-inline: var(--space-2);
+  font-family: var(--font-mono);
+}
+
+.explore-dock fieldset button[aria-pressed='true'] {
+  color: var(--amber-ink);
+  background: var(--amber-300);
+  border-color: var(--amber-500);
+  font-weight: 800;
+}
+
+.explore-dock__focus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.explore-dock__focus strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--starlight-100);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .source-badge,
@@ -1159,6 +1286,10 @@ kbd {
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
+  .app-shell.is-explore {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+
   .topbar {
     grid-template-columns: minmax(13rem, 1fr) auto auto;
     padding-block: var(--space-2);
@@ -1284,6 +1415,29 @@ kbd {
     inset-inline-start: 0.9375rem;
     width: 1px;
     height: auto;
+  }
+}
+
+@media (min-width: 75rem) {
+  .explore-dock {
+    grid-template-columns: minmax(23rem, 0.95fr) minmax(30rem, 2fr) minmax(10rem, 0.55fr);
+    align-items: end;
+    padding-block: var(--space-2);
+    padding-inline: var(--space-4);
+  }
+
+  .explore-dock__controls {
+    grid-template-columns: minmax(12rem, 1.4fr) minmax(9rem, 1fr) auto auto;
+    align-items: end;
+  }
+
+  .explore-dock__heading {
+    align-items: flex-end;
+  }
+
+  .explore-dock__heading > div,
+  .explore-dock__focus {
+    align-self: center;
   }
 }
 

@@ -108,6 +108,35 @@ test('应用能够在浏览器中启动', async ({ page }) => {
   await expect(page.getByText('Q = X̂W_Q，K = X̂W_K，V = X̂W_V')).toBeVisible()
 })
 
+test('自由探索跨步骤联动实体并能返回课程锚点', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
+  await page.getByRole('button', { name: '跳到Attention章节' }).click()
+  await expect(page.getByText('步骤 04 / 14')).toBeVisible()
+
+  await page.getByRole('button', { name: '自由探索' }).click()
+  const dock = page.getByRole('complementary', { name: '自由探索台' })
+  await expect(dock).toContainText('课程锚点 04')
+
+  await dock.getByRole('combobox', { name: '选择算子' }).selectOption('12')
+  await expect(page.getByText('步骤 13 / 14')).toBeVisible()
+
+  await dock.getByRole('button', { name: '探索 Attention Head 2' }).click()
+  await expect(page.getByText('步骤 06 / 14')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Head 2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  await dock.getByRole('combobox', { name: '选择 Token' }).selectOption('2')
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
+  await expect(page.getByRole('button', { name: '选择 Token 3：is，ID 2' })).toBeVisible()
+
+  await dock.getByRole('button', { name: '回到课程当前位置' }).click()
+  await expect(page.getByText('步骤 04 / 14')).toBeVisible()
+  await expect(dock).not.toBeVisible()
+})
+
 test('真实三维场景可以旋转、复位并与二维 Head 选择联动', async ({ page }) => {
   await page.goto('/')
 

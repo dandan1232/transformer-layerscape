@@ -96,6 +96,128 @@ function BrandMark() {
   )
 }
 
+function ExploreDock({ store }: { store: ExplorerStoreApi }) {
+  const mode = useStore(store, (state) => state.mode)
+  const trace = useStore(store, (state) => state.trace)
+  const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
+  const guidedStepIndex = useStore(store, (state) => state.guidedStepIndex)
+  const selectedTokenIndex = useStore(store, (state) => state.selectedTokenIndex)
+  const selectedLayerIndex = useStore(store, (state) => state.selectedLayerIndex)
+  const selectedHeadIndex = useStore(store, (state) => state.selectedHeadIndex)
+  const selectedEntity = useStore(store, selectSelectedEntity)
+
+  if (mode !== 'explore') return null
+
+  const guidedStep = trace?.steps[guidedStepIndex]
+  const currentStep = trace?.steps[currentStepIndex]
+
+  return (
+    <aside className="explore-dock" aria-label="自由探索台">
+      <header className="explore-dock__heading">
+        <div>
+          <strong>自由探索台</strong>
+          <span>
+            课程锚点 {trace ? String(guidedStepIndex + 1).padStart(2, '0') : '--'}
+            {guidedStep ? ` · ${guidedStep.title}` : ''}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            store.getState().setMode('guided')
+            requestAnimationFrame(() => {
+              document.getElementById('mode-guided')?.focus()
+            })
+          }}
+        >
+          <Compass size={16} aria-hidden="true" />
+          回到课程当前位置
+        </button>
+      </header>
+
+      <div className="explore-dock__controls">
+        <label>
+          <span>算子</span>
+          <select
+            value={trace ? currentStepIndex : ''}
+            disabled={!trace}
+            aria-label="选择算子"
+            onChange={(event) =>
+              store.getState().goToStep(Number(event.currentTarget.value))
+            }
+          >
+            {!trace && <option value="">等待案例</option>}
+            {trace?.steps.map((step, index) => (
+              <option key={step.id} value={index}>
+                {String(index + 1).padStart(2, '0')} · {step.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Token</span>
+          <select
+            value={selectedTokenIndex ?? ''}
+            disabled={!trace}
+            aria-label="选择 Token"
+            onChange={(event) =>
+              store.getState().selectToken(Number(event.currentTarget.value))
+            }
+          >
+            <option value="">选择 Token</option>
+            {trace?.input.tokens.map((token, index) => (
+              <option key={`${token}-${index}`} value={index}>
+                {index + 1} · {token.trim() || '空格'}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <fieldset>
+          <legend>Block</legend>
+          <div>
+            {Array.from({ length: trace?.model.layers ?? 0 }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-pressed={selectedLayerIndex === index}
+                onClick={() => store.getState().selectLayer(index)}
+              >
+                B{index + 1}
+              </button>
+            ))}
+            {!trace && <button type="button" disabled>B–</button>}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Head</legend>
+          <div>
+            {Array.from({ length: trace?.model.heads ?? 0 }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-label={`探索 Attention Head ${index + 1}`}
+                aria-pressed={selectedHeadIndex === index}
+                onClick={() => store.getState().selectHead(index)}
+              >
+                H{index + 1}
+              </button>
+            ))}
+            {!trace && <button type="button" disabled>H–</button>}
+          </div>
+        </fieldset>
+      </div>
+
+      <p className="explore-dock__focus" aria-live="polite">
+        <span>当前联动</span>
+        <strong>{selectedEntity?.label ?? currentStep?.title ?? '等待案例'}</strong>
+      </p>
+    </aside>
+  )
+}
+
 function LessonPanel({
   store,
   isActive,
@@ -443,7 +565,7 @@ export function AppShell({
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${learningMode === 'explore' ? ' is-explore' : ''}`}>
       <a className="skip-link" href="#main-content">
         跳到主要内容
       </a>
@@ -459,6 +581,7 @@ export function AppShell({
 
         <div className="mode-switch" role="group" aria-label="学习模式">
           <button
+            id="mode-guided"
             type="button"
             aria-pressed={learningMode === 'guided'}
             onClick={() => setLearningMode('guided')}
@@ -513,6 +636,8 @@ export function AppShell({
           </section>
         )}
       </header>
+
+      <ExploreDock store={store} />
 
       <nav className="mobile-view-tabs" aria-label="学习视图" role="tablist">
         {mobileViews.map(({ id, label, icon: Icon }) => (

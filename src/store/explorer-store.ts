@@ -16,6 +16,7 @@ export interface ExplorerState {
   mode: LearningMode
   view: ExplorerView
   currentStepIndex: number
+  guidedStepIndex: number
   playback: PlaybackState
   playbackRate: PlaybackRate
   selectedTokenIndex: number | null
@@ -49,6 +50,11 @@ export interface ExplorerActions {
   selectHead: (index: number | null) => void
   setCameraMode: (mode: CameraMode) => void
   setReducedMotion: (reducedMotion: boolean) => void
+  restoreProgress: (
+    currentStepIndex: number,
+    guidedStepIndex: number,
+    selectedEntityId: TraceEntityId | null,
+  ) => void
 }
 
 export type ExplorerStore = ExplorerState & ExplorerActions
@@ -65,6 +71,7 @@ function initialState(): ExplorerState {
     mode: 'guided',
     view: 'lesson',
     currentStepIndex: 0,
+    guidedStepIndex: 0,
     playback: 'paused',
     playbackRate: 1,
     selectedTokenIndex: null,
@@ -97,6 +104,54 @@ function stepPatch(trace: ModelTrace, index: number) {
   }
 }
 
+function navigationPatch(state: ExplorerState, index: number) {
+  if (!state.trace) return {}
+  const patch = stepPatch(state.trace, index)
+  return state.mode === 'guided'
+    ? { ...patch, guidedStepIndex: patch.currentStepIndex }
+    : patch
+}
+
+function explorationStepIndex(
+  trace: ModelTrace,
+  id: TraceEntityId,
+  currentStepIndex: number,
+) {
+  const entity = trace.entities[id]
+  const currentStep = trace.steps[currentStepIndex]
+  if (!entity) return currentStepIndex
+
+  if (entity.kind === 'attention-head') {
+    if (
+      currentStep?.entityIds.includes(id) &&
+      (currentStep.operation === 'apply-causal-mask' ||
+        currentStep.operation === 'weighted-sum')
+    ) {
+      return currentStepIndex
+    }
+    const attentionIndex = trace.steps.findIndex(
+      (step) => step.operation === 'apply-causal-mask',
+    )
+    return attentionIndex >= 0 ? attentionIndex : currentStepIndex
+  }
+
+  if (currentStep?.entityIds.includes(id)) return currentStepIndex
+
+  const matchingIndex = trace.steps.findIndex((step) =>
+    step.entityIds.includes(id),
+  )
+  if (matchingIndex >= 0) return matchingIndex
+
+  if (entity.kind === 'output-token') {
+    const samplingIndex = trace.steps.findIndex(
+      (step) => step.operation === 'sample-token',
+    )
+    return samplingIndex >= 0 ? samplingIndex : currentStepIndex
+  }
+
+  return currentStepIndex
+}
+
 function readyTracePatch(trace: ModelTrace) {
   return {
     traceStatus: 'ready' as const,
@@ -104,6 +159,7 @@ function readyTracePatch(trace: ModelTrace) {
     trace,
     playback: 'paused' as const,
     cameraMode: 'guided' as const,
+    guidedStepIndex: 0,
     ...stepPatch(trace, 0),
   }
 }
@@ -161,20 +217,39 @@ export function createExplorerStore(): ExplorerStoreApi {
       }))
     },
 
-    setMode: (mode) => set({ mode }),
+    setMode: (mode) => {
+      const state = get()
+      if (mode === state.mode) return
+      if (mode === 'explore') {
+        set({
+          mode,
+          guidedStepIndex: state.currentStepIndex,
+          playback: 'paused',
+        })
+        return
+      }
+      set({
+        mode,
+        ...(state.trace
+          ? stepPatch(state.trace, state.guidedStepIndex)
+          : { currentStepIndex: state.guidedStepIndex }),
+        playback: 'paused',
+        cameraMode: 'guided',
+      })
+    },
     setView: (view) => set({ view }),
 
     goToStep: (index) => {
-      const trace = get().trace
-      if (!trace) return
-      set({ ...stepPatch(trace, index), playback: 'paused' })
+      const state = get()
+      if (!state.trace) return
+      set({ ...navigationPatch(state, index), playback: 'paused' })
     },
 
     nextStep: () => {
       const state = get()
       if (!state.trace) return
       set({
-        ...stepPatch(state.trace, state.currentStepIndex + 1),
+        ...navigationPatch(state, state.currentStepIndex + 1),
         playback: 'paused',
       })
     },
@@ -183,7 +258,7 @@ export function createExplorerStore(): ExplorerStoreApi {
       const state = get()
       if (!state.trace) return
       set({
-        ...stepPatch(state.trace, state.currentStepIndex - 1),
+        ...navigationPatch(state, state.currentStepIndex - 1),
         playback: 'paused',
       })
     },
@@ -194,7 +269,7 @@ export function createExplorerStore(): ExplorerStoreApi {
       const lastIndex = state.trace.steps.length - 1
       const nextIndex = Math.min(state.currentStepIndex + 1, lastIndex)
       set({
-        ...stepPatch(state.trace, nextIndex),
+        ...navigationPatch(state, nextIndex),
         playback: nextIndex >= lastIndex ? 'paused' : 'playing',
       })
     },
@@ -216,8 +291,9 @@ export function createExplorerStore(): ExplorerStoreApi {
     resetPlayback: (startIndex = 0) => {
       const trace = get().trace
       if (!trace) return
+      const state = get()
       set({
-        ...stepPatch(trace, startIndex),
+        ...navigationPatch(state, startIndex),
         playback: 'paused',
         cameraMode: 'guided',
       })
@@ -229,10 +305,23 @@ export function createExplorerStore(): ExplorerStoreApi {
     },
 
     selectEntity: (id) => {
-      const trace = get().trace
+      const state = get()
+      const trace = state.trace
       if (!trace) return
       if (id !== null && !trace.entities[id]) return
-      set({ ...selectionForEntity(trace, id), playback: 'paused' })
+      set({
+        ...(id !== null && state.mode === 'explore'
+          ? {
+              currentStepIndex: explorationStepIndex(
+                trace,
+                id,
+                state.currentStepIndex,
+              ),
+            }
+          : {}),
+        ...selectionForEntity(trace, id),
+        playback: 'paused',
+      })
     },
 
     selectToken: (index) => {
@@ -244,7 +333,17 @@ export function createExplorerStore(): ExplorerStoreApi {
       }
       if (!Number.isInteger(index) || index < 0 || index >= trace.input.tokens.length) return
       const id = `token:${index}`
+      const state = get()
       set({
+        ...(state.mode === 'explore'
+          ? {
+              currentStepIndex: explorationStepIndex(
+                trace,
+                id,
+                state.currentStepIndex,
+              ),
+            }
+          : {}),
         selectedTokenIndex: index,
         selectedEntityId: trace.entities[id] ? id : null,
         playback: 'paused',
@@ -252,18 +351,29 @@ export function createExplorerStore(): ExplorerStoreApi {
     },
 
     selectLayer: (index) => {
-      const trace = get().trace
+      const state = get()
+      const trace = state.trace
       if (!trace) return
       if (index === null) {
         set({ selectedLayerIndex: null, playback: 'paused' })
         return
       }
       if (!Number.isInteger(index) || index < 0 || index >= trace.model.layers) return
-      set({ selectedLayerIndex: index, playback: 'paused' })
+      const blockStartIndex = trace.steps.findIndex(
+        (step) => step.operation === 'project-qkv',
+      )
+      set({
+        selectedLayerIndex: index,
+        ...(state.mode === 'explore' && blockStartIndex >= 0
+          ? { currentStepIndex: blockStartIndex }
+          : {}),
+        playback: 'paused',
+      })
     },
 
     selectHead: (index) => {
-      const trace = get().trace
+      const state = get()
+      const trace = state.trace
       if (!trace) return
       if (index === null) {
         set({ selectedHeadIndex: null, playback: 'paused' })
@@ -273,6 +383,15 @@ export function createExplorerStore(): ExplorerStoreApi {
       const id = `head:${index}`
       const entity = trace.entities[id]
       set({
+        ...(state.mode === 'explore'
+          ? {
+              currentStepIndex: explorationStepIndex(
+                trace,
+                id,
+                state.currentStepIndex,
+              ),
+            }
+          : {}),
         selectedHeadIndex: index,
         selectedLayerIndex: entity?.layerIndex ?? get().selectedLayerIndex,
         selectedEntityId: entity?.id ?? get().selectedEntityId,
@@ -282,6 +401,22 @@ export function createExplorerStore(): ExplorerStoreApi {
 
     setCameraMode: (cameraMode) => set({ cameraMode }),
     setReducedMotion: (reducedMotion) => set({ reducedMotion }),
+    restoreProgress: (currentStepIndex, guidedStepIndex, selectedEntityId) => {
+      const trace = get().trace
+      if (!trace) return
+      const currentPatch = stepPatch(trace, currentStepIndex)
+      const guidedPatch = stepPatch(trace, guidedStepIndex)
+      const validSelectedEntityId =
+        selectedEntityId && trace.entities[selectedEntityId]
+          ? selectedEntityId
+          : currentPatch.selectedEntityId
+      set({
+        currentStepIndex: currentPatch.currentStepIndex,
+        guidedStepIndex: guidedPatch.currentStepIndex,
+        ...selectionForEntity(trace, validSelectedEntityId),
+        playback: 'paused',
+      })
+    },
   }))
 }
 
