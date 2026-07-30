@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30 已固定候选模型资源与许可证，WP-31 已验证浏览器插桩 ONNX 的可信中间状态输出。
+项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30 已固定候选模型资源与许可证，WP-31 已验证浏览器插桩 ONNX 的可信中间状态输出，WP-32 已建立版本化 Worker 协议。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
@@ -13,6 +13,7 @@
 - M2 自动化基线为 157 条单元/组件测试和 19 条端到端场景；生产构建已通过 Chrome 全套回归与 Edge 主路径回归。
 - 真实模型候选固定为 DistilGPT-2 的不可变 Revision，预计主动下载 87.02MB；文件哈希、加载覆盖项和许可证边界见 [真实模型资源基线](./MODEL_RESOURCES.md) 与 [第三方声明](./THIRD_PARTY_NOTICES.md)。
 - 插桩图通过 Node CPU 与浏览器 WASM 实测，81 个额外输出覆盖 Embedding、Q/K/V、Attention、Residual 与 MLP，完整下载仍约 87.03MB；方案与数值校验见 [插桩 ONNX 技术探针](./MODEL_INSTRUMENTATION.md)。
+- [模型 Worker 协议](./MODEL_WORKER_PROTOCOL.md)已覆盖握手、加载进度、推理、取消、释放、结构化错误和张量 Transferable，后续下载与缓存实现复用同一请求关联机制。
 
 ## 目标体验
 
@@ -31,7 +32,7 @@
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
 | M1 | Token→Attention→Output 联动垂直切片 | 已完成 |
 | M2 | 完整预置 Transformer 课程 | 已完成 |
-| M3 | 浏览器真实模型模式 | 进行中（WP-31 / 37） |
+| M3 | 浏览器真实模型模式 | 进行中（WP-32 / 37） |
 | M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
 
 ## M2 验收摘要
