@@ -445,6 +445,29 @@ describe('ModelTrace 运行时校验', () => {
       },
     },
     {
+      name: '缺少默认采样参数',
+      code: 'INVALID_FIELD',
+      mutate: (trace) => {
+        delete record(trace.output).defaultSampling
+      },
+    },
+    {
+      name: '默认采样参数越界',
+      code: 'INVALID_VALUE',
+      mutate: (trace) => {
+        record(record(trace.output).defaultSampling).temperature = 0
+      },
+    },
+    {
+      name: '默认采样结果与声明 Token 不一致',
+      code: 'INVALID_VALUE',
+      mutate: (trace) => {
+        const output = record(trace.output)
+        output.sampledTokenId = 11
+        output.sampledToken = ' horizon'
+      },
+    },
+    {
       name: '输出概率超出合法范围',
       code: 'INVALID_PROBABILITY',
       mutate: (trace) => {
@@ -458,6 +481,27 @@ describe('ModelTrace 运行时校验', () => {
       code: 'INVALID_FIELD',
       mutate: (trace) => {
         record(trace.output).candidates = []
+      },
+    },
+    {
+      name: '候选 Token 没有覆盖完整词表',
+      code: 'INVALID_SHAPE',
+      mutate: (trace) => {
+        records(record(trace.output).candidates).pop()
+      },
+    },
+    {
+      name: '候选 Token ID 超出词表',
+      code: 'INVALID_VALUE',
+      mutate: (trace) => {
+        records(record(trace.output).candidates)[0].tokenId = 99
+      },
+    },
+    {
+      name: '候选 Logit 与 Tensor 不一致',
+      code: 'INVALID_VALUE',
+      mutate: (trace) => {
+        records(record(trace.output).candidates)[0].logit = 42
       },
     },
     {

@@ -8,7 +8,13 @@ import {
   type TraceOperation,
   type TracePhase,
   type TraceSource,
+  type TraceCandidate,
 } from './trace'
+import {
+  runSamplingExperiment,
+  softmaxLogits,
+  type SamplingParameters,
+} from '../sampling/sampling'
 import {
   TraceValidationError,
   type TraceValidationCode,
@@ -885,6 +891,42 @@ function validateOutput(
     addIssue(issues, 'INVALID_FIELD', 'output.sampledToken', '必须是非空字符串。')
   }
 
+  let defaultSampling: SamplingParameters | null = null
+  if (!isRecord(root.output.defaultSampling)) {
+    addIssue(issues, 'INVALID_FIELD', 'output.defaultSampling', '必须提供默认采样参数。')
+  } else {
+    const { temperature, topK, topP, seed } = root.output.defaultSampling
+    const temperatureValid =
+      typeof temperature === 'number' &&
+      Number.isFinite(temperature) &&
+      temperature >= 0.2 &&
+      temperature <= 2
+    if (!temperatureValid) {
+      addIssue(issues, 'INVALID_VALUE', 'output.defaultSampling.temperature', 'Temperature 必须位于 0.2 到 2。')
+    }
+    const topKValid =
+      isPositiveInteger(topK) &&
+      (vocabularySize <= 0 || topK <= vocabularySize)
+    if (!topKValid) {
+      addIssue(issues, 'INVALID_VALUE', 'output.defaultSampling.topK', 'Top-k 必须位于词表范围。')
+    }
+    const topPValid =
+      typeof topP === 'number' &&
+      Number.isFinite(topP) &&
+      topP >= 0.1 &&
+      topP <= 1
+    if (!topPValid) {
+      addIssue(issues, 'INVALID_VALUE', 'output.defaultSampling.topP', 'Top-p 必须位于 0.1 到 1。')
+    }
+    const seedValid = isNonNegativeInteger(seed) && seed <= 999_999
+    if (!seedValid) {
+      addIssue(issues, 'INVALID_VALUE', 'output.defaultSampling.seed', 'Seed 必须是 0 到 999999 的整数。')
+    }
+    if (temperatureValid && topKValid && topPValid && seedValid) {
+      defaultSampling = { temperature, topK, topP, seed }
+    }
+  }
+
   if (probabilities) {
     const sum = probabilities.values.reduce((result, value) => result + value, 0)
     if (probabilities.values.some((value) => value < 0 || value > 1)) {
@@ -904,8 +946,17 @@ function validateOutput(
     addIssue(issues, 'INVALID_FIELD', 'output.candidates', '候选 Token 必须是非空数组。')
     return
   }
+  if (vocabularySize > 0 && root.output.candidates.length !== vocabularySize) {
+    addIssue(
+      issues,
+      'INVALID_SHAPE',
+      'output.candidates',
+      '候选 Token 必须覆盖完整教学词表。',
+    )
+  }
 
   const candidateTokens = new Map<number, string>()
+  const validatedCandidates: TraceCandidate[] = []
   root.output.candidates.forEach((value, index) => {
     const path = `output.candidates.${index}`
     if (!isRecord(value)) {
@@ -915,6 +966,14 @@ function validateOutput(
     if (!isNonNegativeInteger(value.tokenId)) {
       addIssue(issues, 'INVALID_VALUE', `${path}.tokenId`, 'Token ID 必须是非负整数。')
     } else {
+      if (vocabularySize > 0 && value.tokenId >= vocabularySize) {
+        addIssue(
+          issues,
+          'INVALID_VALUE',
+          `${path}.tokenId`,
+          '候选 Token ID 超出词表。',
+        )
+      }
       if (candidateTokens.has(value.tokenId)) {
         addIssue(issues, 'DUPLICATE_ID', `${path}.tokenId`, '候选 Token ID 不得重复。')
       }
@@ -938,6 +997,21 @@ function validateOutput(
       addIssue(issues, 'INVALID_PROBABILITY', `${path}.probability`, '概率必须位于 0 到 1。')
     }
     if (
+      logits &&
+      isNonNegativeInteger(value.tokenId) &&
+      (vocabularySize <= 0 || value.tokenId < vocabularySize) &&
+      typeof value.logit === 'number' &&
+      value.tokenId < logits.values.length &&
+      !approximatelyEqual(logits.values[value.tokenId], value.logit)
+    ) {
+      addIssue(
+        issues,
+        'INVALID_VALUE',
+        `${path}.logit`,
+        '候选 Logit 必须与 Logits Tensor 一致。',
+      )
+    }
+    if (
       probabilities &&
       isNonNegativeInteger(value.tokenId) &&
       typeof value.probability === 'number' &&
@@ -951,7 +1025,50 @@ function validateOutput(
         '候选概率必须与概率 Tensor 一致。',
       )
     }
+    if (
+      isNonNegativeInteger(value.tokenId) &&
+      isNonEmptyString(value.token) &&
+      typeof value.logit === 'number' &&
+      Number.isFinite(value.logit) &&
+      typeof value.probability === 'number' &&
+      Number.isFinite(value.probability) &&
+      value.probability >= 0 &&
+      value.probability <= 1
+    ) {
+      validatedCandidates.push({
+        tokenId: value.tokenId,
+        token: value.token,
+        logit: value.logit,
+        probability: value.probability,
+      })
+    }
   })
+
+  if (
+    vocabularySize > 0 &&
+    Array.from({ length: vocabularySize }, (_, tokenId) => tokenId).some(
+      (tokenId) => !candidateTokens.has(tokenId),
+    )
+  ) {
+    addIssue(
+      issues,
+      'INVALID_SHAPE',
+      'output.candidates',
+      '候选 Token ID 必须连续覆盖完整词表。',
+    )
+  }
+
+  if (logits && probabilities && logits.values.length === probabilities.values.length) {
+    const expected = softmaxLogits(logits.values)
+    if (probabilities.values.some((value, index) => !approximatelyEqual(value, expected[index]))) {
+      addIssue(
+        issues,
+        'INVALID_PROBABILITY',
+        probabilities.id,
+        'Probability Tensor 必须等于 Logits 的 Softmax。',
+      )
+    }
+  }
 
   if (
     isNonNegativeInteger(root.output.sampledTokenId) &&
@@ -974,6 +1091,25 @@ function validateOutput(
       'output.sampledToken',
       '采样 Token 文本必须与候选 Token 一致。',
     )
+  }
+
+  if (
+    defaultSampling &&
+    validatedCandidates.length === root.output.candidates.length &&
+    isNonNegativeInteger(root.output.sampledTokenId)
+  ) {
+    const defaultResult = runSamplingExperiment(
+      validatedCandidates,
+      defaultSampling,
+    ).sampledCandidate
+    if (defaultResult?.tokenId !== root.output.sampledTokenId) {
+      addIssue(
+        issues,
+        'INVALID_VALUE',
+        'output.sampledTokenId',
+        '默认采样参数与 Seed 必须复现声明的采样 Token。',
+      )
+    }
   }
 }
 

@@ -414,7 +414,7 @@ export const coreLesson = {
           kicker: 'SOFTMAX',
           title: '把候选分数变成概率',
           plainExplanation:
-            'Softmax 会放大相对优势，同时把所有候选压到 0 和 1 之间。最终整组概率之和恰好为 1。',
+            'Temperature 会先调整分数差距，再由 Softmax 把所有候选压到 0 和 1 之间。温度越低，概率越集中；温度越高，选择越分散。',
           action: {
             traceStepId: 'step:softmax',
             selectEntityId: 'operation:output',
@@ -426,14 +426,16 @@ export const coreLesson = {
             explanation:
               '先减去最大 Logit 可以提高数值稳定性，但不会改变 Softmax 的最终比例。',
             formula: {
-              expression: 'p_i = exp(z_i) / Σ_j exp(z_j)',
+              expression: 'p_i = exp(z_i / T) / Σ_j exp(z_j / T)',
               symbols: [
                 { symbol: 'z_i', meaning: '第 i 个候选的 Logit' },
                 { symbol: 'p_i', meaning: '第 i 个候选的归一化概率' },
+                { symbol: 'T', meaning: '控制概率集中程度的 Temperature' },
               ],
             },
             pseudocode: [
-              'stable_logits = logits - max(logits)',
+              'scaled_logits = logits / temperature',
+              'stable_logits = scaled_logits - max(scaled_logits)',
               'probabilities = exp(stable_logits) / sum(exp(stable_logits))',
             ],
           },
@@ -443,7 +445,7 @@ export const coreLesson = {
           kicker: 'SAMPLING',
           title: '从概率中选出下一个 Token',
           plainExplanation:
-            '最后一步按照候选概率选择结果。本教学轨迹选中了句号“.”，它会被接到输入末尾，模型随后可以继续预测。',
+            '最后一步先用 Top-k 保留固定数量的高分候选，再用 Top-p 保留累计概率达到阈值的最小集合。本教学参数和 Seed 7 会稳定选中句号“.”。',
           action: {
             traceStepId: 'step:sample',
             selectEntityId: 'output-token:12',
@@ -453,9 +455,10 @@ export const coreLesson = {
           deepDive: {
             title: '深入理解：采样不是永远取第一名',
             explanation:
-              '贪心解码总选最高概率；随机采样则保留其他候选的机会。参数实验会在后续课程开放。',
+              'Top-k 控制候选数量，Top-p 控制候选覆盖的概率质量；Seed 固定随机数起点。相同 Logits、参数和 Seed 会得到相同结果，便于逐项比较。',
             pseudocode: [
-              'candidate = sample(probabilities, seed)',
+              'candidates = top_p(top_k(probabilities, k), p)',
+              'candidate = sample(candidates, seed)',
               'output_text = input_text + candidate.token',
             ],
           },

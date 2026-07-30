@@ -128,6 +128,12 @@ export interface ModelTrace {
     readonly probabilitiesTensorId: TraceEntityId
     readonly sampledTokenId: number
     readonly sampledToken: string
+    readonly defaultSampling: {
+      readonly temperature: number
+      readonly topK: number
+      readonly topP: number
+      readonly seed: number
+    }
     readonly candidates: readonly TraceCandidate[]
   }
 }

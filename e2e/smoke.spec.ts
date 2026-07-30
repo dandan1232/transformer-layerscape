@@ -88,7 +88,19 @@ test('应用能够在浏览器中启动', async ({ page }) => {
 
   await page.getByRole('button', { name: '跳到第 13 步：把分数变成概率' }).click()
   await expect(page.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
-  await expect(page.getByText('18.0%')).toBeVisible()
+  await expect(page.getByText('17.5%').first()).toBeVisible()
+  await page.getByRole('slider', { name: 'Temperature' }).fill('0.2')
+  await expect(page.getByText('66.7%').first()).toBeVisible()
+  await page.getByRole('button', { name: '恢复默认' }).click()
+
+  await page.getByRole('button', { name: '跳到第 14 步：选出下一个 Token' }).click()
+  const samplingLab = page.getByRole('region', { name: '采样实验' })
+  await expect(samplingLab.getByRole('slider', { name: 'Top-k' })).toBeVisible()
+  await expect(samplingLab.getByRole('slider', { name: 'Top-p' })).toBeVisible()
+  await expect(samplingLab.getByRole('spinbutton', { name: 'Seed' })).toHaveValue('7')
+  await samplingLab.getByRole('slider', { name: 'Top-k' }).fill('1')
+  await expect(samplingLab).toContainText('候选池 1 / 16')
+  await expect(page.getByText('100.0%').first()).toBeVisible()
 
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await page.getByRole('button', { name: '下一项' }).click()

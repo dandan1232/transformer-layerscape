@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { verticalSliceTrace } from '../../content/traces/vertical-slice-trace'
@@ -187,21 +187,38 @@ describe('二维计算视图', () => {
     render(<Trace2DPanel store={store} isActive />)
 
     expect(screen.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
-    expect(screen.getByText('18.0%')).toBeVisible()
-    expect(screen.getByText('已采样')).toBeVisible()
+    expect(screen.getAllByText('17.5%').length).toBeGreaterThan(0)
+    expect(screen.queryByText('已采样')).not.toBeInTheDocument()
+
+    const temperature = screen.getByRole('slider', { name: /Temperature/ })
+    fireEvent.change(temperature, { target: { value: '0.2' } })
+    expect(screen.getAllByText('66.7%').length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: '恢复默认' }))
+    expect(screen.getAllByText('17.5%').length).toBeGreaterThan(0)
 
     await user.click(
-      screen.getByRole('button', { name: 'horizon，概率 14.0%，Logit 0.96' }),
+      screen.getByRole('button', { name: 'horizon，概率 13.6%，Logit 0.96' }),
     )
     expect(store.getState().selectedEntityId).toBe('operation:output')
 
     await user.click(
-      screen.getByRole('button', { name: '.，概率 18.0%，Logit 1.21' }),
+      screen.getByRole('button', { name: '.，概率 17.5%，Logit 1.21' }),
     )
     expect(store.getState().selectedEntityId).toBe('output-token:12')
 
     await user.click(screen.getByRole('button', { name: '跳到第 14 步：选出下一个 Token' }))
     expect(store.getState().currentStepIndex).toBe(13)
     expect(screen.getByRole('heading', { name: '选出下一个 Token' })).toBeVisible()
+    const samplingLab = screen.getByRole('region', { name: '采样实验' })
+    expect(within(samplingLab).getByRole('slider', { name: /Top-k/ })).toBeVisible()
+    expect(within(samplingLab).getByRole('slider', { name: /Top-p/ })).toBeVisible()
+    expect(within(samplingLab).getByRole('spinbutton', { name: /Seed/ })).toHaveValue(7)
+    expect(screen.getByText('已采样')).toBeVisible()
+
+    fireEvent.change(within(samplingLab).getByRole('slider', { name: /Top-k/ }), {
+      target: { value: '1' },
+    })
+    expect(within(samplingLab).getByText('1 / 16')).toBeVisible()
+    expect(screen.getAllByText('100.0%').length).toBeGreaterThan(0)
   })
 })

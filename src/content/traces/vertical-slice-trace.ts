@@ -4,6 +4,7 @@ import {
   type TensorSummary,
   type TraceEntity,
 } from '../../domain/trace/trace'
+import { softmaxLogits } from '../../domain/sampling/sampling'
 
 const tokens = ['The', ' sky', ' is', ' deep', ' and', ' blue'] as const
 const tokenIds = [4, 7, 2, 9, 5, 11] as const
@@ -171,10 +172,41 @@ const mlpOutputValues = projectTokenVectors(
 )
 const blockOutputValues = addVectors(attentionResidualValues, mlpOutputValues)
 
-const probabilities = [
-  0.01, 0.01, 0.02, 0.02, 0.03, 0.04, 0.05, 0.05, 0.06, 0.08, 0.1, 0.14,
-  0.18, 0.12, 0.05, 0.04,
-]
+const vocabulary = [
+  ' a',
+  ' bright',
+  ' is',
+  ' very',
+  'The',
+  ' and',
+  ' calm',
+  ' sky',
+  ' blue',
+  ' above',
+  ' today',
+  ' horizon',
+  '.',
+  ',',
+  ' night',
+  '!',
+] as const
+const logits = [
+  -1.2, -1.1, -0.75, -0.7, -0.48, -0.31, -0.12, -0.08, 0.11, 0.38,
+  0.62, 0.96, 1.21, 0.81, -0.05, -0.26,
+] as const
+const probabilities = softmaxLogits(logits)
+const outputEntities = Object.fromEntries(
+  vocabulary.map((token, tokenId) => {
+    const id = `output-token:${tokenId}`
+    const entity: TraceEntity = {
+      id,
+      kind: 'output-token',
+      label: token.trim(),
+      description: `教学词表中的候选 Token，ID 为 ${tokenId}。`,
+    }
+    return [id, entity]
+  }),
+)
 
 export const verticalSliceTrace = {
   schemaVersion: TRACE_SCHEMA_VERSION,
@@ -200,6 +232,7 @@ export const verticalSliceTrace = {
   },
   entities: {
     ...tokenEntities,
+    ...outputEntities,
     'operation:tokenize': {
       id: 'operation:tokenize',
       kind: 'operation',
@@ -283,12 +316,6 @@ export const verticalSliceTrace = {
       kind: 'operation',
       label: 'Output Projection',
       description: '把隐藏状态投影为词表分数并转换为概率。',
-    },
-    'output-token:12': {
-      id: 'output-token:12',
-      kind: 'output-token',
-      label: '.',
-      description: '本次教学轨迹采样得到的下一个 Token。',
     },
   },
   tensors: {
@@ -461,10 +488,7 @@ export const verticalSliceTrace = {
       name: 'logits',
       dtype: 'float32',
       shape: [1, 16],
-      values: [
-        -1.2, -1.1, -0.75, -0.7, -0.48, -0.31, -0.12, -0.08, 0.11, 0.38,
-        0.62, 0.96, 1.21, 0.81, -0.05, -0.26,
-      ],
+      values: logits,
       min: -1.2,
       max: 1.21,
       mean: -0.06,
@@ -476,8 +500,8 @@ export const verticalSliceTrace = {
       dtype: 'float32',
       shape: [1, 16],
       values: probabilities,
-      min: 0.01,
-      max: 0.18,
+      min: Math.min(...probabilities),
+      max: Math.max(...probabilities),
       mean: 0.0625,
     }),
   },
@@ -645,12 +669,12 @@ export const verticalSliceTrace = {
     probabilitiesTensorId: 'tensor:probabilities',
     sampledTokenId: 12,
     sampledToken: '.',
-    candidates: [
-      { tokenId: 12, token: '.', logit: 1.21, probability: 0.18 },
-      { tokenId: 11, token: ' horizon', logit: 0.96, probability: 0.14 },
-      { tokenId: 13, token: ',', logit: 0.81, probability: 0.12 },
-      { tokenId: 10, token: ' today', logit: 0.62, probability: 0.1 },
-      { tokenId: 9, token: ' above', logit: 0.38, probability: 0.08 },
-    ],
+    defaultSampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+    candidates: vocabulary.map((token, tokenId) => ({
+      tokenId,
+      token,
+      logit: logits[tokenId]!,
+      probability: probabilities[tokenId]!,
+    })),
   },
 } satisfies ModelTrace

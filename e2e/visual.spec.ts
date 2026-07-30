@@ -157,3 +157,40 @@ test('移动端 Residual 与 MLP 视觉基线', async ({ page }) => {
     maxDiffPixelRatio: 0.01,
   })
 })
+
+test('移动端采样实验视觉基线', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.goto('/')
+  await stabilizePage(page)
+  await page.getByRole('button', { name: '跳到Output章节' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('tab', { name: '二维计算' }).click()
+
+  const samplingLab = page.getByRole('region', { name: '采样实验' })
+  await expect(samplingLab).toBeVisible()
+  await expect(samplingLab.getByRole('slider', { name: 'Temperature' })).toBeVisible()
+  await expect(samplingLab.getByRole('slider', { name: 'Top-k' })).toBeVisible()
+  await expect(samplingLab.getByRole('slider', { name: 'Top-p' })).toBeVisible()
+  await expect(samplingLab.getByRole('spinbutton', { name: 'Seed' })).toBeVisible()
+
+  const layout = await page.evaluate(() => {
+    const panel = document.querySelector<HTMLElement>('.trace2d-panel')!
+    const lab = document.querySelector<HTMLElement>('.sampling-lab')!
+    return {
+      viewportWidth: window.innerWidth,
+      panelRight: panel.getBoundingClientRect().right,
+      labRight: lab.getBoundingClientRect().right,
+      pageScrollWidth: document.documentElement.scrollWidth,
+    }
+  })
+  expect(layout.panelRight).toBeLessThanOrEqual(layout.viewportWidth)
+  expect(layout.labRight).toBeLessThanOrEqual(layout.viewportWidth)
+  expect(layout.pageScrollWidth).toBeLessThanOrEqual(layout.viewportWidth)
+
+  await expect(page).toHaveScreenshot('m2-mobile-sampling.png', {
+    animations: 'disabled',
+    fullPage: true,
+    maxDiffPixelRatio: 0.01,
+  })
+})
