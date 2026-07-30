@@ -79,6 +79,7 @@ export async function main() {
   server.stderr.on('data', (chunk) => serverErrors.push(String(chunk)))
 
   let browser
+  let page
   const diagnostics = []
   const networkModelRequests = []
   try {
@@ -87,7 +88,7 @@ export async function main() {
       executablePath: findChromiumExecutable(),
       headless: true,
     })
-    const page = await browser.newPage()
+    page = await browser.newPage()
     page.on('crash', () => diagnostics.push('page crashed'))
     page.on('pageerror', (error) => diagnostics.push(`page error: ${error.message}`))
     page.on('console', (message) => {
@@ -126,7 +127,15 @@ export async function main() {
     const startedAt = performance.now()
     await page.getByRole('button', { name: '加载真实模型' }).click()
     await page.getByRole('button', { name: '确认并下载' }).click()
-    await page.getByText('真实模型资源已就绪').waitFor({ timeout: 120_000 })
+    const readyMessage = page.getByText('真实模型资源已就绪')
+    const errorMessage = page.getByRole('alert')
+    await Promise.race([
+      readyMessage.waitFor({ timeout: 120_000 }),
+      errorMessage.waitFor({ timeout: 120_000 }),
+    ])
+    if (await errorMessage.isVisible()) {
+      throw new Error(`Model load UI failed: ${await errorMessage.textContent()}`)
+    }
     const elapsedMs = performance.now() - startedAt
     const probe = await page.evaluate(async ({ cacheName, remoteUrls }) => {
       clearInterval(globalThis.__modelDownloadTimer)
@@ -151,6 +160,89 @@ export async function main() {
       throw new Error(`Worker unexpectedly fetched ${networkModelRequests.length} model resources from the network`)
     }
 
+    await page.reload()
+    const traceProbe = await page.evaluate(async () => {
+      const [{ createModelWorkerClient }, { OnnxTraceAdapter }, { DISTILGPT2_RESOURCE_MANIFEST }] =
+        await Promise.all([
+          import('/src/platform/model-runtime/create-model-worker-client.ts'),
+          import('/src/adapters/onnx/onnx-trace-adapter.ts'),
+          import('/src/platform/model-runtime/model-resources.ts'),
+        ])
+      const client = createModelWorkerClient()
+      try {
+        await client.loadModel({
+          resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
+          preferredExecutionProviders: ['wasm'],
+        })
+        const adapter = new OnnxTraceAdapter(client, {
+          text: 'The sky is blue',
+          selectedLayerIndex: 5,
+          sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+        })
+        let trace
+        const traceStartedAt = performance.now()
+        try {
+          trace = await adapter.load()
+        } catch (error) {
+          throw new Error(JSON.stringify({
+            message: error instanceof Error ? error.message : String(error),
+            issues: error?.issues,
+          }))
+        }
+        const tensorByRole = (role) =>
+          Object.values(trace.tensors).find((tensor) => tensor.role === role)
+        const blockInput = tensorByRole('block-input')
+        const embedding = tensorByRole('embedding')
+        const probabilities = tensorByRole('probabilities')
+        const attentionWeights = tensorByRole('attention-weights')
+        const tokenCount = trace.input.tokens.length
+        const rowSums = []
+        for (let head = 0; head < trace.model.heads; head += 1) {
+          for (let row = 0; row < tokenCount; row += 1) {
+            const offset = (head * tokenCount + row) * tokenCount
+            rowSums.push(attentionWeights.values
+              .slice(offset, offset + tokenCount)
+              .reduce((total, value) => total + value, 0))
+          }
+        }
+        return {
+          schemaVersion: trace.schemaVersion,
+          source: trace.source,
+          model: trace.model,
+          tokenIds: trace.input.tokenIds,
+          tokens: trace.input.tokens,
+          tensorCount: Object.keys(trace.tensors).length,
+          candidateCount: trace.output.candidates.length,
+          sampledTokenId: trace.output.sampledTokenId,
+          sampledToken: trace.output.sampledToken,
+          traceMilliseconds: performance.now() - traceStartedAt,
+          probabilitySum: probabilities.values.reduce((total, value) => total + value, 0),
+          maximumAttentionRowError: Math.max(...rowSums.map((sum) => Math.abs(1 - sum))),
+          selectedLayerInputDiffersFromEmbedding: blockInput.values.some(
+            (value, index) => Math.abs(value - embedding.values[index]) > 1e-5,
+          ),
+        }
+      } finally {
+        await client.disposeModel().catch(() => undefined)
+        client.terminate()
+      }
+    })
+    if (traceProbe.source !== 'onnx' || traceProbe.tensorCount !== 22) {
+      throw new Error(`Unexpected ONNX trace summary ${JSON.stringify(traceProbe)}`)
+    }
+    if (traceProbe.candidateCount !== 50_257) {
+      throw new Error(`ONNX trace only returned ${traceProbe.candidateCount} candidates`)
+    }
+    if (Math.abs(traceProbe.probabilitySum - 1) > 1e-5) {
+      throw new Error(`ONNX trace probability sum was ${traceProbe.probabilitySum}`)
+    }
+    if (traceProbe.maximumAttentionRowError > 1e-4) {
+      throw new Error(`ONNX trace attention row error was ${traceProbe.maximumAttentionRowError}`)
+    }
+    if (!traceProbe.selectedLayerInputDiffersFromEmbedding) {
+      throw new Error('Layer 6 input unexpectedly reused the original embedding')
+    }
+
     process.stdout.write(`${JSON.stringify({
       cacheName: CACHE_NAME,
       elapsedMs: Number(elapsedMs.toFixed(1)),
@@ -159,10 +251,19 @@ export async function main() {
       cachedBytes: probe.cacheEntries.reduce((total, entry) => total + entry.bytes, 0),
       networkModelRequests: networkModelRequests.length,
       readyState: probe.readyState,
+      trace: traceProbe,
       diagnostics,
     }, null, 2)}\n`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    if (page) {
+      const state = await page.evaluate(() => ({
+        title: document.querySelector('#real-model-title')?.textContent,
+        description: document.querySelector('#real-model-description')?.textContent,
+        triggerState: document.querySelector('.real-model-trigger')?.getAttribute('data-state'),
+      })).catch(() => null)
+      if (state) diagnostics.push(`UI state: ${JSON.stringify(state)}`)
+    }
     throw new Error(`${message}\nDiagnostics: ${diagnostics.join(' | ') || 'none'}`)
   } finally {
     if (browser) await browser.close()

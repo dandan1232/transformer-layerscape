@@ -5,6 +5,19 @@ import {
 } from './browser-model-worker-operations'
 import { DISTILGPT2_RESOURCE_MANIFEST } from './model-resources'
 
+const inferenceResult = {
+  modelId: 'distilgpt2',
+  executionProvider: 'wasm' as const,
+  input: { text: 'Hello', tokenIds: [15496], tokens: ['Hello'] },
+  output: {
+    sampledTokenId: 0,
+    sampledToken: '!',
+    candidates: [{ tokenId: 0, token: '!', logit: 1, probability: 1 }],
+  },
+  tensors: [],
+  inferenceMilliseconds: 1,
+}
+
 function dependencies(
   overrides: Partial<BrowserModelWorkerDependencies> = {},
 ): BrowserModelWorkerDependencies {
@@ -28,7 +41,15 @@ function dependencies(
       }
     }),
     instrumentModel: vi.fn(async () => Uint8Array.from([4, 5, 6]).buffer),
-    createSession: vi.fn(async () => ({ release: vi.fn(async () => undefined) })),
+    createSession: vi.fn(async () => ({
+      run: vi.fn(async () => ({})),
+      release: vi.fn(async () => undefined),
+    })),
+    createTokenizer: vi.fn(async () => ({
+      tokenize: () => ({ tokenIds: [15496], tokens: ['Hello'] }),
+      decodeToken: () => '!',
+    })),
+    createInferencePayload: vi.fn(() => inferenceResult),
     ...overrides,
   }
 }
@@ -76,7 +97,7 @@ describe('browser model Worker operations', () => {
     const deps = dependencies({
       createSession: vi.fn(async () => {
         controller.abort('用户取消')
-        return { release }
+        return { run: vi.fn(async () => ({})), release }
       }),
     })
     const operations = createBrowserModelWorkerOperations(deps)
@@ -88,10 +109,13 @@ describe('browser model Worker operations', () => {
     expect(release).toHaveBeenCalledOnce()
   })
 
-  it('requires a loaded Session and releases it on disposal', async () => {
+  it('requires a loaded Session, runs inference and releases it on disposal', async () => {
     const release = vi.fn(async () => undefined)
+    const run = vi.fn(async () => ({}))
+    const createInferencePayload = vi.fn(() => inferenceResult)
     const operations = createBrowserModelWorkerOperations(dependencies({
-      createSession: vi.fn(async () => ({ release })),
+      createSession: vi.fn(async () => ({ run, release })),
+      createInferencePayload,
     }))
     const inferenceContext = context()
     await expect(operations.runInference({
@@ -105,6 +129,12 @@ describe('browser model Worker operations', () => {
       resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
       preferredExecutionProviders: ['wasm'],
     }, context())
+    await expect(operations.runInference({
+      text: 'Hello', selectedLayerIndex: 0,
+      sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+    }, context())).resolves.toBe(inferenceResult)
+    expect(run).toHaveBeenCalledWith([15496])
+    expect(createInferencePayload).toHaveBeenCalledOnce()
     await operations.disposeModel(context())
     expect(release).toHaveBeenCalledOnce()
   })

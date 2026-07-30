@@ -16,9 +16,11 @@
     "spike:model:instrument": "node scripts/model-tools/instrument-distilgpt2.mjs",
     "spike:model:verify-node": "node scripts/model-tools/verify-distilgpt2-instrumentation.mjs",
     "spike:model:verify-browser": "node scripts/model-tools/verify-distilgpt2-browser.mjs",
-    "verify:model:download": "node scripts/model-tools/verify-model-download-worker.mjs"
+    "verify:model:download": "node scripts/model-tools/verify-model-download-worker.mjs",
+    "verify:model:trace": "node scripts/model-tools/verify-model-download-worker.mjs"
   },
   "dependencies": {
+    "@huggingface/tokenizers": "^0.1.3",
     "@huggingface/transformers": "^4.2.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",

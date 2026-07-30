@@ -40,3 +40,5 @@ node scripts/model-tools/create-model-binary-patch.mjs \
 | 页面 / Worker 错误 | 0 |
 
 单元与组件测试另外覆盖：确认前零 Worker、进度展示、取消、失败重试、损坏缓存恢复、失败时无半成品缓存、补丁源/目标哈希以及初始化取消竞态。
+
+从 WP-34 起，同一个浏览器验收命令还会在重新加载页面后运行第 6 层真实推理并验证统一 `ModelTrace`；适配结果见 [真实模型轨迹适配器](./MODEL_TRACE_ADAPTER.md)。

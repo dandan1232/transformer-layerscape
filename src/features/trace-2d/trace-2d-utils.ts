@@ -154,7 +154,7 @@ export function getAttentionChecks(trace: ModelTrace): AttentionChecks {
     (tensor) => tensor.role === 'attention-head-output',
   )
   const concatenated = Object.values(trace.tensors).find(
-    (tensor) => tensor.role === 'attention-output',
+    (tensor) => tensor.role === 'attention-concatenated',
   )
   const expectedMaskShape = [tokenCount, tokenCount]
   const expectedWeightsShape = [1, trace.model.heads, tokenCount, tokenCount]
@@ -226,7 +226,7 @@ export function getResidualMlpChecks(trace: ModelTrace): ResidualMlpChecks {
     trace.input.tokens.length,
     trace.model.hiddenSize * 4,
   ]
-  const embedding = tensorByRole('embedding')
+  const blockInput = tensorByRole('block-input')
   const attentionOutput = tensorByRole('attention-output')
   const attentionResidual = tensorByRole('attention-residual')
   const normalized = tensorByRole('feed-forward-normalized')
@@ -242,7 +242,7 @@ export function getResidualMlpChecks(trace: ModelTrace): ResidualMlpChecks {
         (value, index) =>
           Math.abs(
             value -
-              ((embedding?.values[index] ?? Number.NaN) +
+              ((blockInput?.values[index] ?? Number.NaN) +
                 (attentionOutput?.values[index] ?? Number.NaN)),
           ) <= 1e-4,
       ),

@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30 已固定候选模型资源与许可证，WP-31 已验证浏览器插桩 ONNX 的可信中间状态输出，WP-32 已建立版本化 Worker 协议，WP-33 已接通主动下载、版本化缓存和 Worker 内 WASM 初始化。
+项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30 已固定候选模型资源与许可证，WP-31 已验证浏览器插桩 ONNX 的可信中间状态输出，WP-32 已建立版本化 Worker 协议，WP-33 已接通下载缓存，WP-34 已把真实推理转换为统一 `ModelTrace`。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
@@ -15,6 +15,7 @@
 - 插桩图通过 Node CPU 与浏览器 WASM 实测，81 个额外输出覆盖 Embedding、Q/K/V、Attention、Residual 与 MLP，完整下载仍约 87.03MB；方案与数值校验见 [插桩 ONNX 技术探针](./MODEL_INSTRUMENTATION.md)。
 - [模型 Worker 协议](./MODEL_WORKER_PROTOCOL.md)已覆盖握手、加载进度、推理、取消、释放、结构化错误和张量 Transferable，后续下载与缓存实现复用同一请求关联机制。
 - [真实模型下载与缓存](./MODEL_DOWNLOAD_CACHE.md)已实现下载前确认、流式进度、取消、重试、SHA-256 校验和按 Revision 隔离的 Cache Storage；浏览器实测从缓存读取 87,020,477 字节并在 Worker 内完成插桩与 WASM Session 初始化，主线程保持响应。
+- [真实模型轨迹适配器](./MODEL_TRACE_ADAPTER.md)把所选 DistilGPT-2 层映射为 22 个语义张量，并与预置适配器复用同一运行时契约；浏览器第 6 层实测覆盖 12 Heads、50,257 个词表候选，概率和 Attention 归一化及残差/MLP 数值校验均通过。
 
 ## 目标体验
 
@@ -33,7 +34,7 @@
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
 | M1 | Token→Attention→Output 联动垂直切片 | 已完成 |
 | M2 | 完整预置 Transformer 课程 | 已完成 |
-| M3 | 浏览器真实模型模式 | 进行中（WP-33 / 37） |
+| M3 | 浏览器真实模型模式 | 进行中（WP-34 / 37） |
 | M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
 
 ## M2 验收摘要
@@ -99,6 +100,9 @@ npm run test:e2e
 
 # 验证真实模型缓存、Worker 插桩和 WASM 初始化（需本地固定模型缓存）
 npm run verify:model:download
+
+# 验证真实第 6 层到统一 ModelTrace 的完整链路
+npm run verify:model:trace
 ```
 
 首次运行 Playwright 前，需要安装测试浏览器：

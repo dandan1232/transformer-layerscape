@@ -190,7 +190,7 @@ export function RealModelDownload({
             {state === 'ready' && (
               <>
                 <p id="real-model-description" role="status">
-                  文件、插桩图和 WASM Session 已通过校验。下一步可以接入真实模型 Trace。
+                  文件、插桩图和 WASM Session 已通过校验，真实轨迹适配器已经就绪。下一步将开放输入与参数实验。
                 </p>
                 <div className="real-model-dialog__actions">
                   <button type="button" className="primary-action" onClick={() => setState('ready-closed')}>

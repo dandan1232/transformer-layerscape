@@ -37,4 +37,6 @@ WP-32 建立 `MODEL_WORKER_PROTOCOL_VERSION = 1` 的主线程与模型 Worker �
 - 多个张量意外共享同一 Buffer 时，Transfer List 自动去重；
 - 转移后 Worker 不再读取已脱离的 Buffer，主线程成为唯一所有者。
 
-`ModelWorkerClient` 负责握手、请求关联、进度回调、AbortSignal 和结构化错误；`attachModelWorkerRuntime` 负责 Worker 侧取消控制、错误归一化和 Transferable 投递。WP-33 只需注入具体下载、缓存与 Session 操作，不再另建消息格式。
+WP-34 的真实推理结果固定输出 22 个语义张量，覆盖 Token、Embedding、当前 Block 输入、Q/K/V、Attention 权重、各 Head 输出、多头拼接、`c_proj` 投影、两条残差、MLP、Logits 与 Probabilities。多头拼接和输出投影保持为两个角色，避免把 GPT-2 的学习型 `c_proj` 错写成恒等映射。
+
+`ModelWorkerClient` 负责握手、请求关联、进度回调、AbortSignal 和结构化错误；`attachModelWorkerRuntime` 负责 Worker 侧取消控制、错误归一化和 Transferable 投递。WP-33 与 WP-34 分别注入下载缓存、Session 和真实推理操作，沿用同一协议而不另建消息格式。

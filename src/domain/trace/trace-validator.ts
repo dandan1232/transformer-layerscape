@@ -50,6 +50,7 @@ const tensorRoles = new Set<TensorRole>([
   'token-embedding',
   'position-embedding',
   'embedding',
+  'block-input',
   'normalized',
   'query',
   'key',
@@ -57,6 +58,7 @@ const tensorRoles = new Set<TensorRole>([
   'attention-mask',
   'attention-weights',
   'attention-head-output',
+  'attention-concatenated',
   'attention-output',
   'attention-residual',
   'feed-forward-normalized',
@@ -469,6 +471,7 @@ function validateCoreTensorShapes(
   model: { heads: number; hiddenSize: number; vocabularySize: number } | null,
   tensors: ReadonlyMap<string, ValidatedTensor>,
   tokenIds: readonly number[],
+  source: TraceSource | null,
   issues: TraceValidationIssue[],
 ) {
   const byRole = new Map<TensorRole, ValidatedTensor[]>()
@@ -537,6 +540,16 @@ function validateCoreTensorShapes(
       }
     }
 
+    const blockInput = byRole.get('block-input')?.[0]
+    if (blockInput && blockInput.shape.join(',') !== expectedEmbeddingShape) {
+      addIssue(
+        issues,
+        'INVALID_SHAPE',
+        blockInput.id,
+        'block-input Shape 必须为 [1, token, hidden]。',
+      )
+    }
+
     const normalized = byRole.get('normalized')?.[0]
     if (normalized) {
       if (normalized.shape.join(',') !== expectedEmbeddingShape) {
@@ -546,7 +559,7 @@ function validateCoreTensorShapes(
           normalized.id,
           'normalized Shape 必须为 [1, token, hidden]。',
         )
-      } else {
+      } else if (source === 'preset') {
         for (let tokenIndex = 0; tokenIndex < tokenCount; tokenIndex += 1) {
           const start = tokenIndex * model.hiddenSize
           const sample = normalized.values.slice(start, start + model.hiddenSize)
@@ -594,6 +607,7 @@ function validateCoreTensorShapes(
   }
 
   const headOutput = byRole.get('attention-head-output')?.[0]
+  const attentionConcatenated = byRole.get('attention-concatenated')?.[0]
   const attentionOutput = byRole.get('attention-output')?.[0]
   if (model) {
     const headSize = model.hiddenSize / model.heads
@@ -618,7 +632,7 @@ function validateCoreTensorShapes(
     }
     if (
       headOutput?.shape.join(',') === expectedHeadOutputShape &&
-      attentionOutput?.shape.join(',') === expectedAttentionOutputShape
+      attentionConcatenated?.shape.join(',') === expectedAttentionOutputShape
     ) {
       for (let tokenIndex = 0; tokenIndex < tokenCount; tokenIndex += 1) {
         for (let headIndex = 0; headIndex < model.heads; headIndex += 1) {
@@ -629,12 +643,12 @@ function validateCoreTensorShapes(
               tokenIndex * model.hiddenSize + headIndex * headSize + dimension
             if (!approximatelyEqual(
               headOutput.values[sourceIndex],
-              attentionOutput.values[targetIndex],
+              attentionConcatenated.values[targetIndex],
             )) {
               addIssue(
                 issues,
                 'INVALID_VALUE',
-                `${attentionOutput.id}[${tokenIndex},${headIndex},${dimension}]`,
+                `${attentionConcatenated.id}[${tokenIndex},${headIndex},${dimension}]`,
                 'Attention 输出必须按 Token 拼接全部 Head 的向量。',
               )
               return
@@ -682,12 +696,12 @@ function validateCoreTensorShapes(
       }
     }
 
-    const embedding = byRole.get('embedding')?.[0]
-    if (embedding && attentionOutput && attentionResidual) {
+    const blockInput = byRole.get('block-input')?.[0]
+    if (blockInput && attentionOutput && attentionResidual) {
       const residualMatches = attentionResidual.values.every((value, index) =>
         approximatelyEqual(
           value,
-          (embedding.values[index] ?? 0) + (attentionOutput.values[index] ?? 0),
+          (blockInput.values[index] ?? 0) + (attentionOutput.values[index] ?? 0),
         ),
       )
       if (!residualMatches) {
@@ -700,7 +714,7 @@ function validateCoreTensorShapes(
       }
     }
 
-    if (feedForwardNormalized?.shape.join(',') === hiddenShape) {
+    if (source === 'preset' && feedForwardNormalized?.shape.join(',') === hiddenShape) {
       for (let tokenIndex = 0; tokenIndex < tokenCount; tokenIndex += 1) {
         const start = tokenIndex * model.hiddenSize
         const sample = feedForwardNormalized.values.slice(start, start + model.hiddenSize)
@@ -1144,6 +1158,7 @@ export function validateModelTrace(value: unknown): asserts value is ModelTrace 
     model,
     tensors,
     input.tokenIds,
+    traceSources.has(value.source as TraceSource) ? value.source as TraceSource : null,
     issues,
   )
   validateOutput(value, tensors, model?.vocabularySize ?? 0, issues)
