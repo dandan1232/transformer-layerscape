@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DISTILGPT2_DOWNLOAD_BYTES,
+  DISTILGPT2_INSTRUMENTED_DOWNLOAD_BYTES,
   DISTILGPT2_RESOURCE_MANIFEST,
   resolvePinnedModelFileUrl,
 } from './model-resources'
@@ -44,8 +45,17 @@ describe('real model resource manifest', () => {
     })
     expect(DISTILGPT2_RESOURCE_MANIFEST.license.spdx).toBe('Apache-2.0')
     expect(DISTILGPT2_RESOURCE_MANIFEST.teachingTrace).toMatchObject({
-      instrumented: false,
-      approved: false,
+      sourceInstrumented: false,
+      strategy: 'additional-graph-outputs',
+      strategyApproved: true,
+      integrationReady: false,
+      promotedOutputCount: 81,
+      artifact: {
+        bytes: 84_918_412,
+        sha256: 'e6db38a049caa9434436b2055c5ee5bfb77b7f8c0098aefe790d08f13ef62132',
+      },
     })
+    expect(DISTILGPT2_INSTRUMENTED_DOWNLOAD_BYTES).toBe(87_027_410)
+    expect(DISTILGPT2_INSTRUMENTED_DOWNLOAD_BYTES).toBeLessThanOrEqual(100_000_000)
   })
 })

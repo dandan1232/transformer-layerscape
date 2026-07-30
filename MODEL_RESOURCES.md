@@ -1,6 +1,6 @@
 # 真实模型资源基线
 
-WP-30 将第一版浏览器真实模型候选固定为英文 DistilGPT-2。此清单只批准技术探针使用；普通生成图尚未提供课程所需的可信中间状态，因此在 WP-31 完成前不得标记为“真实模型教学 Trace”。
+WP-30 将第一版浏览器真实模型候选固定为英文 DistilGPT-2。WP-31 已批准额外输出插桩策略，但普通源图本身仍不能标记为“真实模型教学 Trace”；只有按固定脚本生成并通过哈希与数值验证的插桩产物可以进入后续集成。
 
 ## 固定来源
 
@@ -37,6 +37,6 @@ WP-30 将第一版浏览器真实模型候选固定为英文 DistilGPT-2。此�
 
 ## 教学正确性闸门
 
-此转换图可作为文本生成候选，但当前清单明确记录 `instrumented: false` 与 `approved: false`。WP-31 必须验证指定层的 Q/K/V、Attention 权重或等价可复核摘要，以及与普通模型 Logits 的数值一致性。若插桩图无法维持约 100MB 下载目标，或只能输出最终 Logits，则不得进入真实模型 UI。
+源转换图继续记录 `sourceInstrumented: false`。WP-31 的[插桩探针](./MODEL_INSTRUMENTATION.md)已验证额外输出模型：文件只增加 6,933 字节，完整下载为 87.03MB，并能在浏览器 WASM 中读取 Q/K/V、Attention、Residual 与 MLP。策略已批准，但在 WP-33 固定插桩产物的发布或 Worker 构造方式前，`integrationReady` 仍为 `false`。
 
 变更 Repo ID、Revision、文件名、字节数、哈希、许可证、加载参数或下载预算时，必须作为新的资源审查提交，不能就地依赖远端漂移。

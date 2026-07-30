@@ -12,7 +12,10 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:update": "playwright test --update-snapshots"
+    "test:e2e:update": "playwright test --update-snapshots",
+    "spike:model:instrument": "node scripts/model-tools/instrument-distilgpt2.mjs",
+    "spike:model:verify-node": "node scripts/model-tools/verify-distilgpt2-instrumentation.mjs",
+    "spike:model:verify-browser": "node scripts/model-tools/verify-distilgpt2-browser.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

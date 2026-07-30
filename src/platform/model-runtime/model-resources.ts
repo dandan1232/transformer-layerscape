@@ -38,9 +38,17 @@ export const DISTILGPT2_RESOURCE_MANIFEST = {
     maxInputTokens: 12,
   },
   teachingTrace: {
-    instrumented: false,
-    approved: false,
-    gate: 'WP-31 must verify trustworthy intermediate outputs before UI integration.',
+    sourceInstrumented: false,
+    strategy: 'additional-graph-outputs',
+    strategyApproved: true,
+    integrationReady: false,
+    promotedOutputCount: 81,
+    artifact: {
+      bytes: 84_918_412,
+      sha256: 'e6db38a049caa9434436b2055c5ee5bfb77b7f8c0098aefe790d08f13ef62132',
+      buildScript: 'scripts/model-tools/instrument-distilgpt2.mjs',
+    },
+    gate: 'WP-33 must publish or construct the pinned artifact before UI integration.',
   },
   files: [
     {
@@ -78,6 +86,11 @@ export const DISTILGPT2_RESOURCE_MANIFEST = {
 
 export const DISTILGPT2_DOWNLOAD_BYTES =
   DISTILGPT2_RESOURCE_MANIFEST.files.reduce((total, file) => total + file.bytes, 0)
+
+export const DISTILGPT2_INSTRUMENTED_DOWNLOAD_BYTES =
+  DISTILGPT2_DOWNLOAD_BYTES -
+  DISTILGPT2_RESOURCE_MANIFEST.files.find((file) => file.role === 'onnx-weights')!.bytes +
+  DISTILGPT2_RESOURCE_MANIFEST.teachingTrace.artifact.bytes
 
 export function resolvePinnedModelFileUrl(path: string): string {
   return `https://huggingface.co/${repositoryId}/resolve/${repositoryRevision}/${path}`
