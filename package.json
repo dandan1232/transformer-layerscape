@@ -15,7 +15,8 @@
     "test:e2e:update": "playwright test --update-snapshots",
     "spike:model:instrument": "node scripts/model-tools/instrument-distilgpt2.mjs",
     "spike:model:verify-node": "node scripts/model-tools/verify-distilgpt2-instrumentation.mjs",
-    "spike:model:verify-browser": "node scripts/model-tools/verify-distilgpt2-browser.mjs"
+    "spike:model:verify-browser": "node scripts/model-tools/verify-distilgpt2-browser.mjs",
+    "verify:model:download": "node scripts/model-tools/verify-model-download-worker.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

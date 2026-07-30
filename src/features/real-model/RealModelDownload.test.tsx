@@ -1,0 +1,102 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  RealModelDownload,
+  type RealModelDownloadClient,
+} from './RealModelDownload'
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+function client(
+  loadModel: RealModelDownloadClient['loadModel'],
+): RealModelDownloadClient {
+  return { loadModel, terminate: vi.fn() }
+}
+
+describe('real model download consent', () => {
+  it('does not create a Worker or download before explicit confirmation', async () => {
+    const user = userEvent.setup()
+    const createClient = vi.fn(() => client(vi.fn()))
+    render(<RealModelDownload createClient={createClient} />)
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('87.0MB')
+    expect(screen.getByRole('dialog')).toHaveTextContent('只在此浏览器内处理')
+    expect(createClient).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '暂不下载' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(createClient).not.toHaveBeenCalled()
+  })
+
+  it('shows progress and reaches the verified ready state', async () => {
+    const user = userEvent.setup()
+    const load = deferred<{
+      modelId: string
+      executionProvider: 'wasm'
+      cacheHit: boolean
+    }>()
+    const loadModel = vi.fn((_payload, options) => {
+      options?.onProgress?.({
+        phase: 'downloading', loadedBytes: 43_500_000, totalBytes: 87_000_000,
+        file: 'onnx/model.onnx',
+      })
+      return load.promise
+    }) satisfies RealModelDownloadClient['loadModel']
+    render(<RealModelDownload createClient={() => client(loadModel)} />)
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    await user.click(screen.getByRole('button', { name: '确认并下载' }))
+    const progressbar = screen.getByRole('progressbar')
+    expect(progressbar).toHaveValue(43_500_000)
+    expect(progressbar.parentElement?.querySelector('span')).toHaveTextContent('50%')
+
+    load.resolve({ modelId: 'distilgpt2', executionProvider: 'wasm', cacheHit: false })
+    expect(await screen.findByText('真实模型资源已就绪')).toBeVisible()
+    expect(screen.getByRole('button', { name: '真实模型已就绪' })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: '完成' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '真实模型已就绪' })).toBeVisible()
+  })
+
+  it('cancels through AbortSignal and terminates the Worker', async () => {
+    const user = userEvent.setup()
+    const load = deferred<never>()
+    let signal: AbortSignal | undefined
+    const fakeClient = client(vi.fn((_payload, options) => {
+      signal = options?.signal
+      return load.promise
+    }))
+    render(<RealModelDownload createClient={() => fakeClient} />)
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    await user.click(screen.getByRole('button', { name: '确认并下载' }))
+    await user.click(screen.getByRole('button', { name: '取消下载' }))
+
+    expect(signal?.aborted).toBe(true)
+    expect(fakeClient.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('offers recovery after a load failure', async () => {
+    const user = userEvent.setup()
+    const loadModel = vi.fn(async () => {
+      throw new Error('网络连接中断')
+    })
+    render(<RealModelDownload createClient={() => client(loadModel)} />)
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    await user.click(screen.getByRole('button', { name: '确认并下载' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('网络连接中断')
+    expect(screen.getByRole('button', { name: /重试下载/ })).toBeVisible()
+  })
+})

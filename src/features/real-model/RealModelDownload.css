@@ -1,0 +1,129 @@
+.real-model-trigger[data-state='ready'] {
+  color: var(--amber-300);
+  background: color-mix(in oklch, var(--amber-300) 12%, transparent);
+}
+
+.real-model-trigger__spinner {
+  animation: real-model-spin 0.9s linear infinite;
+}
+
+.real-model-modal {
+  position: fixed;
+  z-index: var(--z-modal, 100);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: oklch(8% 0.018 255 / 0.82);
+  backdrop-filter: blur(10px);
+}
+
+.real-model-dialog {
+  width: min(100%, 34rem);
+  display: grid;
+  gap: var(--space-5);
+  padding: clamp(var(--space-5), 5vw, var(--space-8));
+  color: var(--starlight-100);
+  background: var(--void-900);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1.5rem 5rem oklch(0% 0 0 / 0.45);
+}
+
+.real-model-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.real-model-dialog header > div {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.real-model-dialog header span {
+  color: var(--amber-300);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.real-model-dialog h2,
+.real-model-dialog p {
+  margin: 0;
+}
+
+.real-model-dialog h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 5vw, 2.25rem);
+}
+
+.real-model-dialog p {
+  color: var(--starlight-300);
+  line-height: 1.7;
+}
+
+.real-model-dialog dl {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.real-model-dialog dl div {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--border-dark);
+}
+
+.real-model-dialog dt {
+  color: var(--starlight-500);
+  font-size: var(--text-xs);
+}
+
+.real-model-dialog dd {
+  margin: 0;
+  color: var(--starlight-200);
+  font-size: var(--text-sm);
+}
+
+.real-model-progress {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.real-model-progress progress {
+  width: 100%;
+  height: 0.65rem;
+  overflow: hidden;
+  accent-color: var(--amber-300);
+  border-radius: 999px;
+}
+
+.real-model-progress span {
+  color: var(--starlight-400);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.real-model-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.real-model-dialog__actions button {
+  width: auto;
+  padding-inline: var(--space-5);
+}
+
+@keyframes real-model-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .real-model-trigger__spinner { animation: none; }
+}

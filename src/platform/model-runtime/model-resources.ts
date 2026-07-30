@@ -41,14 +41,19 @@ export const DISTILGPT2_RESOURCE_MANIFEST = {
     sourceInstrumented: false,
     strategy: 'additional-graph-outputs',
     strategyApproved: true,
-    integrationReady: false,
+    integrationReady: true,
     promotedOutputCount: 81,
+    construction: {
+      mode: 'gzip-copy-insert-patch',
+      patchModule: 'src/platform/model-runtime/distilgpt2-instrumentation-patch.mjs',
+      sourceSha256: 'dfd02dcbfccb31d289cac235f71cecad357030866fe7019f05a36b1c5692afba',
+    },
     artifact: {
       bytes: 84_918_412,
       sha256: 'e6db38a049caa9434436b2055c5ee5bfb77b7f8c0098aefe790d08f13ef62132',
       buildScript: 'scripts/model-tools/instrument-distilgpt2.mjs',
     },
-    gate: 'WP-33 must publish or construct the pinned artifact before UI integration.',
+    validation: 'WP-33 constructs and verifies the pinned artifact inside the model Worker.',
   },
   files: [
     {

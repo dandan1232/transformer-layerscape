@@ -24,6 +24,7 @@ import {
   navigateToLessonStep,
 } from '../features/lesson-panel/lesson-navigation'
 import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
+import { RealModelDownload } from '../features/real-model/RealModelDownload'
 import { useDeviceCapabilities } from '../platform/use-device-capabilities'
 import {
   selectCanGoNext,
@@ -619,6 +620,7 @@ export function AppShell({
         </div>
 
         <div className="topbar__tools">
+          <RealModelDownload />
           <button type="button" disabled aria-label="打开帮助" title="帮助中心即将开放">
             <CircleHelp size={19} aria-hidden="true" />
           </button>

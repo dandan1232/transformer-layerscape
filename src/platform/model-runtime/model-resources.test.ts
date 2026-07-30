@@ -37,7 +37,7 @@ describe('real model resource manifest', () => {
     }
   })
 
-  it('requires the compact merged graph and keeps teaching integration gated', () => {
+  it('requires the compact merged graph and records the verified teaching construction', () => {
     expect(DISTILGPT2_RESOURCE_MANIFEST.runtime).toMatchObject({
       dtype: 'q8',
       modelFileName: 'decoder_model_merged',
@@ -48,8 +48,12 @@ describe('real model resource manifest', () => {
       sourceInstrumented: false,
       strategy: 'additional-graph-outputs',
       strategyApproved: true,
-      integrationReady: false,
+      integrationReady: true,
       promotedOutputCount: 81,
+      construction: {
+        mode: 'gzip-copy-insert-patch',
+        sourceSha256: 'dfd02dcbfccb31d289cac235f71cecad357030866fe7019f05a36b1c5692afba',
+      },
       artifact: {
         bytes: 84_918_412,
         sha256: 'e6db38a049caa9434436b2055c5ee5bfb77b7f8c0098aefe790d08f13ef62132',
