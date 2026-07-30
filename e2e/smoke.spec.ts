@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('应用能够在浏览器中启动', async ({ page }) => {
+test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.goto('/')
 
   await expect(page).toHaveTitle(/Transformer LayerScape/)

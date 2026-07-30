@@ -84,7 +84,7 @@ async function measureStepFeedback(page: Page) {
 
 test.describe.configure({ mode: 'serial' })
 
-test('M1 桌面首次交互、步骤反馈和三维帧率预算', async ({ page }) => {
+test('M2 桌面首次交互、步骤反馈和三维帧率预算', async ({ page }) => {
   const externalRequests: string[] = []
   page.on('request', (request) => {
     const url = new URL(request.url())
@@ -130,7 +130,7 @@ test('M1 桌面首次交互、步骤反馈和三维帧率预算', async ({ page 
     externalRequests,
   }
 
-  console.log(`M1_PERF_DESKTOP ${JSON.stringify(sample)}`)
+  console.log(`M2_PERF_DESKTOP ${JSON.stringify(sample)}`)
   expect(sample.interactiveMs).toBeLessThan(3_000)
   expect(sample.sceneReadyMs).toBeLessThan(5_000)
   expect(sample.stepFeedbackMs).toBeGreaterThanOrEqual(0)
@@ -140,7 +140,7 @@ test('M1 桌面首次交互、步骤反馈和三维帧率预算', async ({ page 
   expect(sample.externalRequests).toEqual([])
 })
 
-test('M1 移动视口简化三维帧率与页面宽度预算', async ({ page }) => {
+test('M2 移动视口简化三维帧率与页面宽度预算', async ({ page }) => {
   await page.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia.bind(window)
     window.matchMedia = (query: string) => {
@@ -174,7 +174,7 @@ test('M1 移动视口简化三维帧率与页面宽度预算', async ({ page }) 
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
   console.log(
-    `M1_PERF_MOBILE ${JSON.stringify({ averageFps, hasOverflow })}`,
+    `M2_PERF_MOBILE ${JSON.stringify({ averageFps, hasOverflow })}`,
   )
 
   expect(averageFps).toBeGreaterThanOrEqual(20)
