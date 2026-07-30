@@ -34,10 +34,17 @@ export interface DeviceCapabilities {
   readonly wasm: boolean
   readonly reducedMotion: boolean
   readonly coarsePointer: boolean
+  readonly compactViewport: boolean
   readonly deviceMemoryGB: number | null
   readonly memoryTier: MemoryTier
   readonly threeDMode: ThreeDMode
 }
+
+const observedMediaQueries = [
+  '(prefers-reduced-motion: reduce)',
+  '(pointer: coarse)',
+  '(max-width: 47.99rem)',
+] as const
 
 function readMemoryTier(deviceMemoryGB: number | null): MemoryTier {
   if (deviceMemoryGB === null) return 'unknown'
@@ -74,9 +81,10 @@ export function detectDeviceCapabilities(
       : null
   const memoryTier = readMemoryTier(deviceMemoryGB)
   const coarsePointer = scope.matchMedia?.('(pointer: coarse)').matches ?? false
+  const compactViewport = scope.matchMedia?.('(max-width: 47.99rem)').matches ?? false
   const threeDMode: ThreeDMode = !webgl
     ? 'none'
-    : memoryTier === 'low' || coarsePointer
+    : memoryTier === 'low' || coarsePointer || compactViewport
       ? 'reduced'
       : 'full'
 
@@ -87,6 +95,7 @@ export function detectDeviceCapabilities(
     wasm: typeof scope.WebAssembly !== 'undefined',
     reducedMotion: scope.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
     coarsePointer,
+    compactViewport,
     deviceMemoryGB,
     memoryTier,
     threeDMode,
@@ -97,14 +106,22 @@ export function observeCapabilityChanges(
   listener: () => void,
   scope: CapabilityScope = globalThis as unknown as CapabilityScope,
 ) {
-  const mediaQuery = scope.matchMedia?.('(prefers-reduced-motion: reduce)')
-  if (!mediaQuery) return () => undefined
+  const mediaQueries = observedMediaQueries
+    .map((query) => scope.matchMedia?.(query))
+    .filter((query): query is MediaQueryListLike => Boolean(query))
 
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener('change', listener)
-    return () => mediaQuery.removeEventListener?.('change', listener)
+  for (const mediaQuery of mediaQueries) {
+    if (mediaQuery.addEventListener) mediaQuery.addEventListener('change', listener)
+    else mediaQuery.addListener?.(listener)
   }
 
-  mediaQuery.addListener?.(listener)
-  return () => mediaQuery.removeListener?.(listener)
+  return () => {
+    for (const mediaQuery of mediaQueries) {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', listener)
+      } else {
+        mediaQuery.removeListener?.(listener)
+      }
+    }
+  }
 }

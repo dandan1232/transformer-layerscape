@@ -44,6 +44,7 @@ describe('设备能力检测', () => {
       wasm: true,
       reducedMotion: true,
       coarsePointer: false,
+      compactViewport: false,
       deviceMemoryGB: 8,
       memoryTier: 'high',
       threeDMode: 'full',
@@ -61,6 +62,21 @@ describe('设备能力检测', () => {
     expect(result).toMatchObject({
       coarsePointer: true,
       memoryTier: 'high',
+      threeDMode: 'reduced',
+    })
+  })
+
+  it('窄视口在精细指针设备上也采用简化三维', () => {
+    const result = detectDeviceCapabilities(
+      scope({
+        contexts: { webgl2: true },
+        matchMedia: (query) => ({ matches: query === '(max-width: 47.99rem)' }),
+      }),
+    )
+
+    expect(result).toMatchObject({
+      coarsePointer: false,
+      compactViewport: true,
       threeDMode: 'reduced',
     })
   })
@@ -104,6 +120,7 @@ describe('设备能力检测', () => {
       webgl2: false,
       wasm: false,
       coarsePointer: false,
+      compactViewport: false,
       deviceMemoryGB: null,
       memoryTier: 'unknown',
       threeDMode: 'none',
@@ -122,8 +139,10 @@ describe('设备能力检测', () => {
       }),
     })
 
+    expect(addEventListener).toHaveBeenCalledTimes(3)
     expect(addEventListener).toHaveBeenCalledWith('change', listener)
     dispose()
+    expect(removeEventListener).toHaveBeenCalledTimes(3)
     expect(removeEventListener).toHaveBeenCalledWith('change', listener)
 
     const addListener = vi.fn()
@@ -131,8 +150,10 @@ describe('设备能力检测', () => {
     const disposeLegacy = observeCapabilityChanges(listener, {
       matchMedia: () => ({ matches: false, addListener, removeListener }),
     })
+    expect(addListener).toHaveBeenCalledTimes(3)
     expect(addListener).toHaveBeenCalledWith(listener)
     disposeLegacy()
+    expect(removeListener).toHaveBeenCalledTimes(3)
     expect(removeListener).toHaveBeenCalledWith(listener)
   })
 })

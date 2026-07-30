@@ -308,3 +308,47 @@ test('移动端可以切换到二维计算且没有页面横向溢出', async ({
     ),
   ).toBe(true)
 })
+
+test('移动端旋转方向后恢复当前二维课程与共享选择', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  const shell = page.locator('.app-shell')
+  await expect(shell).toHaveAttribute('data-compact-viewport', 'true')
+  await expect(shell).toHaveAttribute('data-three-d-mode', 'reduced')
+
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
+  await page.getByRole('button', { name: '跳到Attention章节' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('tab', { name: '二维计算' }).click()
+  await page.getByRole('button', { name: 'Head 2', exact: true }).click()
+  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+
+  await page.setViewportSize({ width: 844, height: 390 })
+
+  await expect(page.getByRole('tab', { name: '二维计算' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '二维计算' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByText('步骤 06 / 14')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Head 2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  expect(await page.locator('[role="tabpanel"]:visible').count()).toBe(1)
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(shell).toHaveAttribute('data-compact-viewport', 'true')
+  await expect(page.getByRole('tab', { name: '二维计算' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+})

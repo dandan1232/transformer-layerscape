@@ -893,3 +893,16 @@
     scroll-behavior: auto !important;
   }
 }
+
+@media (pointer: coarse) {
+  .trace2d-step-strip button,
+  .trace2d-head-switch button,
+  .sampling-lab__heading button,
+  .sampling-lab__controls input[type='number'] {
+    min-height: 3rem;
+  }
+
+  .sampling-lab__controls input[type='range'] {
+    min-height: 2.75rem;
+  }
+}

@@ -418,3 +418,11 @@
     transition: none !important;
   }
 }
+
+@media (pointer: coarse) {
+  .scene3d-context-alert button,
+  .scene3d-entities button {
+    min-width: 3rem;
+    min-height: 3rem;
+  }
+}

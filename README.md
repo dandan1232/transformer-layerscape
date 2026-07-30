@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目已完成 **M1：Token→Attention→Output 联动垂直切片**，M2 完整预置课程正在实施，WP-20～WP-25 已完成。
+项目已完成 **M1：Token→Attention→Output 联动垂直切片**，M2 完整预置课程正在实施，WP-20～WP-26 已完成。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
 - M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、中文课程、二维计算、三维空间、完整联动、能力检测、错误恢复和综合验收已经完成。
-- 当前页面可以学习 Token、Embedding、LayerNorm、Q/K/V、Attention、Residual、MLP 与 Output 共十四项中文课程，在二维图中查看位置编码相加、归一化分布、三路投影、跨 Head 差异、两条残差旁路、`8→32→8` 前馈网络和完整词表概率，并通过 Temperature、Top-k、Top-p 与 Seed 实验可复现的采样结果；自由探索台支持跨步骤选择算子、Token、Block 与 Head，同时保留返回课程锚点的入口。三维空间同步展示 CONCAT、Pre-Norm、MLP 与 Block 输出链路。系统会按设备能力切换完整、简化或二维安全模式，保存本地进度，并在数据、子视图或 WebGL Context 失败时保持核心课程可用。
-- 当前自动化基线为 156 条单元/组件测试和 17 条端到端场景。
+- 当前页面可以学习 Token、Embedding、LayerNorm、Q/K/V、Attention、Residual、MLP 与 Output 共十四项中文课程，在二维图中查看位置编码相加、归一化分布、三路投影、跨 Head 差异、两条残差旁路、`8→32→8` 前馈网络和完整词表概率，并通过 Temperature、Top-k、Top-p 与 Seed 实验可复现的采样结果；自由探索台支持跨步骤选择算子、Token、Block 与 Head，同时保留返回课程锚点的入口。三维空间同步展示 CONCAT、Pre-Norm、MLP 与 Block 输出链路。移动端按窄屏、粗指针和内存能力切换简化三维，横竖屏变化后会恢复当前课程、二维视图和共享选择；系统同时保存本地进度，并在数据、子视图或 WebGL Context 失败时保持核心课程可用。
+- 当前自动化基线为 157 条单元/组件测试和 19 条端到端场景。
 
 ## 目标体验
 
@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
 | M1 | Token→Attention→Output 联动垂直切片 | 已完成 |
-| M2 | 完整预置 Transformer 课程 | 进行中（WP-20～WP-25 已完成） |
+| M2 | 完整预置 Transformer 课程 | 进行中（WP-20～WP-26 已完成） |
 | M3 | 浏览器真实模型模式 | 待实施 |
 | M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
 

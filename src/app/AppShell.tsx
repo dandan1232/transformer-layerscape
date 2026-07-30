@@ -565,7 +565,12 @@ export function AppShell({
   }
 
   return (
-    <div className={`app-shell${learningMode === 'explore' ? ' is-explore' : ''}`}>
+    <div
+      className={`app-shell${learningMode === 'explore' ? ' is-explore' : ''}`}
+      data-three-d-mode={capabilities.threeDMode}
+      data-compact-viewport={capabilities.compactViewport}
+      data-coarse-pointer={capabilities.coarsePointer}
+    >
       <a className="skip-link" href="#main-content">
         跳到主要内容
       </a>

@@ -68,3 +68,9 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+
+@media (pointer: coarse) {
+  .feature-error__actions button {
+    min-height: 3rem;
+  }
+}

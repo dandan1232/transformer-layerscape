@@ -41,6 +41,15 @@ async function resetLessonScroll(page: Page) {
   })
 }
 
+async function resetMobileScroll(page: Page) {
+  await page.evaluate(() => {
+    window.scrollTo(0, 0)
+    document.querySelectorAll<HTMLElement>('.workspace-panel').forEach((panel) => {
+      panel.scrollTop = 0
+    })
+  })
+}
+
 test.beforeEach(async ({ page }) => {
   await useDeterministicRendering(page)
 })
@@ -133,6 +142,7 @@ test('移动端二维 QKV 视觉基线', async ({ page }) => {
   expect(layout.figureRight).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.hintRight).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.figureScrollWidth).toBeGreaterThan(layout.figureClientWidth)
+  await resetMobileScroll(page)
 
   await expect(page).toHaveScreenshot('m1-mobile-qkv.png', {
     animations: 'disabled',
@@ -159,6 +169,7 @@ test('移动端多头注意力对比视觉基线', async ({ page }) => {
       figure.scrollLeft = figure.scrollWidth
     },
   )
+  await resetMobileScroll(page)
 
   await expect(page).toHaveScreenshot('m2-mobile-multi-head.png', {
     animations: 'disabled',
@@ -184,6 +195,7 @@ test('移动端 Residual 与 MLP 视觉基线', async ({ page }) => {
       figure.scrollLeft = Math.round(figure.scrollWidth / 3)
     },
   )
+  await resetMobileScroll(page)
 
   await expect(page).toHaveScreenshot('m2-mobile-residual-mlp.png', {
     animations: 'disabled',
@@ -221,8 +233,30 @@ test('移动端采样实验视觉基线', async ({ page }) => {
   expect(layout.panelRight).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.labRight).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.pageScrollWidth).toBeLessThanOrEqual(layout.viewportWidth)
+  await resetMobileScroll(page)
 
   await expect(page).toHaveScreenshot('m2-mobile-sampling.png', {
+    animations: 'disabled',
+    fullPage: true,
+    maxDiffPixelRatio: 0.01,
+  })
+})
+
+test('移动端横屏恢复二维课程视觉基线', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await stabilizePage(page)
+  await page.getByRole('button', { name: '跳到Attention章节' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('button', { name: '下一项' }).click()
+  await page.getByRole('tab', { name: '二维计算' }).click()
+  await page.getByRole('button', { name: 'Head 2', exact: true }).click()
+  await page.setViewportSize({ width: 844, height: 390 })
+  await expect(page.getByRole('tab', { name: '二维计算' })).toBeVisible()
+  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await resetMobileScroll(page)
+
+  await expect(page).toHaveScreenshot('m2-mobile-landscape-recovery.png', {
     animations: 'disabled',
     fullPage: true,
     maxDiffPixelRatio: 0.01,

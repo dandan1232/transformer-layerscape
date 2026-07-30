@@ -1,5 +1,6 @@
 .app-shell {
   min-height: 100svh;
+  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   color: var(--starlight-100);
@@ -1456,11 +1457,110 @@ kbd {
 }
 
 @media (pointer: coarse) {
+  .mode-switch button,
+  .mobile-view-tabs button,
+  .explore-dock__heading button,
+  .explore-dock fieldset button,
+  .explore-dock select,
+  .chapter-track__button,
+  .deep-dive summary,
+  .data-alert button,
   .topbar__tools button,
   .scene-control,
   .timeline button,
-  .primary-action {
+  .primary-action,
+  .secondary-action {
     min-height: 3rem;
+  }
+}
+
+@media (max-width: 63.99rem) and (max-height: 35rem) {
+  .app-shell,
+  .app-shell.is-explore {
+    height: 100svh;
+    height: 100dvh;
+    min-height: 0;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+
+  .app-shell.is-explore {
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  }
+
+  .topbar {
+    min-height: 3.5rem;
+    grid-template-columns: auto minmax(12rem, 22rem) auto;
+    gap: var(--space-2);
+    padding-block: var(--space-1);
+    padding-inline: max(var(--space-3), env(safe-area-inset-left))
+      max(var(--space-3), env(safe-area-inset-right));
+  }
+
+  .brand {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .brand__wordmark {
+    display: none;
+  }
+
+  .brand-mark {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .mode-switch {
+    grid-row: 1;
+    grid-column: 2;
+    width: 100%;
+  }
+
+  .mode-switch button {
+    min-height: 2.75rem;
+  }
+
+  .topbar__tools {
+    grid-row: 1;
+    grid-column: 3;
+  }
+
+  .topbar__tools button:last-child {
+    display: none;
+  }
+
+  .mobile-view-tabs {
+    display: grid;
+  }
+
+  .workspace {
+    display: block;
+    overflow: hidden;
+  }
+
+  .workspace .workspace-panel {
+    display: none;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .workspace .workspace-panel.is-mobile-active {
+    display: flex;
+  }
+
+  .lesson-panel,
+  .calculation-panel,
+  .scene-panel {
+    min-height: 0;
+  }
+
+  .calculation-panel,
+  .scene-panel__header {
+    padding: var(--space-4);
+  }
+
+  .timeline {
+    min-height: 3.5rem;
   }
 }
 
