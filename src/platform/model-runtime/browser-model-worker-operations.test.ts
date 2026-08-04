@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createBrowserModelWorkerOperations,
+  createSessionWithFallback,
   requiredDistilgpt2OutputNames,
   type BrowserModelWorkerDependencies,
 } from './browser-model-worker-operations'
@@ -23,6 +24,7 @@ function dependencies(
   overrides: Partial<BrowserModelWorkerDependencies> = {},
 ): BrowserModelWorkerDependencies {
   return {
+    supportedExecutionProviders: ['wasm'],
     loadResources: vi.fn(async ({ onProgress }) => {
       onProgress({
         file: 'onnx/decoder_model_merged_quantized.onnx',
@@ -43,6 +45,7 @@ function dependencies(
     }),
     instrumentModel: vi.fn(async () => Uint8Array.from([4, 5, 6]).buffer),
     createSession: vi.fn(async () => ({
+      executionProvider: 'wasm' as const,
       run: vi.fn(async () => ({})),
       release: vi.fn(async () => undefined),
     })),
@@ -60,6 +63,32 @@ function context(signal = new AbortController().signal) {
 }
 
 describe('browser model Worker operations', () => {
+  it('uses WebGPU when available and falls back to WASM after initialization failure', async () => {
+    const webgpuSession = {
+      executionProvider: 'webgpu' as const,
+      run: vi.fn(async () => ({})), release: vi.fn(async () => undefined),
+    }
+    await expect(createSessionWithFallback({
+      preferredExecutionProviders: ['webgpu', 'wasm'], webgpuAvailable: true,
+      createWebgpu: vi.fn(async () => webgpuSession),
+      createWasm: vi.fn(async () => ({ ...webgpuSession, executionProvider: 'wasm' as const })),
+    })).resolves.toBe(webgpuSession)
+
+    const createWasm = vi.fn(async () => ({ ...webgpuSession, executionProvider: 'wasm' as const }))
+    await expect(createSessionWithFallback({
+      preferredExecutionProviders: ['webgpu', 'wasm'], webgpuAvailable: true,
+      createWebgpu: vi.fn(async () => { throw new Error('adapter unavailable') }),
+      createWasm,
+    })).resolves.toMatchObject({ executionProvider: 'wasm' })
+    expect(createWasm).toHaveBeenCalledOnce()
+
+    await expect(createSessionWithFallback({
+      preferredExecutionProviders: ['webgpu'], webgpuAvailable: true,
+      createWebgpu: vi.fn(async () => { throw new Error('unsupported graph') }),
+      createWasm,
+    })).rejects.toMatchObject({ code: 'UNSUPPORTED_RUNTIME' })
+  })
+
   it('requests only the selected layer outputs needed by the teaching trace', () => {
     const names = requiredDistilgpt2OutputNames(5)
     expect(names).toHaveLength(18)
@@ -87,7 +116,10 @@ describe('browser model Worker operations', () => {
       'downloading', 'verifying', 'instrumenting', 'instrumenting',
       'initializing', 'initializing',
     ])
-    expect(deps.createSession).toHaveBeenCalledWith(Uint8Array.from([4, 5, 6]).buffer)
+    expect(deps.createSession).toHaveBeenCalledWith(
+      Uint8Array.from([4, 5, 6]).buffer,
+      ['webgpu', 'wasm'],
+    )
   })
 
   it('rejects unknown resources and unavailable execution providers', async () => {
@@ -107,7 +139,7 @@ describe('browser model Worker operations', () => {
     const deps = dependencies({
       createSession: vi.fn(async () => {
         controller.abort('用户取消')
-        return { run: vi.fn(async () => ({})), release }
+        return { executionProvider: 'wasm' as const, run: vi.fn(async () => ({})), release }
       }),
     })
     const operations = createBrowserModelWorkerOperations(deps)
@@ -124,7 +156,7 @@ describe('browser model Worker operations', () => {
     const run = vi.fn(async () => ({}))
     const createInferencePayload = vi.fn(async () => inferenceResult)
     const operations = createBrowserModelWorkerOperations(dependencies({
-      createSession: vi.fn(async () => ({ run, release })),
+      createSession: vi.fn(async () => ({ executionProvider: 'wasm' as const, run, release })),
       createInferencePayload,
     }))
     const inferenceContext = context()
@@ -153,6 +185,7 @@ describe('browser model Worker operations', () => {
     const run = vi.fn(async () => ({}))
     const operations = createBrowserModelWorkerOperations(dependencies({
       createSession: vi.fn(async () => ({
+        executionProvider: 'wasm' as const,
         run,
         release: vi.fn(async () => undefined),
       })),

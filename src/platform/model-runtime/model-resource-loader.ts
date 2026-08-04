@@ -127,7 +127,7 @@ async function readNetworkResponse(
     )
   }
   const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
+  const buffer = new Uint8Array(file.bytes)
   let fileLoadedBytes = 0
   try {
     while (true) {
@@ -139,7 +139,7 @@ async function readNetworkResponse(
       if (fileLoadedBytes > file.bytes) {
         throw new ModelResourceLoadError('SIZE', file.path, `${file.path} 超出预期体积。`)
       }
-      chunks.push(value)
+      buffer.set(value, fileLoadedBytes - value.byteLength)
       onProgress?.({
         file: file.path,
         source: 'network',
@@ -156,12 +156,6 @@ async function readNetworkResponse(
     reader.releaseLock()
   }
 
-  const buffer = new Uint8Array(fileLoadedBytes)
-  let offset = 0
-  for (const chunk of chunks) {
-    buffer.set(chunk, offset)
-    offset += chunk.byteLength
-  }
   return buffer.buffer
 }
 

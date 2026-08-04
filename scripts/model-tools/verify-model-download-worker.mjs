@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { createServer } from 'node:net'
+import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createServer as createHttpServer } from 'node:http'
+import { createServer as createNetServer } from 'node:net'
 import { resolve } from 'node:path'
 import { chromium } from '@playwright/test'
 
 const HOST = '127.0.0.1'
 const REVISION = 'a41c10485c18a64b6606729b6a082330cbd8f49e'
 const CACHE_NAME = `transformer-layerscape-model-v1-${REVISION.slice(0, 12)}`
-const REPOSITORY_URL = `https://huggingface.co/Xenova/distilgpt2/resolve/${REVISION}`
 const LOCAL_RESOURCES = [
   ['config.json', '.cache/wp30/config.json'],
   ['generation_config.json', '.cache/wp30/generation_config.json'],
@@ -27,7 +27,7 @@ function findChromiumExecutable() {
 }
 
 async function findAvailablePort() {
-  const server = createServer()
+  const server = createNetServer()
   await new Promise((resolveListen, rejectListen) => {
     server.once('error', rejectListen)
     server.listen(0, HOST, resolveListen)
@@ -65,23 +65,84 @@ function verifyLocalResources() {
 export async function main() {
   verifyLocalResources()
   const port = await findAvailablePort()
+  const resourcePort = await findAvailablePort()
   const baseUrl = `http://${HOST}:${port}`
+  const modelResourceBaseUrl = `http://${HOST}:${resourcePort}`
   const resources = LOCAL_RESOURCES.map(([remotePath, localPath]) => ({
-    remoteUrl: `${REPOSITORY_URL}/${remotePath}`,
-    localUrl: `${baseUrl}/@fs/${resolve(localPath).replaceAll('\\', '/')}`,
+    remotePath,
+    remoteUrl: `${modelResourceBaseUrl}/${remotePath}`,
+    localUrl: `${modelResourceBaseUrl}/${remotePath}`,
+    localPath: resolve(localPath),
   }))
+  const resourceServer = createHttpServer((request, response) => {
+    const requestPath = decodeURIComponent(new URL(request.url ?? '/', modelResourceBaseUrl).pathname)
+      .replace(/^\//, '')
+    const resource = resources.find((entry) => entry.remotePath === requestPath)
+    if (!resource) {
+      response.writeHead(404).end()
+      return
+    }
+    const { size } = statSync(resource.localPath)
+    response.writeHead(200, {
+      'access-control-allow-origin': '*',
+      'cache-control': 'no-store',
+      'content-length': String(size),
+      'content-type': requestPath.endsWith('.json')
+        ? 'application/json'
+        : 'application/octet-stream',
+    })
+    createReadStream(resource.localPath).pipe(response)
+  })
+  await new Promise((resolveListen, rejectListen) => {
+    resourceServer.once('error', rejectListen)
+    resourceServer.listen(resourcePort, HOST, resolveListen)
+  })
   const server = spawn(
     process.execPath,
     ['node_modules/vite/bin/vite.js', '--host', HOST, '--port', String(port), '--strictPort'],
-    { cwd: resolve('.'), stdio: ['ignore', 'pipe', 'pipe'] },
+    {
+      cwd: resolve('.'),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        VITE_MODEL_RESOURCE_BASE_URL: modelResourceBaseUrl,
+      },
+    },
   )
   const serverErrors = []
   server.stderr.on('data', (chunk) => serverErrors.push(String(chunk)))
 
   let browser
   let page
+  let browserCdp
   const diagnostics = []
+  const runtimeWarnings = []
   const networkModelRequests = []
+  const privacyLeaks = []
+  let privacyProbeActive = false
+  let currentStage = 'startup'
+  const attachPageDiagnostics = (targetPage) => {
+    targetPage.on('crash', () => diagnostics.push('page crashed'))
+    targetPage.on('pageerror', (error) => diagnostics.push(`page error: ${error.message}`))
+    targetPage.on('console', (message) => {
+      if (message.type() !== 'error') return
+      if (message.text().includes('[W:onnxruntime:')) runtimeWarnings.push(message.text())
+      else diagnostics.push(`console error: ${message.text()}`)
+    })
+    targetPage.on('request', (request) => {
+      if (
+        currentStage === 'initial-cache-hit-load' &&
+        request.url().startsWith(modelResourceBaseUrl)
+      ) networkModelRequests.push(request.url())
+      if (privacyProbeActive) {
+        const serialized = `${request.url()}\n${request.postData() ?? ''}\n${JSON.stringify(request.headers())}`
+          .toLowerCase()
+        if (serialized.includes('the sky is blue') || serialized.includes('the%20sky%20is%20blue')) {
+          privacyLeaks.push(request.url())
+        }
+      }
+    })
+  }
   try {
     await waitForServer(server, baseUrl)
     browser = await chromium.launch({
@@ -90,7 +151,7 @@ export async function main() {
       args: ['--enable-precise-memory-info'],
     })
     page = await browser.newPage()
-    const browserCdp = await browser.newBrowserCDPSession()
+    browserCdp = await browser.newBrowserCDPSession()
     const countModelWorkers = async () => {
       const { targetInfos } = await browserCdp.send('Target.getTargets')
       return targetInfos.filter((target) =>
@@ -105,15 +166,9 @@ export async function main() {
       }
       return countModelWorkers()
     }
-    page.on('crash', () => diagnostics.push('page crashed'))
-    page.on('pageerror', (error) => diagnostics.push(`page error: ${error.message}`))
-    page.on('console', (message) => {
-      if (message.type() === 'error') diagnostics.push(`console error: ${message.text()}`)
-    })
-    page.on('request', (request) => {
-      if (request.url().startsWith(REPOSITORY_URL)) networkModelRequests.push(request.url())
-    })
+    attachPageDiagnostics(page)
 
+    currentStage = 'seed-cache'
     await page.goto(baseUrl)
     const initialModelWorkers = await countModelWorkers()
     await page.evaluate(async ({ cacheName, resourceEntries }) => {
@@ -141,6 +196,7 @@ export async function main() {
       probe.__modelDownloadObserver = observer
     })
 
+    currentStage = 'initial-cache-hit-load'
     const startedAt = performance.now()
     await page.getByRole('button', { name: '加载真实模型' }).click()
     await page.getByRole('button', { name: '确认并下载' }).click()
@@ -214,10 +270,31 @@ export async function main() {
         // Tick gaps below remain the cross-browser responsiveness fallback.
       }
     })
+    currentStage = 'webgpu-inference'
     const traceStartedAt = performance.now()
+    privacyProbeActive = true
     await page.getByRole('button', { name: '生成真实轨迹' }).click()
     await page.locator('.real-model-modal').waitFor({ state: 'hidden', timeout: 120_000 })
+    privacyProbeActive = false
     const traceMilliseconds = performance.now() - traceStartedAt
+    if (privacyLeaks.length > 0) {
+      throw new Error(`User input leaked into ${privacyLeaks.length} network requests`)
+    }
+    const inferencePerformance = await page.evaluate(() => {
+      clearInterval(globalThis.__modelInferenceTimer)
+      globalThis.__modelInferenceLongTaskObserver?.disconnect()
+      const ticks = globalThis.__modelInferenceTicks
+      const gaps = ticks.slice(1).map((value, index) => value - ticks[index])
+      return {
+        tickCount: ticks.length,
+        maximumTickGapMs: gaps.length > 0 ? Math.max(...gaps) : 0,
+        longTaskCount: globalThis.__modelInferenceLongTasks.length,
+        maximumLongTaskMs: globalThis.__modelInferenceLongTasks.length > 0
+          ? Math.max(...globalThis.__modelInferenceLongTasks)
+          : 0,
+        heapBeforeBytes: globalThis.__modelInferenceHeapBefore,
+      }
+    })
 
     const readTraceProbe = () => page.evaluate(async () => {
       const { explorerStore } = await import('/src/store/explorer-store.ts')
@@ -228,6 +305,7 @@ export async function main() {
       const blockInput = tensorByRole('block-input')
       const embedding = tensorByRole('embedding')
       const probabilities = tensorByRole('probabilities')
+      const logits = tensorByRole('logits')
       const attentionWeights = tensorByRole('attention-weights')
       const tokenCount = trace.input.tokens.length
       const rowSums = []
@@ -249,6 +327,10 @@ export async function main() {
         candidateCount: trace.output.candidates.length,
         sampledTokenId: trace.output.sampledTokenId,
         sampledToken: trace.output.sampledToken,
+        executionProvider: trace.metadata.description.includes('WEBGPU') ? 'webgpu' : 'wasm',
+        logitSignature: [0, 11, 262, 4171].map((index) => logits.values[index]),
+        probabilitySignature: [0, 11, 262, 4171].map((index) => probabilities.values[index]),
+        attentionSignature: attentionWeights.values.slice(0, 8),
         probabilitySum: probabilities.values.reduce((total, value) => total + value, 0),
         maximumAttentionRowError: Math.max(...rowSums.map((sum) => Math.abs(1 - sum))),
         selectedLayerInputDiffersFromEmbedding: blockInput.values.some(
@@ -282,37 +364,265 @@ export async function main() {
         `Model Worker count did not return to baseline: ${initialModelWorkers} -> ${releasedModelWorkers}`,
       )
     }
-    const inferencePerformance = await page.evaluate(() => {
-      clearInterval(globalThis.__modelInferenceTimer)
-      globalThis.__modelInferenceLongTaskObserver?.disconnect()
-      const ticks = globalThis.__modelInferenceTicks
-      const gaps = ticks.slice(1).map((value, index) => value - ticks[index])
-      return {
-        tickCount: ticks.length,
-        maximumTickGapMs: gaps.length > 0 ? Math.max(...gaps) : 0,
-        longTaskCount: globalThis.__modelInferenceLongTasks.length,
-        maximumLongTaskMs: globalThis.__modelInferenceLongTasks.length > 0
-          ? Math.max(...globalThis.__modelInferenceLongTasks)
-          : 0,
-        heapBeforeBytes: globalThis.__modelInferenceHeapBefore,
-        heapAfterReleaseBytes: performance.memory?.usedJSHeapSize,
-      }
-    })
-    if (inferencePerformance.maximumTickGapMs > 300) {
+    const heapAfterReleaseBytes = await page.evaluate(() => performance.memory?.usedJSHeapSize)
+    if (
+      inferencePerformance.maximumTickGapMs > 300 ||
+      inferencePerformance.maximumLongTaskMs > 300
+    ) {
       throw new Error(
-        `Main-thread inference tick gap was ${inferencePerformance.maximumTickGapMs}ms`,
-      )
-    }
-    if (inferencePerformance.maximumLongTaskMs > 300) {
-      throw new Error(
-        `Main-thread inference long task was ${inferencePerformance.maximumLongTaskMs}ms`,
+        `Main-thread inference responsiveness exceeded its 300ms budget on ` +
+        `${traceProbe.executionProvider}: ${JSON.stringify(inferencePerformance)}`,
       )
     }
     if (
       inferencePerformance.heapBeforeBytes &&
-      inferencePerformance.heapAfterReleaseBytes - inferencePerformance.heapBeforeBytes > 32_000_000
+      heapAfterReleaseBytes - inferencePerformance.heapBeforeBytes > 32_000_000
     ) {
       throw new Error('The released model retained more than 32MB of additional page heap')
+    }
+    currentStage = 'forced-wasm-inference'
+    const wasmProbe = await page.evaluate(async () => {
+      const [{ createModelWorkerClient }, { OnnxTraceAdapter }, { DISTILGPT2_RESOURCE_MANIFEST }] =
+        await Promise.all([
+          import('/src/platform/model-runtime/create-model-worker-client.ts'),
+          import('/src/adapters/onnx/onnx-trace-adapter.ts'),
+          import('/src/platform/model-runtime/model-resources.ts'),
+        ])
+      const client = createModelWorkerClient()
+      try {
+        const loaded = await client.loadModel({
+          resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
+          preferredExecutionProviders: ['wasm'],
+        })
+        const trace = await new OnnxTraceAdapter(client, {
+          text: 'The sky is blue',
+          selectedLayerIndex: 5,
+          sampling: { temperature: 1, topK: 5, topP: 0.9, seed: 7 },
+        }).load()
+        const tensorByRole = (role) =>
+          Object.values(trace.tensors).find((tensor) => tensor.role === role)
+        const logits = tensorByRole('logits')
+        const probabilities = tensorByRole('probabilities')
+        const attention = tensorByRole('attention-weights')
+        const result = {
+          executionProvider: loaded.executionProvider,
+          cacheHit: loaded.cacheHit,
+          sampledTokenId: trace.output.sampledTokenId,
+          logitSignature: [0, 11, 262, 4171].map((index) => logits.values[index]),
+          probabilitySignature: [0, 11, 262, 4171].map((index) => probabilities.values[index]),
+          attentionSignature: attention.values.slice(0, 8),
+        }
+        await client.disposeModel()
+        globalThis.__m3AcceptanceModelClient = client
+        return result
+      } catch (error) {
+        client.terminate()
+        throw error
+      }
+    })
+    if (wasmProbe.executionProvider !== 'wasm' || !wasmProbe.cacheHit) {
+      throw new Error(`Forced WASM cache probe failed: ${JSON.stringify(wasmProbe)}`)
+    }
+    const maximumDifference = (left, right) => Math.max(
+      ...left.map((value, index) => Math.abs(value - right[index])),
+    )
+    const backendComparison = {
+      sampledTokenMatches: traceProbe.sampledTokenId === wasmProbe.sampledTokenId,
+      maximumLogitDifference: maximumDifference(traceProbe.logitSignature, wasmProbe.logitSignature),
+      maximumProbabilityDifference: maximumDifference(
+        traceProbe.probabilitySignature, wasmProbe.probabilitySignature,
+      ),
+      maximumAttentionDifference: maximumDifference(
+        traceProbe.attentionSignature, wasmProbe.attentionSignature,
+      ),
+    }
+    if (
+      !backendComparison.sampledTokenMatches ||
+      backendComparison.maximumLogitDifference > 1e-3 ||
+      backendComparison.maximumProbabilityDifference > 1e-4 ||
+      backendComparison.maximumAttentionDifference > 1e-4
+    ) {
+      throw new Error(`WebGPU/WASM comparison failed: ${JSON.stringify(backendComparison)}`)
+    }
+
+    currentStage = 'offline-cache-hit'
+    const context = page.context()
+    await context.setOffline(true)
+    const offlineCacheProbe = await page.evaluate(async () => {
+      const [{ DISTILGPT2_RESOURCE_MANIFEST }] = await Promise.all([
+        import('/src/platform/model-runtime/model-resources.ts'),
+      ])
+      const client = globalThis.__m3AcceptanceModelClient
+      const loaded = await client.loadModel({
+        resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
+        preferredExecutionProviders: ['wasm'],
+      })
+      await client.disposeModel()
+      return loaded
+    })
+    if (!offlineCacheProbe.cacheHit || offlineCacheProbe.executionProvider !== 'wasm') {
+      throw new Error(`Offline cache probe failed: ${JSON.stringify(offlineCacheProbe)}`)
+    }
+    await page.evaluate((cacheName) => caches.delete(cacheName), CACHE_NAME)
+    const offlineMissProbe = await page.evaluate(async () => {
+      const { DISTILGPT2_RESOURCE_MANIFEST } =
+        await import('/src/platform/model-runtime/model-resources.ts')
+      const client = globalThis.__m3AcceptanceModelClient
+      try {
+        await client.loadModel({
+          resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
+          preferredExecutionProviders: ['wasm'],
+        })
+        return { failed: false, message: '' }
+      } catch (error) {
+        return {
+          failed: true,
+          message: error instanceof Error ? error.message : String(error),
+        }
+      } finally {
+        client.terminate()
+        delete globalThis.__m3AcceptanceModelClient
+      }
+    })
+    await context.setOffline(false)
+    await waitForModelWorkerCount(initialModelWorkers)
+    if (!offlineMissProbe.failed) throw new Error('Cold cache unexpectedly loaded while offline')
+
+    currentStage = 'restart-browser-for-cold-cache-scenarios'
+    await browser.close()
+    browser = await chromium.launch({
+      executablePath: findChromiumExecutable(),
+      headless: true,
+      args: ['--enable-precise-memory-info'],
+    })
+    page = await browser.newPage()
+    browserCdp = await browser.newBrowserCDPSession()
+    attachPageDiagnostics(page)
+    await page.goto(baseUrl)
+    await page.locator('.source-badge').filter({ hasText: '预置案例已就绪' }).waitFor()
+
+    currentStage = 'cold-cache-failure'
+    const presetBeforeRecoveryFailure = await page.evaluate(async () => {
+      const { explorerStore } = await import('/src/store/explorer-store.ts')
+      return {
+        source: explorerStore.getState().trace?.source,
+        step: explorerStore.getState().currentStepIndex,
+      }
+    })
+    let routeMode = 'fail'
+    let routeDelayMs = 0
+    const routedModelRequests = []
+    const fulfilledModelRequests = []
+    await page.route(`${modelResourceBaseUrl}/**`, async (route) => {
+      const entry = resources.find((resource) => resource.remoteUrl === route.request().url())
+      if (!entry) return route.abort()
+      routedModelRequests.push(entry.remoteUrl)
+      if (routeMode === 'fail') return route.abort('internetdisconnected')
+      if (routeDelayMs > 0) {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, routeDelayMs))
+      }
+      try {
+        await route.continue()
+        fulfilledModelRequests.push(entry.remoteUrl)
+      } catch {
+        await route.abort().catch(() => undefined)
+      }
+    })
+    await page.getByRole('button', { name: '加载真实模型' }).click()
+    await page.getByRole('button', { name: '确认并下载' }).click()
+    const recoveryFailure = page.getByRole('alert')
+    await recoveryFailure.waitFor({ timeout: 30_000 })
+    const recoveryFailureMessage = await recoveryFailure.textContent()
+    const presetAfterRecoveryFailure = await page.evaluate(async () => {
+      const { explorerStore } = await import('/src/store/explorer-store.ts')
+      return {
+        source: explorerStore.getState().trace?.source,
+        step: explorerStore.getState().currentStepIndex,
+      }
+    })
+    if (
+      presetAfterRecoveryFailure.source !== 'preset' ||
+      presetAfterRecoveryFailure.step !== presetBeforeRecoveryFailure.step
+    ) {
+      throw new Error('Model recovery failure changed the active preset lesson')
+    }
+
+    currentStage = 'cold-cache-recovery'
+    routeMode = 'fulfill'
+    await page.getByRole('button', { name: /重试下载/ }).click()
+    const recoveredReady = page.getByText('真实模型资源已就绪')
+    const recoveredError = page.getByRole('alert')
+    await Promise.race([
+      recoveredReady.waitFor({ timeout: 120_000 }),
+      recoveredError.waitFor({ timeout: 120_000 }),
+    ])
+    if (await recoveredError.isVisible()) {
+      throw new Error(`Cold-cache recovery failed: ${await recoveredError.textContent()}`)
+    }
+    const recoveredCacheHit = await page.locator('.real-model-trigger').getAttribute('data-cache-hit')
+    if (recoveredCacheHit !== 'false' || fulfilledModelRequests.length !== resources.length) {
+      throw new Error(
+        `Cold-cache recovery mismatch: cache=${recoveredCacheHit}, requests=${fulfilledModelRequests.length}`,
+      )
+    }
+    await page.getByRole('button', { name: '释放模型内存' }).click()
+    await page.getByRole('button', { name: '加载真实模型' }).waitFor({ timeout: 120_000 })
+
+    currentStage = 'cancelled-cold-download'
+    await page.evaluate((cacheName) => caches.delete(cacheName), CACHE_NAME)
+    routeDelayMs = 1_500
+    const cancelStartedAt = performance.now()
+    await page.getByRole('button', { name: '加载真实模型' }).click()
+    await page.getByRole('button', { name: '确认并下载' }).click()
+    await page.getByRole('button', { name: '取消下载' }).click()
+    await page.getByRole('button', { name: '加载真实模型' }).waitFor()
+    const cancelFeedbackMilliseconds = performance.now() - cancelStartedAt
+    if (cancelFeedbackMilliseconds > 1_000) {
+      throw new Error(`Download cancellation feedback took ${cancelFeedbackMilliseconds}ms`)
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, routeDelayMs + 100))
+    const cachedAfterCancel = await page.evaluate(async ({ cacheName, remoteUrls }) => {
+      const cache = await caches.open(cacheName)
+      const matches = await Promise.all(remoteUrls.map((url) => cache.match(url)))
+      return matches.filter(Boolean).length
+    }, { cacheName: CACHE_NAME, remoteUrls: resources.map(({ remoteUrl }) => remoteUrl) })
+    if (cachedAfterCancel !== 0) {
+      throw new Error(`Cancelled cold download retained ${cachedAfterCancel} cache entries`)
+    }
+
+    currentStage = 'low-memory-preset-only'
+    const lowMemoryContext = await browser.newContext()
+    await lowMemoryContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'deviceMemory', { configurable: true, value: 2 })
+    })
+    const lowMemoryPage = await lowMemoryContext.newPage()
+    const lowMemoryModelRequests = []
+    lowMemoryPage.on('request', (request) => {
+      if (request.url().startsWith(modelResourceBaseUrl)) lowMemoryModelRequests.push(request.url())
+    })
+    await lowMemoryPage.goto(baseUrl)
+    await lowMemoryPage.locator('.capability-badge').filter({ hasText: '简化 3D' }).waitFor()
+    await lowMemoryPage.getByRole('button', { name: '加载真实模型' }).click()
+    await lowMemoryPage.getByText(/低内存等级/).waitFor()
+    await lowMemoryPage.getByRole('button', { name: '暂不下载' }).click()
+    await lowMemoryContext.close()
+    if (lowMemoryModelRequests.length > 0) {
+      throw new Error('Low-memory preset-only path unexpectedly requested model resources')
+    }
+
+    const acceptanceMatrix = {
+      preferredBackend: traceProbe.executionProvider,
+      forcedWasm: wasmProbe.executionProvider,
+      offlineCacheHit: offlineCacheProbe.cacheHit,
+      coldCacheRecovered: recoveredCacheHit === 'false',
+      coldCacheRequestCount: fulfilledModelRequests.length,
+      offlineFailureMessage: offlineMissProbe.message,
+      recoveryFailureMessage,
+      presetPreservedAfterFailure: presetAfterRecoveryFailure,
+      cancelFeedbackMilliseconds: Number(cancelFeedbackMilliseconds.toFixed(1)),
+      cancelledCacheEntries: cachedAfterCancel,
+      lowMemoryPresetOnlyRequests: lowMemoryModelRequests.length,
+      privacyLeaks: privacyLeaks.length,
     }
     if (traceProbe.source !== 'onnx' || traceProbe.tensorCount !== 22) {
       throw new Error(`Unexpected ONNX trace summary ${JSON.stringify(traceProbe)}`)
@@ -345,8 +655,13 @@ export async function main() {
       },
       inferencePerformance: {
         ...inferencePerformance,
+        heapAfterReleaseBytes,
       },
+      wasmProbe,
+      backendComparison,
+      acceptanceMatrix,
       trace: traceProbe,
+      runtimeWarnings: runtimeWarnings.length,
       diagnostics,
     }, null, 2)}\n`)
   } catch (error) {
@@ -359,10 +674,14 @@ export async function main() {
       })).catch(() => null)
       if (state) diagnostics.push(`UI state: ${JSON.stringify(state)}`)
     }
-    throw new Error(`${message}\nDiagnostics: ${diagnostics.join(' | ') || 'none'}`)
+    throw new Error(
+      `${message}\nStage: ${currentStage}\n` +
+      `Diagnostics: ${diagnostics.join(' | ') || 'none'}`,
+    )
   } finally {
     if (browser) await browser.close()
     server.kill()
+    await new Promise((resolveClose) => resourceServer.close(resolveClose))
     if (server.exitCode && server.exitCode !== 0) process.stderr.write(serverErrors.join(''))
   }
 }

@@ -98,5 +98,7 @@ export const DISTILGPT2_INSTRUMENTED_DOWNLOAD_BYTES =
   DISTILGPT2_RESOURCE_MANIFEST.teachingTrace.artifact.bytes
 
 export function resolvePinnedModelFileUrl(path: string): string {
+  const overrideBaseUrl = import.meta.env.VITE_MODEL_RESOURCE_BASE_URL?.trim()
+  if (overrideBaseUrl) return `${overrideBaseUrl.replace(/\/$/, '')}/${path}`
   return `https://huggingface.co/${repositoryId}/resolve/${repositoryRevision}/${path}`
 }

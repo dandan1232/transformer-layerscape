@@ -5,6 +5,7 @@ import {
 import type { TensorDType, TensorRole, TraceCandidate } from '../../domain/trace/trace'
 import {
   createWorkerTensorPayload,
+  type ModelExecutionProvider,
   type WorkerInferencePayload,
   type WorkerTensorPayload,
 } from './worker-protocol'
@@ -59,6 +60,7 @@ export interface Distilgpt2InferencePayloadOptions {
   readonly selectedLayerIndex: number
   readonly sampling: SamplingParameters
   readonly inferenceMilliseconds: number
+  readonly executionProvider?: ModelExecutionProvider
   readonly model?: Distilgpt2ModelSpec
   readonly signal?: AbortSignal
   readonly chunkSize?: number
@@ -349,7 +351,7 @@ export async function createDistilgpt2InferencePayload(
 
   return {
     modelId: model.id,
-    executionProvider: 'wasm',
+    executionProvider: options.executionProvider ?? 'wasm',
     input: {
       text: options.text,
       tokenIds: [...options.tokenized.tokenIds],

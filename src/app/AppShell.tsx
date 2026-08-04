@@ -623,7 +623,7 @@ export function AppShell({
         </div>
 
         <div className="topbar__tools">
-          <RealModelDownload store={store} />
+          <RealModelDownload store={store} memoryTier={capabilities.memoryTier} />
           <button type="button" disabled aria-label="打开帮助" title="帮助中心即将开放">
             <CircleHelp size={19} aria-hidden="true" />
           </button>

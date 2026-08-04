@@ -81,4 +81,17 @@ describe('OnnxTraceAdapter', () => {
     ).load({ signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
     expect(runInference).not.toHaveBeenCalled()
   })
+
+  it('honors cancellation after the Worker result and before main-thread adaptation', async () => {
+    const controller = new AbortController()
+    const runInference = vi.fn(async () => {
+      controller.abort('用户取消')
+      return inferencePayload()
+    })
+
+    await expect(new OnnxTraceAdapter(
+      { runInference }, request, model,
+    ).load({ signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
+    expect(runInference).toHaveBeenCalledOnce()
+  })
 })

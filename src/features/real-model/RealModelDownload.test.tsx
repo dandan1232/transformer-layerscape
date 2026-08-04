@@ -48,6 +48,18 @@ describe('real model download consent', () => {
     expect(createClient).not.toHaveBeenCalled()
   })
 
+  it('warns low-memory devices while preserving the preset-only path', async () => {
+    const user = userEvent.setup()
+    const createClient = vi.fn(() => client(vi.fn()))
+    render(<RealModelDownload memoryTier="low" createClient={createClient} />)
+
+    await user.click(screen.getByRole('button', { name: '加载真实模型' }))
+    expect(screen.getByRole('status')).toHaveTextContent('低内存等级')
+    expect(screen.getByRole('status')).toHaveTextContent('继续使用预置案例')
+    await user.click(screen.getByRole('button', { name: '暂不下载' }))
+    expect(createClient).not.toHaveBeenCalled()
+  })
+
   it('shows progress and reaches the verified ready state', async () => {
     const user = userEvent.setup()
     const load = deferred<{
@@ -72,7 +84,15 @@ describe('real model download consent', () => {
 
     load.resolve({ modelId: 'distilgpt2', executionProvider: 'wasm', cacheHit: false })
     expect(await screen.findByText('真实模型资源已就绪')).toBeVisible()
+    expect(screen.getByText(/WASM Session 已通过校验/)).toBeVisible()
+    expect(screen.getByText(/资源已下载并写入缓存/)).toBeVisible()
     expect(screen.getByRole('button', { name: '真实模型已就绪' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '真实模型已就绪' })).toHaveAttribute(
+      'title', '真实模型已就绪 · WASM',
+    )
+    expect(screen.getByRole('button', { name: '真实模型已就绪' })).toHaveAttribute(
+      'data-cache-hit', 'false',
+    )
 
     await user.click(screen.getByRole('button', { name: '完成' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

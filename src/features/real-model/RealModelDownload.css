@@ -90,6 +90,15 @@
   font-size: var(--text-sm);
 }
 
+.real-model-dialog .real-model-dialog__device-warning {
+  padding: var(--space-3);
+  color: var(--amber-200, var(--amber-300));
+  background: color-mix(in oklch, var(--amber-300) 10%, transparent);
+  border: 1px solid color-mix(in oklch, var(--amber-300) 42%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
 .real-model-progress {
   display: grid;
   gap: var(--space-2);

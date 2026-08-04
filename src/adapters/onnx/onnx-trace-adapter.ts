@@ -37,6 +37,10 @@ export class OnnxTraceAdapterError extends Error {
   }
 }
 
+function yieldToMainThread() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
 function tensorValues(tensor: WorkerTensorPayload): readonly number[] {
   const bytesPerValue = tensor.dtype === 'bool' ? 1 : 4
   if (tensor.data.byteLength !== tensor.length * bytesPerValue) {
@@ -238,6 +242,13 @@ export class OnnxTraceAdapter implements TraceAdapter {
       throw new DOMException('真实模型轨迹加载已取消。', 'AbortError')
     }
     const payload = await this.client.runInference(this.request, { signal: options.signal })
+    if (options.signal?.aborted) {
+      throw new DOMException('真实模型轨迹加载已取消。', 'AbortError')
+    }
+    // Receiving the full-vocabulary payload and adapting it are both substantial work.
+    // Keep them in separate browser tasks so Worker message delivery does not become
+    // one long main-thread task together with trace conversion and validation.
+    await yieldToMainThread()
     if (options.signal?.aborted) {
       throw new DOMException('真实模型轨迹加载已取消。', 'AbortError')
     }

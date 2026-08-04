@@ -19,7 +19,8 @@ import {
   type ModelWorkerOperations,
 } from './model-worker-runtime'
 
-interface RuntimeSession {
+export interface RuntimeSession {
+  readonly executionProvider: 'webgpu' | 'wasm'
   run(
     tokenIds: readonly number[],
     selectedLayerIndex: number,
@@ -28,6 +29,7 @@ interface RuntimeSession {
 }
 
 export interface BrowserModelWorkerDependencies {
+  readonly supportedExecutionProviders: readonly ('webgpu' | 'wasm')[]
   readonly loadResources: (options: {
     readonly signal: AbortSignal
     readonly onProgress: (progress: ModelResourceProgress) => void
@@ -36,20 +38,32 @@ export interface BrowserModelWorkerDependencies {
     source: ArrayBuffer,
     signal: AbortSignal,
   ) => Promise<ArrayBuffer>
-  readonly createSession: (model: ArrayBuffer) => Promise<RuntimeSession>
+  readonly createSession: (
+    model: ArrayBuffer,
+    preferredExecutionProviders: readonly ('webgpu' | 'wasm')[],
+  ) => Promise<RuntimeSession>
   readonly createTokenizer: (resources: LoadedModelResources) => Promise<RuntimeInferenceTokenizer>
   readonly createInferencePayload: typeof createDistilgpt2InferencePayload
 }
 
-async function createWasmSession(model: ArrayBuffer): Promise<RuntimeSession> {
-  const ort = await import('onnxruntime-web/wasm')
-  ort.env.wasm.numThreads = 1
-  ort.env.wasm.proxy = false
+async function createOrtSession(
+  model: ArrayBuffer,
+  executionProvider: 'webgpu' | 'wasm',
+): Promise<RuntimeSession> {
+  const ort = executionProvider === 'webgpu'
+    ? await import('onnxruntime-web/webgpu')
+    : await import('onnxruntime-web/wasm')
+  ort.env.logLevel = 'error'
+  if (executionProvider === 'wasm') {
+    ort.env.wasm.numThreads = 1
+    ort.env.wasm.proxy = false
+  }
   const session = await ort.InferenceSession.create(model, {
-    executionProviders: ['wasm'],
+    executionProviders: [executionProvider],
     graphOptimizationLevel: 'all',
   })
   return {
+    executionProvider,
     async run(tokenIds, selectedLayerIndex) {
       const sequenceLength = tokenIds.length
       const feeds: Record<string, OrtTensor> = {
@@ -78,6 +92,36 @@ async function createWasmSession(model: ArrayBuffer): Promise<RuntimeSession> {
     },
     release: () => session.release(),
   }
+}
+
+export async function createSessionWithFallback(options: {
+  readonly preferredExecutionProviders: readonly ('webgpu' | 'wasm')[]
+  readonly webgpuAvailable: boolean
+  readonly createWebgpu: () => Promise<RuntimeSession>
+  readonly createWasm: () => Promise<RuntimeSession>
+}) {
+  let webgpuError: unknown
+  if (options.webgpuAvailable && options.preferredExecutionProviders.includes('webgpu')) {
+    try {
+      return await options.createWebgpu()
+    } catch (error) {
+      webgpuError = error
+    }
+  }
+  if (options.preferredExecutionProviders.includes('wasm')) {
+    return options.createWasm()
+  }
+  throw new ModelWorkerOperationError(
+    'UNSUPPORTED_RUNTIME',
+    webgpuError instanceof Error
+      ? `WebGPU 初始化失败：${webgpuError.message}；请求未允许 WASM 回退。`
+      : '当前浏览器没有可用的 WebGPU，且请求未允许 WASM 回退。',
+    { details: webgpuError instanceof Error ? webgpuError.stack : undefined },
+  )
+}
+
+function hasWebgpu() {
+  return typeof globalThis.navigator !== 'undefined' && 'gpu' in globalThis.navigator
 }
 
 async function createBrowserTokenizer(
@@ -141,7 +185,9 @@ export function requiredDistilgpt2OutputNames(selectedLayerIndex: number) {
 }
 
 function defaultDependencies(): BrowserModelWorkerDependencies {
+  const webgpuAvailable = hasWebgpu()
   return {
+    supportedExecutionProviders: webgpuAvailable ? ['webgpu', 'wasm'] : ['wasm'],
     loadResources: (options) => loadDistilgpt2Resources({
       cache: new CacheStorageModelResourceCache(),
       fetch: globalThis.fetch.bind(globalThis),
@@ -152,7 +198,12 @@ function defaultDependencies(): BrowserModelWorkerDependencies {
       DISTILGPT2_INSTRUMENTATION_PATCH,
       { signal, verifySource: false },
     ),
-    createSession: createWasmSession,
+    createSession: (model, preferredExecutionProviders) => createSessionWithFallback({
+      preferredExecutionProviders,
+      webgpuAvailable,
+      createWebgpu: () => createOrtSession(model, 'webgpu'),
+      createWasm: () => createOrtSession(model, 'wasm'),
+    }),
     createTokenizer: createBrowserTokenizer,
     createInferencePayload: createDistilgpt2InferencePayload,
   }
@@ -195,7 +246,7 @@ export function createBrowserModelWorkerOperations(
   let loading = false
 
   return {
-    supportedExecutionProviders: ['wasm'],
+    supportedExecutionProviders: dependencies.supportedExecutionProviders,
 
     async loadModel(payload, context) {
       if (payload.resourceId !== DISTILGPT2_RESOURCE_MANIFEST.id) {
@@ -203,9 +254,11 @@ export function createBrowserModelWorkerOperations(
           'INVALID_MESSAGE', `未知模型资源 ${payload.resourceId}。`,
         )
       }
-      if (!payload.preferredExecutionProviders.includes('wasm')) {
+      if (!payload.preferredExecutionProviders.some((provider) =>
+        dependencies.supportedExecutionProviders.includes(provider)
+      )) {
         throw new ModelWorkerOperationError(
-          'UNSUPPORTED_RUNTIME', '当前版本需要浏览器 WASM 推理能力。',
+          'UNSUPPORTED_RUNTIME', '当前浏览器没有请求允许的模型推理后端。',
         )
       }
       if (loading) {
@@ -259,7 +312,10 @@ export function createBrowserModelWorkerOperations(
           totalBytes: instrumentedModel.byteLength,
         })
         nextTokenizer = await dependencies.createTokenizer(resources)
-        nextSession = await dependencies.createSession(instrumentedModel)
+        nextSession = await dependencies.createSession(
+          instrumentedModel,
+          payload.preferredExecutionProviders,
+        )
         if (context.signal.aborted) {
           await nextSession.release()
           nextSession = null
@@ -278,7 +334,7 @@ export function createBrowserModelWorkerOperations(
         nextTokenizer = null
         return {
           modelId: DISTILGPT2_RESOURCE_MANIFEST.id,
-          executionProvider: 'wasm',
+          executionProvider: session.executionProvider,
           cacheHit: resources.cacheHit,
         }
       } catch (error) {
@@ -319,6 +375,7 @@ export function createBrowserModelWorkerOperations(
           selectedLayerIndex: payload.selectedLayerIndex,
           sampling: payload.sampling,
           inferenceMilliseconds: performance.now() - startedAt,
+          executionProvider: session.executionProvider,
           signal: context.signal,
         })
       } catch (error) {

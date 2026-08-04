@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useStore } from 'zustand'
 import { OnnxTraceAdapter } from '../../adapters/onnx/onnx-trace-adapter'
 import type { TraceAdapter } from '../../domain/trace/trace'
+import type { MemoryTier } from '../../platform/capabilities'
 import { createModelWorkerClient } from '../../platform/model-runtime/create-model-worker-client'
 import type { ModelWorkerClient } from '../../platform/model-runtime/model-worker-client'
 import type {
@@ -73,6 +74,7 @@ export function RealModelDownload({
   createClient = createModelWorkerClient,
   createTraceAdapter = defaultCreateTraceAdapter,
   store = explorerStore,
+  memoryTier = 'unknown',
 }: {
   readonly createClient?: () => RealModelDownloadClient
   readonly createTraceAdapter?: (
@@ -80,6 +82,7 @@ export function RealModelDownload({
     payload: RunInferencePayload,
   ) => TraceAdapter
   readonly store?: ExplorerStoreApi
+  readonly memoryTier?: MemoryTier
 }) {
   const [state, setState] = useState<DownloadState>('idle')
   const [progress, setProgress] = useState<ModelLoadProgressEvent['payload'] | null>(null)
@@ -91,6 +94,8 @@ export function RealModelDownload({
   const [experimentError, setExperimentError] = useState<string | null>(null)
   const [inferencePending, setInferencePending] = useState(false)
   const [releasePending, setReleasePending] = useState(false)
+  const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm' | null>(null)
+  const [cacheHit, setCacheHit] = useState<boolean | null>(null)
   const clientRef = useRef<RealModelDownloadClient | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const inferenceControllerRef = useRef<AbortController | null>(null)
@@ -112,6 +117,8 @@ export function RealModelDownload({
   const startLoading = async () => {
     setState('loading')
     setError(null)
+    setExecutionProvider(null)
+    setCacheHit(null)
     setProgress({
       phase: 'downloading', loadedBytes: 0,
       totalBytes: DISTILGPT2_RESOURCE_MANIFEST.teachingTrace.artifact.bytes,
@@ -123,7 +130,7 @@ export function RealModelDownload({
     controllerRef.current = controller
 
     try {
-      await client.loadModel({
+      const loadedModel = await client.loadModel({
         resourceId: DISTILGPT2_RESOURCE_MANIFEST.id,
         preferredExecutionProviders: ['webgpu', 'wasm'],
       }, {
@@ -131,6 +138,8 @@ export function RealModelDownload({
         onProgress: setProgress,
       })
       if (controller.signal.aborted) return
+      setExecutionProvider(loadedModel.executionProvider)
+      setCacheHit(loadedModel.cacheHit)
       setState('ready')
       setExperimentError(null)
     } catch (loadError) {
@@ -156,6 +165,8 @@ export function RealModelDownload({
     clientRef.current?.terminate()
     clientRef.current = null
     setProgress(null)
+    setExecutionProvider(null)
+    setCacheHit(null)
     setState('idle')
   }
 
@@ -231,6 +242,8 @@ export function RealModelDownload({
       client?.terminate()
       setReleasePending(false)
       setProgress(null)
+      setExecutionProvider(null)
+      setCacheHit(null)
       setExperimentError(null)
       setState('idle')
     }
@@ -247,8 +260,11 @@ export function RealModelDownload({
         className="real-model-trigger"
         type="button"
         aria-label={isReady ? '真实模型已就绪' : '加载真实模型'}
-        title={isReady ? '真实模型已就绪' : '加载真实模型'}
+        title={isReady && executionProvider
+          ? `真实模型已就绪 · ${executionProvider.toUpperCase()}`
+          : isReady ? '真实模型已就绪' : '加载真实模型'}
         data-state={isReady ? 'ready' : state}
+        data-cache-hit={cacheHit === null ? undefined : String(cacheHit)}
         onClick={() => setState(isReady ? 'ready' : 'confirming')}
       >
         {state === 'loading' || inferencePending || releasePending ? (
@@ -298,6 +314,11 @@ export function RealModelDownload({
                   <div><dt>下载</dt><dd>87.03MB · SHA-256 完整性校验</dd></div>
                   <div><dt>缓存</dt><dd>按固定 Revision 存入浏览器版本化缓存</dd></div>
                 </dl>
+                {memoryTier === 'low' && (
+                  <p className="real-model-dialog__device-warning" role="status">
+                    当前设备报告为低内存等级。建议继续使用预置案例；如仍加载真实模型，可随时取消并释放模型内存。
+                  </p>
+                )}
                 <div className="real-model-dialog__actions">
                   <button type="button" className="secondary-action" onClick={() => setState('idle')}>
                     暂不下载
@@ -336,7 +357,7 @@ export function RealModelDownload({
                 onSubmit={(event) => void runExperiment(event)}
               >
                 <p id="real-model-description" role="status">
-                  文件、插桩图和 WASM Session 已通过校验。输入最多 12 个 GPT-2 Token，所有推理仍只在此浏览器内完成。
+                  文件、插桩图和 {executionProvider?.toUpperCase() ?? '浏览器'} Session 已通过校验；{cacheHit ? '版本化缓存命中' : '资源已下载并写入缓存'}。输入最多 12 个 GPT-2 Token，所有推理仍只在此浏览器内完成。
                 </p>
                 <label className="real-model-experiment__text">
                   <span>英文输入</span>
