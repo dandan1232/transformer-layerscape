@@ -2,6 +2,8 @@
 
 一个面向中文学习者的 Transformer 交互式教学项目。它计划把二维计算过程、三维模型空间、中文分步课程和浏览器内模型运行整合为一套同步体验，帮助学习者看懂一次完整的 next-token prediction。
 
+在线使用：[https://tl.nianan.ggff.net/](https://tl.nianan.ggff.net/)
+
 ## 当前状态
 
 项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30～WP-35 已完成资源固定、插桩、Worker、下载缓存、统一 Trace 适配和参数实验，WP-36 已完成浏览器推理的性能与内存治理。
