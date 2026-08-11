@@ -1,6 +1,6 @@
 services:
   web:
-    image: transformer-layerscape:latest
+    image: ${APP_IMAGE:-transformer-layerscape:latest}
     build:
       context: .
       dockerfile: Dockerfile

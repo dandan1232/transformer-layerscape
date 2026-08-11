@@ -115,7 +115,20 @@ npm run verify:model:trace
 npx playwright install
 ```
 
-CI 尚未配置；修改 GitHub Actions 前需另行确认。
+生产 CI/CD 已配置在 GitHub Actions；其部署密钥只保存在 GitHub Secrets 中。
+
+## 生产部署
+
+推送到 `main` 后，GitHub Actions 会依次执行 lint、单元/组件测试和生产构建。验证全部通过后，工作流通过专用 SSH 密钥连接生产服务器，构建带 Commit SHA 的 Docker 镜像，并在替换 8080 端口上的现有容器前启动临时容器完成健康检查。替换后的健康检查失败时会自动恢复上一个镜像。
+
+工作流需要在 GitHub `production` Environment 或仓库 Actions Secrets 中配置：
+
+- `DEPLOY_HOST`：生产服务器地址；
+- `DEPLOY_USER`：SSH 用户；
+- `DEPLOY_SSH_KEY`：仅用于部署的私钥；
+- `DEPLOY_KNOWN_HOSTS`：固定的 SSH 主机公钥记录。
+
+生产入口为 <https://tl.nianan.ggff.net/>。部署工作流也可以从 GitHub Actions 页面手动触发。
 
 ## 开发与提交规范
 
