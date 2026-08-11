@@ -39,6 +39,14 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+      - name: Store production bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: production-dist-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
+
   deploy:
     name: Deploy
     needs: verify
@@ -56,6 +64,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Download production bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: production-dist-${{ github.sha }}
+          path: dist
+
       - name: Configure deployment SSH key
         shell: bash
         run: |
@@ -71,28 +85,59 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
 
-      - name: Build deployment image
+      - name: Prepare remote deployment context
         shell: bash
         run: |
           set -euo pipefail
-          docker build \
-            --tag "transformer-layerscape:$GITHUB_SHA" \
-            .
-          docker save "transformer-layerscape:$GITHUB_SHA" \
-            | gzip -1 > "$RUNNER_TEMP/transformer-layerscape-$GITHUB_SHA.tar.gz"
-
-      - name: Upload deployment files
-        shell: bash
-        run: |
-          set -euo pipefail
-          scp \
+          ssh \
             -i "$HOME/.ssh/deploy_key" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            "$RUNNER_TEMP/transformer-layerscape-$GITHUB_SHA.tar.gz" \
-            "compose.yaml" \
-            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/"
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo bash -s -- '$DEPLOY_USER'" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          readonly deploy_user="$1"
+          readonly app_root='/home/ubuntu/transformer-layerscape'
+          readonly deploy_context="${app_root}/deploy-context"
+          readonly service_container='transformer-layerscape-web-1'
+          readonly runtime_base='transformer-layerscape:runtime-base'
+
+          install -d -o "$deploy_user" -g "$deploy_user" "${deploy_context}/dist"
+
+          if ! docker image inspect "$runtime_base" >/dev/null 2>&1; then
+            current_image="$(docker inspect --format '{{.Image}}' "$service_container")"
+            docker tag "$current_image" "$runtime_base"
+          fi
+
+          if [[ ! -f "${deploy_context}/dist/index.html" ]]; then
+            docker cp "${service_container}:/usr/share/nginx/html/." "${deploy_context}/dist/"
+          fi
+
+          chown -R "${deploy_user}:${deploy_user}" "$deploy_context"
+          REMOTE_SCRIPT
+
+      - name: Synchronize production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync \
+            --archive \
+            --checksum \
+            --compress \
+            --delete \
+            --human-readable \
+            --itemize-changes \
+            -e "ssh -i '$HOME/.ssh/deploy_key' -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            dist/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:/home/ubuntu/transformer-layerscape/deploy-context/dist/"
+          rsync \
+            --archive \
+            --compress \
+            -e "ssh -i '$HOME/.ssh/deploy_key' -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            Dockerfile.runtime nginx.conf compose.yaml \
+            "$DEPLOY_USER@$DEPLOY_HOST:/home/ubuntu/transformer-layerscape/deploy-context/"
 
       - name: Deploy verified commit
         shell: bash
@@ -104,7 +149,7 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo bash -s -- '$GITHUB_SHA' '/tmp/transformer-layerscape-$GITHUB_SHA.tar.gz' '/tmp/compose.yaml'" \
+            "sudo bash -s -- '$GITHUB_SHA'" \
             < scripts/deploy-production.sh
 
       - name: Verify public endpoint

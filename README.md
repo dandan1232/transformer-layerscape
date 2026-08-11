@@ -119,7 +119,7 @@ npx playwright install
 
 ## 生产部署
 
-推送到 `main` 后，GitHub Actions 会依次执行 lint、单元/组件测试和生产构建。验证全部通过后，工作流构建带 Commit SHA 的 Docker 镜像，通过专用 SSH 密钥上传到生产服务器，并在替换 8080 端口上的现有容器前启动临时容器完成健康检查。替换后的健康检查失败时会自动恢复上一个镜像。
+推送到 `main` 后，GitHub Actions 会依次执行 lint、单元/组件测试和生产构建。验证全部通过后，工作流通过 SSH 和 `rsync` 增量同步生产静态文件，在服务器上用固定的运行时基础镜像构建带 Commit SHA 的 Docker 镜像，并在替换 8080 端口上的现有容器前启动临时容器完成健康检查。替换后的健康检查失败时会自动恢复上一个镜像。
 
 工作流需要在 GitHub `production` Environment 或仓库 Actions Secrets 中配置：
 

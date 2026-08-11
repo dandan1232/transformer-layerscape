@@ -3,38 +3,31 @@
 set -Eeuo pipefail
 
 readonly APP_ROOT='/home/ubuntu/transformer-layerscape'
+readonly DEPLOY_CONTEXT="${APP_ROOT}/deploy-context"
 readonly COMPOSE_FILE="${APP_ROOT}/docker-compose.yml"
 readonly ENV_FILE="${APP_ROOT}/.env"
 readonly SERVICE_CONTAINER='transformer-layerscape-web-1'
 readonly IMAGE_REPOSITORY='transformer-layerscape'
+readonly RUNTIME_BASE_IMAGE='transformer-layerscape:runtime-base'
 readonly APP_PORT='8080'
 
-if [[ $# -ne 3 || ! $1 =~ ^[0-9a-f]{40}$ ]]; then
-  echo 'Usage: deploy-production.sh <commit SHA> <image archive> <Compose file>' >&2
+if [[ $# -ne 1 || ! $1 =~ ^[0-9a-f]{40}$ ]]; then
+  echo 'Usage: deploy-production.sh <40-character commit SHA>' >&2
   exit 64
 fi
 
 readonly COMMIT_SHA="$1"
-readonly IMAGE_ARCHIVE="$2"
-readonly UPLOADED_COMPOSE_FILE="$3"
 readonly SHORT_SHA="${COMMIT_SHA:0:12}"
 readonly NEW_IMAGE="${IMAGE_REPOSITORY}:${COMMIT_SHA}"
 readonly ROLLBACK_IMAGE="${IMAGE_REPOSITORY}:rollback"
 readonly CANDIDATE_CONTAINER="transformer-layerscape-candidate-${SHORT_SHA}"
 
-if [[ "$IMAGE_ARCHIVE" != "/tmp/transformer-layerscape-${COMMIT_SHA}.tar.gz" ||
-      "$UPLOADED_COMPOSE_FILE" != '/tmp/compose.yaml' ]]; then
-  echo 'Deployment files are outside the expected temporary paths.' >&2
-  exit 64
-fi
-
 cleanup() {
   docker rm -f "$CANDIDATE_CONTAINER" >/dev/null 2>&1 || true
-  rm -f -- "$IMAGE_ARCHIVE" "$UPLOADED_COMPOSE_FILE"
 }
 trap cleanup EXIT
 
-for command in curl docker gzip; do
+for command in curl docker; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Required command is unavailable: ${command}" >&2
     exit 69
@@ -43,14 +36,23 @@ done
 
 mkdir -p "$APP_ROOT"
 
-if [[ ! -f "$IMAGE_ARCHIVE" || ! -f "$UPLOADED_COMPOSE_FILE" ]]; then
-  echo 'One or more deployment files are missing.' >&2
+for deployment_file in Dockerfile.runtime nginx.conf compose.yaml dist/index.html; do
+  if [[ ! -f "${DEPLOY_CONTEXT}/${deployment_file}" ]]; then
+    echo "Deployment context is missing ${deployment_file}." >&2
+    exit 66
+  fi
+done
+
+if ! docker image inspect "$RUNTIME_BASE_IMAGE" >/dev/null 2>&1; then
+  echo "Runtime base image is missing: ${RUNTIME_BASE_IMAGE}" >&2
   exit 66
 fi
 
-echo "Loading ${NEW_IMAGE}"
-gzip --decompress --stdout "$IMAGE_ARCHIVE" | docker load
-docker image inspect "$NEW_IMAGE" >/dev/null
+echo "Building ${NEW_IMAGE} from the synchronized production bundle"
+docker build \
+  --file "${DEPLOY_CONTEXT}/Dockerfile.runtime" \
+  --tag "$NEW_IMAGE" \
+  "$DEPLOY_CONTEXT"
 
 echo 'Checking the new image before replacing production'
 docker run \
@@ -98,7 +100,7 @@ else
   rm -f "${ENV_FILE}.rollback"
 fi
 
-install -m 0644 "$UPLOADED_COMPOSE_FILE" "${COMPOSE_FILE}.next"
+install -m 0644 "${DEPLOY_CONTEXT}/compose.yaml" "${COMPOSE_FILE}.next"
 printf 'APP_IMAGE=%s\nAPP_PORT=%s\n' "$NEW_IMAGE" "$APP_PORT" > "${ENV_FILE}.next"
 mv "${COMPOSE_FILE}.next" "$COMPOSE_FILE"
 mv "${ENV_FILE}.next" "$ENV_FILE"
