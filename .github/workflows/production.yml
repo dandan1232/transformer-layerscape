@@ -71,6 +71,29 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
 
+      - name: Build deployment image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            --tag "transformer-layerscape:$GITHUB_SHA" \
+            .
+          docker save "transformer-layerscape:$GITHUB_SHA" \
+            | gzip -1 > "$RUNNER_TEMP/transformer-layerscape-$GITHUB_SHA.tar.gz"
+
+      - name: Upload deployment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$RUNNER_TEMP/transformer-layerscape-$GITHUB_SHA.tar.gz" \
+            "compose.yaml" \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/"
+
       - name: Deploy verified commit
         shell: bash
         run: |
@@ -81,7 +104,8 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo bash -s -- '$GITHUB_SHA'" < scripts/deploy-production.sh
+            "sudo bash -s -- '$GITHUB_SHA' '/tmp/transformer-layerscape-$GITHUB_SHA.tar.gz' '/tmp/compose.yaml'" \
+            < scripts/deploy-production.sh
 
       - name: Verify public endpoint
         shell: bash
