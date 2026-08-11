@@ -4,6 +4,10 @@
 
 在线使用：[https://tl.nianan.ggff.net/](https://tl.nianan.ggff.net/)
 
+[![Transformer LayerScape 桌面端课程、二维计算与三维模型联动界面](./docs/assets/transformer-layerscape-overview.png)](https://tl.nianan.ggff.net/)
+
+> 桌面端首屏：中文课程、二维计算过程、三维 Transformer 空间与统一时间轴同步联动。
+
 ## 当前状态
 
 项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30～WP-35 已完成资源固定、插桩、Worker、下载缓存、统一 Trace 适配和参数实验，WP-36 已完成浏览器推理的性能与内存治理。
