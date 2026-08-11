@@ -1,6 +1,10 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+})
+
 async function expectNoWcagViolations(page: Page, state: string) {
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
@@ -11,7 +15,10 @@ async function expectNoWcagViolations(page: Page, state: string) {
       id,
       impact,
       help,
-      targets: nodes.map((node) => node.target.join(' ')),
+      nodes: nodes.map((node) => ({
+        target: node.target.join(' '),
+        summary: node.failureSummary,
+      })),
     })),
     `${state} 存在 WCAG A/AA 违规`,
   ).toEqual([])
@@ -25,6 +32,8 @@ test('初始课程和 Attention 关键状态通过 WCAG A/AA 自动扫描', asyn
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await page.getByRole('button', { name: '下一项' }).click()
   await expect(page.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重置' })).toBeEnabled()
+  await page.waitForTimeout(50)
   await expectNoWcagViolations(page, 'Attention 课程')
 })
 
@@ -42,4 +51,3 @@ test('真实模型确认弹窗通过扫描并保持键盘焦点', async ({ page 
   await expect(dialog).not.toBeVisible()
   await expect(trigger).toBeFocused()
 })
-

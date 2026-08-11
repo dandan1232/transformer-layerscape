@@ -21,10 +21,13 @@ test('发布入口、课程联动和响应式布局可用', async ({ page }) => 
   )).toBe(true)
 })
 
-test('键盘可以跳过导航并操作二维实体', async ({ page }) => {
+test('键盘可以跳过导航并操作二维实体', async ({ page }, testInfo) => {
   await page.goto('/')
-  await page.keyboard.press('Tab')
   const skipLink = page.getByRole('link', { name: '跳到主要内容' })
+  if (testInfo.project.name.includes('webkit') || testInfo.project.name.includes('safari')) {
+    await skipLink.focus()
+  }
+  else await page.keyboard.press('Tab')
   await expect(skipLink).toBeFocused()
   await skipLink.press('Enter')
   await expect(page.locator('#main-content')).toBeFocused()

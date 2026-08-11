@@ -119,8 +119,11 @@ export function RealModelDownload({
 
     const dialog = dialogRef.current
     const trigger = triggerRef.current
-    const previouslyFocused = document.activeElement instanceof HTMLElement
+    const activeElement = document.activeElement instanceof HTMLElement
       ? document.activeElement
+      : null
+    const previouslyFocused = activeElement && activeElement !== document.body
+      ? activeElement
       : trigger
     const focusableSelector = [
       'button:not(:disabled)',

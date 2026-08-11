@@ -1131,6 +1131,9 @@ kbd {
 .timeline button {
   min-width: 2.5rem;
   min-height: 2.5rem;
+  transition:
+    background var(--duration-fast) var(--ease-state),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .timeline button:disabled {
@@ -1257,6 +1260,8 @@ kbd {
   width: auto;
   gap: var(--space-2);
   padding-inline: var(--space-2);
+  color: var(--starlight-100);
+  background: var(--void-950);
   font-size: var(--text-xs);
 }
 

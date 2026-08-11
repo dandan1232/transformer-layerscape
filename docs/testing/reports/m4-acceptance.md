@@ -31,6 +31,7 @@ GitHub Actions 在部署前并行验证 desktop-chromium、desktop-firefox、des
 - 修正次要文字对比度，二维 SVG 使用允许交互后代的语义分组；
 - SVG 实体支持 Enter/Space，Token 公开 `aria-pressed` 状态；
 - 真实模型弹窗自动移入焦点、限制 Tab 循环、支持 Escape 并恢复触发按钮焦点；
+- 触控 Safari 点击按钮不一定改变焦点，弹窗关闭时会显式回到触发按钮；移动 Safari 的外接键盘路径使用程序化聚焦验证，其他项目同时验证 Tab 顺序；
 - 跳过导航、减少动态效果、无 WebGL、Context 丢失、数据错误和移动端安全路径均有自动化覆盖。
 
 ## 3. 性能预算
