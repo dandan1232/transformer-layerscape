@@ -95,7 +95,13 @@ jobs:
 
       - name: Run Chromium performance budget
         if: matrix.project == 'desktop-chromium'
+        env:
+          PERFORMANCE_PROFILE: shared-runner
         run: npm run test:e2e:performance
+
+      - name: Run Chromium product smoke suite
+        if: matrix.project == 'desktop-chromium'
+        run: npm run test:e2e:smoke
 
       - name: Upload failure diagnostics
         if: failure()

@@ -29,8 +29,19 @@ blob-report
 .cache
 .local-models
 
-# Local documentation
-docs/
+# Local documentation (only release evidence below is versioned)
+docs/*
+!docs/assets/
+!docs/assets/**
+!docs/plans/
+docs/plans/*
+!docs/plans/implementation-roadmap.md
+!docs/testing/
+docs/testing/*
+!docs/testing/reports/
+docs/testing/reports/*
+!docs/testing/reports/m3-acceptance.md
+!docs/testing/reports/m4-acceptance.md
 
 # Editor directories and files
 .vscode/*

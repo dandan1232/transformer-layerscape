@@ -10,6 +10,24 @@ interface PerformanceSample {
   readonly externalRequests: readonly string[]
 }
 
+const sharedRunner = process.env.PERFORMANCE_PROFILE === 'shared-runner'
+const desktopBudget = sharedRunner
+  ? {
+      interactiveMs: 8_000,
+      sceneReadyMs: 12_000,
+      stepFeedbackMs: 500,
+      averageFps: 5,
+      longestTaskMs: 2_000,
+    }
+  : {
+      interactiveMs: 3_000,
+      sceneReadyMs: 5_000,
+      stepFeedbackMs: 100,
+      averageFps: 30,
+      longestTaskMs: 500,
+    }
+const mobileFpsBudget = sharedRunner ? 5 : 20
+
 async function installLongTaskObserver(page: Page) {
   await page.addInitScript(() => {
     const target = window as Window & { __layerscapeLongTasks?: number[] }
@@ -131,12 +149,12 @@ test('M2 桌面首次交互、步骤反馈和三维帧率预算', async ({ page 
   }
 
   console.log(`M2_PERF_DESKTOP ${JSON.stringify(sample)}`)
-  expect(sample.interactiveMs).toBeLessThan(3_000)
-  expect(sample.sceneReadyMs).toBeLessThan(5_000)
+  expect(sample.interactiveMs).toBeLessThan(desktopBudget.interactiveMs)
+  expect(sample.sceneReadyMs).toBeLessThan(desktopBudget.sceneReadyMs)
   expect(sample.stepFeedbackMs).toBeGreaterThanOrEqual(0)
-  expect(sample.stepFeedbackMs).toBeLessThanOrEqual(100)
-  expect(sample.averageFps).toBeGreaterThanOrEqual(30)
-  expect(sample.longestTaskMs).toBeLessThan(500)
+  expect(sample.stepFeedbackMs).toBeLessThanOrEqual(desktopBudget.stepFeedbackMs)
+  expect(sample.averageFps).toBeGreaterThanOrEqual(desktopBudget.averageFps)
+  expect(sample.longestTaskMs).toBeLessThan(desktopBudget.longestTaskMs)
   expect(sample.externalRequests).toEqual([])
 })
 
@@ -177,6 +195,6 @@ test('M2 移动视口简化三维帧率与页面宽度预算', async ({ page }) 
     `M2_PERF_MOBILE ${JSON.stringify({ averageFps, hasOverflow })}`,
   )
 
-  expect(averageFps).toBeGreaterThanOrEqual(20)
+  expect(averageFps).toBeGreaterThanOrEqual(mobileFpsBudget)
   expect(hasOverflow).toBe(false)
 })

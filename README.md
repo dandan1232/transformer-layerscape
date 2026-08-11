@@ -10,13 +10,13 @@
 
 ## 当前状态
 
-项目已完成 **M2：完整预置 Transformer 课程**，并进入 **M3：浏览器真实模型模式**。WP-30～WP-35 已完成资源固定、插桩、Worker、下载缓存、统一 Trace 适配和参数实验，WP-36 已完成浏览器推理的性能与内存治理。
+项目已完成 **M4：发布完善**。完整预置课程、浏览器真实模型、响应式体验、无障碍整改、跨浏览器质量门禁和生产 CI/CD 均已交付。
 
 - React、Vite、TypeScript 基础工程已建立。
 - 产品边界、需求、实施路线和测试验收方案已经固化。
 - M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、中文课程、二维计算、三维空间、完整联动、能力检测、错误恢复和综合验收已经完成。
 - 当前页面可以学习 Token、Embedding、LayerNorm、Q/K/V、Attention、Residual、MLP 与 Output 共十四项中文课程，在二维图中查看位置编码相加、归一化分布、三路投影、跨 Head 差异、两条残差旁路、`8→32→8` 前馈网络和完整词表概率，并通过 Temperature、Top-k、Top-p 与 Seed 实验可复现的采样结果；自由探索台支持跨步骤选择算子、Token、Block 与 Head，同时保留返回课程锚点的入口。三维空间同步展示 CONCAT、Pre-Norm、MLP 与 Block 输出链路。移动端按窄屏、粗指针和内存能力切换简化三维，横竖屏变化后会恢复当前课程、二维视图和共享选择；系统同时保存本地进度，并在数据、子视图或 WebGL Context 失败时保持核心课程可用。
-- M2 自动化基线为 157 条单元/组件测试和 19 条端到端场景；生产构建已通过 Chrome 全套回归与 Edge 主路径回归。
+- 当前自动化基线为 216 条单元/组件测试；生产构建已通过 Chrome 桌面/移动发布门禁、8 条产品冒烟、2 条性能预算和 9 条视觉回归。GitHub Actions 还会在部署前自动验证 Chromium、Firefox、WebKit、Pixel 7 与 iPhone 15 配置。
 - 真实模型候选固定为 DistilGPT-2 的不可变 Revision，预计主动下载 87.02MB；文件哈希、加载覆盖项和许可证边界见 [真实模型资源基线](./MODEL_RESOURCES.md) 与 [第三方声明](./THIRD_PARTY_NOTICES.md)。
 - 插桩图通过 Node CPU 与浏览器 WASM 实测，81 个额外输出覆盖 Embedding、Q/K/V、Attention、Residual 与 MLP，完整下载仍约 87.03MB；方案与数值校验见 [插桩 ONNX 技术探针](./MODEL_INSTRUMENTATION.md)。
 - [模型 Worker 协议](./MODEL_WORKER_PROTOCOL.md)已覆盖握手、加载进度、推理、取消、释放、结构化错误和张量 Transferable，后续下载与缓存实现复用同一请求关联机制。
@@ -42,20 +42,21 @@
 | M0 | 工程、需求、实施与测试基线 | 已完成 |
 | M1 | Token→Attention→Output 联动垂直切片 | 已完成 |
 | M2 | 完整预置 Transformer 课程 | 已完成 |
-| M3 | 浏览器真实模型模式 | 进行中（WP-36 / 37） |
-| M4 | 跨浏览器、性能、无障碍与发布完善 | 待实施 |
+| M3 | 浏览器真实模型模式 | 已完成 |
+| M4 | 跨浏览器、性能、无障碍与发布完善 | 已完成 |
 
-## M2 验收摘要
+## M4 验收摘要
 
 | 验证项 | 结果 |
 | --- | --- |
-| 单元与组件测试 | 17 个文件、157 个用例通过 |
-| 覆盖率 | Statements 86.77%、Branches 77.52%、Functions 79.84%、Lines 88.26% |
-| 生产构建 Chrome E2E | 19 / 19 通过，覆盖完整课程、自由探索、3D、故障恢复、移动端、视觉与性能 |
-| 系统 Edge 主路径 | 8 / 8 通过 |
-| 生产态性能 | 首交互 450～593ms；3D 就绪 738～842ms；步骤反馈 11～16ms；无外部请求 |
+| 单元与组件测试 | 29 个文件、216 个用例通过 |
+| 覆盖率 | Statements 85.47%、Branches 76.51%、Functions 79.79%、Lines 86.94% |
+| Chrome 生产构建 E2E | 发布/无障碍 5 / 5、产品冒烟 8 / 8、性能 2 / 2、视觉 9 / 9 |
+| 自动跨浏览器门禁 | Chromium、Firefox、WebKit、移动 Chrome、移动 Safari 配置，全部通过后才部署 |
+| 生产依赖审计 | 0 个已知漏洞（`npm audit --omit=dev`） |
+| 生产态性能 | 首交互 705ms；3D 就绪 952ms；步骤反馈 9.2ms；桌面约 43.7 FPS；无外部请求 |
 
-本机未安装 Firefox，Windows 也没有可用的系统 WebKit；对应 Playwright 项目已经配置，但本轮未擅自下载浏览器包。真实 iOS Safari、Android Chrome、Firefox 与 WebKit 仍属于发布前跨浏览器/真机验证边界。
+详细证据见 [M3 验收报告](./docs/testing/reports/m3-acceptance.md) 与 [M4 验收报告](./docs/testing/reports/m4-acceptance.md)。
 
 ## 技术栈
 
@@ -65,7 +66,7 @@
 | 二维可视化 | React SVG、D3 |
 | 三维可视化 | Three.js、React Three Fiber、Drei |
 | 状态与动效 | Zustand、GSAP |
-| 浏览器模型 | Transformers.js、ONNX Runtime Web |
+| 浏览器模型 | Hugging Face Tokenizers、ONNX Runtime Web |
 | 质量验证 | oxlint、Vitest、Playwright |
 
 ## 本地运行
@@ -106,6 +107,12 @@ npm run test:coverage
 # 运行 Playwright 端到端测试
 npm run test:e2e
 
+# 发布级跨浏览器、无障碍与响应式门禁
+npm run test:e2e:release
+
+# 生产依赖安全审计
+npm run audit:production
+
 # 验证真实模型缓存、Worker 插桩和 WASM 初始化（需本地固定模型缓存）
 npm run verify:model:download
 
@@ -123,7 +130,7 @@ npx playwright install
 
 ## 生产部署
 
-推送到 `main` 后，GitHub Actions 会依次执行 lint、单元/组件测试和生产构建。验证全部通过后，工作流通过 SSH 和 `rsync` 增量同步生产静态文件，在服务器上用固定的运行时基础镜像构建带 Commit SHA 的 Docker 镜像，并在替换 8080 端口上的现有容器前启动临时容器完成健康检查。替换后的健康检查失败时会自动恢复上一个镜像。
+推送到 `main` 后，GitHub Actions 会依次执行 lint、单元/组件测试、生产构建、生产依赖审计、五组跨浏览器/设备发布与无障碍检查，以及 Chromium 产品冒烟和性能预算。全部通过后，工作流通过 SSH 和 `rsync` 增量同步生产静态文件，在服务器上用固定的运行时基础镜像构建带 Commit SHA 的 Docker 镜像，并在替换 8080 端口上的现有容器前启动临时容器完成健康检查。替换后的健康检查失败时会自动恢复上一个镜像。
 
 工作流需要在 GitHub `production` Environment 或仓库 Actions Secrets 中配置：
 
