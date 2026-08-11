@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { verticalSliceTrace } from '../../content/traces/vertical-slice-trace'
@@ -33,6 +33,25 @@ function client(
 }
 
 describe('real model download consent', () => {
+  it('moves focus into the dialog, traps it and restores focus when dismissed', async () => {
+    const user = userEvent.setup()
+    render(<RealModelDownload />)
+    const trigger = screen.getByRole('button', { name: '加载真实模型' })
+
+    await user.click(trigger)
+    const dialog = screen.getByRole('dialog')
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+
+    const closeButton = screen.getByRole('button', { name: '关闭真实模型对话框' })
+    closeButton.focus()
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(screen.getByRole('button', { name: '确认并下载' })).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
   it('does not create a Worker or download before explicit confirmation', async () => {
     const user = userEvent.setup()
     const createClient = vi.fn(() => client(vi.fn()))

@@ -227,7 +227,7 @@ describe('中文学习工作台外壳', () => {
       'aria-pressed',
       'true',
     )
-    expect(screen.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+    expect(screen.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
     await user.click(screen.getByRole('tab', { name: '课程' }))
     expect(
       screen.getByRole('complementary', { name: '当前联动焦点' }),

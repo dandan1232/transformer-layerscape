@@ -12,6 +12,10 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:release": "playwright test e2e/release.spec.ts e2e/accessibility.spec.ts --workers=1",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts --project=desktop-chromium --workers=1",
+    "test:e2e:performance": "playwright test e2e/performance.spec.ts --project=desktop-chromium --workers=1",
+    "audit:production": "npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org",
     "test:e2e:update": "playwright test --update-snapshots",
     "spike:model:instrument": "node scripts/model-tools/instrument-distilgpt2.mjs",
     "spike:model:verify-node": "node scripts/model-tools/verify-distilgpt2-instrumentation.mjs",
@@ -21,7 +25,6 @@
   },
   "dependencies": {
     "@huggingface/tokenizers": "^0.1.3",
-    "@huggingface/transformers": "^4.2.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "d3": "^7.9.0",
@@ -34,6 +37,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
@@ -44,10 +48,11 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.10",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
+    "onnxruntime-node": "^1.27.0",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1",
+    "vite": "^8.2.1",
     "vitest": "^4.1.10"
   }
 }

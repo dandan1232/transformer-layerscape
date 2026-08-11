@@ -97,12 +97,79 @@ export function RealModelDownload({
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm' | null>(null)
   const [cacheHit, setCacheHit] = useState<boolean | null>(null)
   const clientRef = useRef<RealModelDownloadClient | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const dialogRef = useRef<HTMLElement | null>(null)
+  const dialogStateRef = useRef(state)
+  const inferencePendingRef = useRef(inferencePending)
   const controllerRef = useRef<AbortController | null>(null)
   const inferenceControllerRef = useRef<AbortController | null>(null)
   const presetTraceRef = useRef(store.getState().trace?.source === 'preset'
     ? store.getState().trace
     : null)
   const traceSource = useStore(store, (value) => value.trace?.source)
+  const isDialogOpen = state !== 'idle' && state !== 'ready-closed'
+
+  useEffect(() => {
+    dialogStateRef.current = state
+    inferencePendingRef.current = inferencePending
+  }, [inferencePending, state])
+
+  useEffect(() => {
+    if (!isDialogOpen) return
+
+    const dialog = dialogRef.current
+    const trigger = triggerRef.current
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : trigger
+    const focusableSelector = [
+      'button:not(:disabled)',
+      'input:not(:disabled)',
+      'select:not(:disabled)',
+      'textarea:not(:disabled)',
+      '[href]',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',')
+    const focusFirstControl = () => {
+      const firstControl = dialog?.querySelector<HTMLElement>(focusableSelector)
+      ;(firstControl ?? dialog)?.focus()
+    }
+    const frame = window.requestAnimationFrame(focusFirstControl)
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (dialogStateRef.current === 'loading' || inferencePendingRef.current) return
+        event.preventDefault()
+        setState(dialogStateRef.current === 'ready' ? 'ready-closed' : 'idle')
+        return
+      }
+      if (event.key !== 'Tab' || !dialog) return
+
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+      if (controls.length === 0) {
+        event.preventDefault()
+        dialog.focus()
+        return
+      }
+      const first = controls[0]
+      const last = controls.at(-1)
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', handleKeyDown)
+      const returnTarget = previouslyFocused?.isConnected ? previouslyFocused : trigger
+      returnTarget?.focus()
+    }
+  }, [isDialogOpen])
 
   useEffect(() => () => {
     controllerRef.current?.abort('页面已关闭')
@@ -257,6 +324,7 @@ export function RealModelDownload({
   return (
     <>
       <button
+        ref={triggerRef}
         className="real-model-trigger"
         type="button"
         aria-label={isReady ? '真实模型已就绪' : '加载真实模型'}
@@ -277,8 +345,10 @@ export function RealModelDownload({
       {state !== 'idle' && state !== 'ready-closed' && (
         <div className="real-model-modal" role="presentation">
           <section
+            ref={dialogRef}
             className="real-model-dialog"
             role="dialog"
+            tabIndex={-1}
             aria-modal="true"
             aria-labelledby="real-model-title"
             aria-describedby="real-model-description"

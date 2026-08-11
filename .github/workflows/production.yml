@@ -47,9 +47,72 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  release-quality:
+    name: Release quality (${{ matrix.project }})
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: desktop-chromium
+            browser: chromium
+          - project: desktop-firefox
+            browser: firefox
+          - project: desktop-webkit
+            browser: webkit
+          - project: mobile-chrome
+            browser: chromium
+          - project: mobile-safari
+            browser: webkit
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Download verified production bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: production-dist-${{ github.sha }}
+          path: dist
+
+      - name: Audit production dependencies
+        run: npm run audit:production
+
+      - name: Install browser runtime
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run release, responsive and accessibility checks
+        run: npx playwright test e2e/release.spec.ts e2e/accessibility.spec.ts --project=${{ matrix.project }} --workers=1
+
+      - name: Run Chromium performance budget
+        if: matrix.project == 'desktop-chromium'
+        run: npm run test:e2e:performance
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-${{ matrix.project }}-${{ github.sha }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   deploy:
     name: Deploy
-    needs: verify
+    needs:
+      - verify
+      - release-quality
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:

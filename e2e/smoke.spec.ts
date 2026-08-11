@@ -34,7 +34,7 @@ test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   ).toBeVisible()
   await expect(page.getByText('步骤 03 / 14')).toBeVisible()
   await expect(
-    page.getByRole('img', {
+    page.getByRole('group', {
       name: /^Token Embedding 与 Position Embedding 相加图/,
     }),
   ).toBeVisible()
@@ -52,17 +52,17 @@ test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await expect(page.getByRole('heading', { name: '先把每个 Token 调到稳定尺度' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '稳定每个 Token 的数值尺度' })).toBeVisible()
-  await expect(page.getByRole('img', { name: /^LayerNorm 归一化前后分布图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^LayerNorm 归一化前后分布图/ })).toBeVisible()
   const layerNorm = page.getByRole('button', { name: '三维实体：LayerNorm' })
   await layerNorm.click()
   await expect(layerNorm).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: '下一项' }).click()
   await expect(page.getByRole('heading', { name: '为信息准备三种角色' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '生成 Q、K、V' })).toBeVisible()
-  await expect(page.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
 
   await page.getByRole('button', { name: '跳到第 6 步：遮住未来 Token' }).click()
-  await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
   const attentionProof = page.getByRole('region', { name: '多头注意力校验' })
   await expect(attentionProof).toContainText('12 / 12 行 Σ = 1')
   await expect(attentionProof).toContainText('2 × 4D → 8D')
@@ -70,7 +70,7 @@ test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.getByRole('button', { name: 'deep 读取 sky：权重 0.23' }).click()
   await expect(page.getByText('H1 0.23 · H2 0.15')).toBeVisible()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
-  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
   const concatButton = page.getByRole('button', { name: '三维实体：Multi-Head Concat' })
   await concatButton.click()
   await expect(concatButton).toHaveAttribute('aria-pressed', 'true')
@@ -78,7 +78,7 @@ test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await expect(page.getByText('步骤 04 / 14')).toBeVisible()
 
   await page.getByRole('button', { name: '跳到第 10 步：先扩维，再筛选信息' }).click()
-  await expect(page.getByRole('img', { name: /^Residual 与 MLP 计算路径图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Residual 与 MLP 计算路径图/ })).toBeVisible()
   const blockProof = page.getByRole('region', { name: 'Residual 与 MLP 校验' })
   await expect(blockProof).toContainText('Residual → LN → MLP')
   await expect(blockProof).toContainText('8D → 32D → 8D')
@@ -87,7 +87,7 @@ test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await expect(mlpButton).toHaveAttribute('aria-pressed', 'true')
 
   await page.getByRole('button', { name: '跳到第 13 步：把分数变成概率' }).click()
-  await expect(page.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^输出候选概率图/ })).toBeVisible()
   await expect(page.getByText('17.5%').first()).toBeVisible()
   await page.getByRole('slider', { name: 'Temperature' }).fill('0.2')
   await expect(page.getByText('66.7%').first()).toBeVisible()
@@ -145,7 +145,7 @@ test('真实三维场景可以旋转、复位并与二维 Head 选择联动', as
   })
   await expect(scene).toBeVisible()
   await page.getByRole('button', { name: '跳到第 6 步：遮住未来 Token' }).click()
-  await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
 
   const head2 = page.getByRole('button', {
     name: '三维实体：Attention Head 2',
@@ -292,7 +292,7 @@ test('移动端可以切换到二维计算且没有页面横向溢出', async ({
   await page.getByText('深入理解：线性投影').click()
   await expect(page.getByText('Q = X̂W_Q，K = X̂W_K，V = X̂W_V')).toBeVisible()
   await page.getByRole('tab', { name: '二维计算' }).click()
-  await expect(page.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
 
   await page.getByRole('tab', { name: '三维空间' }).click()
   await expect(
@@ -323,7 +323,7 @@ test('移动端旋转方向后恢复当前二维课程与共享选择', async ({
   await page.getByRole('button', { name: '下一项' }).click()
   await page.getByRole('tab', { name: '二维计算' }).click()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
-  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
 
   await page.setViewportSize({ width: 844, height: 390 })
 
@@ -350,5 +350,5 @@ test('移动端旋转方向后恢复当前二维课程与共享选择', async ({
     'aria-selected',
     'true',
   )
-  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
 })

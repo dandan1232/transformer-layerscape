@@ -71,7 +71,7 @@ test('桌面 LayerNorm 分布视觉基线', async ({ page }) => {
   await stabilizePage(page)
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await expect(
-    page.getByRole('img', { name: /^LayerNorm 归一化前后分布图/ }),
+    page.getByRole('group', { name: /^LayerNorm 归一化前后分布图/ }),
   ).toBeVisible()
   await resetLessonScroll(page)
 
@@ -87,7 +87,7 @@ test('桌面 Attention Head 2 联动视觉基线', async ({ page }) => {
   await stabilizePage(page)
   await page.getByRole('button', { name: '跳到第 6 步：遮住未来 Token' }).click()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
-  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
   await resetLessonScroll(page)
 
   await expect(page).toHaveScreenshot('m1-desktop-attention-head-2.png', {
@@ -124,7 +124,7 @@ test('移动端二维 QKV 视觉基线', async ({ page }) => {
   await page.getByRole('button', { name: '跳到Attention章节' }).click()
   await page.getByRole('button', { name: '下一项' }).click()
   await page.getByRole('tab', { name: '二维计算' }).click()
-  await expect(page.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
   const layout = await page.evaluate(() => {
     const panel = document.querySelector<HTMLElement>('.trace2d-panel')!
     const figure = document.querySelector<HTMLElement>('.trace2d-figure')!
@@ -160,7 +160,7 @@ test('移动端多头注意力对比视觉基线', async ({ page }) => {
   await page.getByRole('button', { name: '下一项' }).click()
   await page.getByRole('tab', { name: '二维计算' }).click()
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
-  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
   await expect(page.getByRole('region', { name: '多头注意力校验' })).toContainText(
     '12 / 12 行 Σ = 1',
   )
@@ -186,7 +186,7 @@ test('移动端 Residual 与 MLP 视觉基线', async ({ page }) => {
   await page.getByRole('button', { name: '下一项' }).click()
   await page.getByRole('button', { name: '下一项' }).click()
   await page.getByRole('tab', { name: '二维计算' }).click()
-  await expect(page.getByRole('img', { name: /^Residual 与 MLP 计算路径图/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Residual 与 MLP 计算路径图/ })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Residual 与 MLP 校验' })).toContainText(
     '8D → 32D → 8D',
   )
@@ -253,7 +253,7 @@ test('移动端横屏恢复二维课程视觉基线', async ({ page }) => {
   await page.getByRole('button', { name: 'Head 2', exact: true }).click()
   await page.setViewportSize({ width: 844, height: 390 })
   await expect(page.getByRole('tab', { name: '二维计算' })).toBeVisible()
-  await expect(page.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
   await resetMobileScroll(page)
 
   await expect(page).toHaveScreenshot('m2-mobile-landscape-recovery.png', {

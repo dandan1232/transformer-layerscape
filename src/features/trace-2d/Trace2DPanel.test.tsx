@@ -21,7 +21,7 @@ describe('二维计算视图', () => {
     render(<Trace2DPanel store={store} isActive />)
 
     expect(screen.getByRole('heading', { name: '把句子切成 Token' })).toBeVisible()
-    expect(screen.getByRole('img', { name: /^Token 与 Embedding 二维图/ })).toBeVisible()
+    expect(screen.getByRole('group', { name: /^Token 与 Embedding 二维图/ })).toBeVisible()
     expect(screen.getByText('input_ids')).toBeVisible()
     expect(screen.getByText('[1, 6]')).toBeVisible()
 
@@ -42,7 +42,7 @@ describe('二维计算视图', () => {
     act(() => store.getState().goToStep(4))
 
     expect(screen.getByRole('heading', { name: '生成 Q、K、V' })).toBeVisible()
-    expect(screen.getByRole('img', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
+    expect(screen.getByRole('group', { name: /^Q、K、V 投影二维图/ })).toBeVisible()
     expect(
       screen.getByRole('group', { name: '可横向滚动的二维计算图' }),
     ).toHaveAttribute('aria-describedby', 'trace2d-scroll-hint')
@@ -66,7 +66,7 @@ describe('二维计算视图', () => {
 
     expect(screen.getByRole('heading', { name: '稳定每个 Token 的数值尺度' })).toBeVisible()
     expect(
-      screen.getByRole('img', { name: /^LayerNorm 归一化前后分布图/ }),
+      screen.getByRole('group', { name: /^LayerNorm 归一化前后分布图/ }),
     ).toBeVisible()
     const tensors = screen.getByRole('region', { name: '当前步骤张量' })
     expect(within(tensors).getByText('hidden_input')).toBeVisible()
@@ -87,7 +87,7 @@ describe('二维计算视图', () => {
 
     expect(screen.getByRole('heading', { name: '加入 Token 的位置信息' })).toBeVisible()
     expect(
-      screen.getByRole('img', {
+      screen.getByRole('group', {
         name: /^Token Embedding 与 Position Embedding 相加图/,
       }),
     ).toBeVisible()
@@ -130,7 +130,7 @@ describe('二维计算视图', () => {
 
     await user.click(screen.getByRole('button', { name: 'Head 2' }))
     expect(store.getState().selectedHeadIndex).toBe(1)
-    expect(screen.getByRole('img', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
+    expect(screen.getByRole('group', { name: /^Attention Head 2 权重矩阵/ })).toBeVisible()
 
     await user.click(
       screen.getByRole('button', { name: 'blue 读取 and：权重 0.42' }),
@@ -162,7 +162,7 @@ describe('二维计算视图', () => {
 
     expect(screen.getByRole('heading', { name: '先扩维，再筛选信息' })).toBeVisible()
     expect(
-      screen.getByRole('img', { name: /^Residual 与 MLP 计算路径图/ }),
+      screen.getByRole('group', { name: /^Residual 与 MLP 计算路径图/ }),
     ).toBeVisible()
     const proof = screen.getByRole('region', { name: 'Residual 与 MLP 校验' })
     expect(within(proof).getByText('Attention 残差')).toBeVisible()
@@ -186,7 +186,7 @@ describe('二维计算视图', () => {
     store.getState().goToStep(12)
     render(<Trace2DPanel store={store} isActive />)
 
-    expect(screen.getByRole('img', { name: /^输出候选概率图/ })).toBeVisible()
+    expect(screen.getByRole('group', { name: /^输出候选概率图/ })).toBeVisible()
     expect(screen.getAllByText('17.5%').length).toBeGreaterThan(0)
     expect(screen.queryByText('已采样')).not.toBeInTheDocument()
 

@@ -1179,9 +1179,11 @@ kbd {
 .timeline__fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 0;
+  width: 100%;
   background: var(--amber-300);
-  transition: width var(--duration-base) var(--ease-out);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--duration-base) var(--ease-out);
 }
 
 .timeline__marker {

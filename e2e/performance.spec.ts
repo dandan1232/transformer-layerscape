@@ -106,7 +106,7 @@ test('M2 桌面首次交互、步骤反馈和三维帧率预算', async ({ page 
   const sceneReadyMs = Date.now() - navigationStart
 
   const stepFeedbackMs = await measureStepFeedback(page)
-  await expect(page.getByRole('img', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /^Attention Head 1 权重矩阵/ })).toBeVisible()
   const averageFps = await sampleAnimationFps(page, 60)
   const browserMetrics = await page.evaluate(() => {
     const paint = performance

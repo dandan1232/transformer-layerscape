@@ -455,7 +455,10 @@ function Timeline({ store }: { store: ExplorerStoreApi }) {
           {String(totalSteps).padStart(2, '0')}
         </span>
         <div className="timeline__track">
-          <span className="timeline__fill" style={{ width: `${progress}%` }} />
+          <span
+            className="timeline__fill"
+            style={{ transform: `scaleX(${progress / 100})` }}
+          />
           {trace?.steps.map((step, index) => (
             <span
               key={step.id}

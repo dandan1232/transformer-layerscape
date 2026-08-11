@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+const chromiumLaunchOptions = chromiumExecutablePath
+  ? { executablePath: chromiumExecutablePath }
+  : undefined
 const localAddresses = '127.0.0.1,localhost'
 
 process.env.NO_PROXY = process.env.NO_PROXY
@@ -26,9 +29,7 @@ export default defineConfig({
       name: 'desktop-chromium',
       use: {
         ...devices['Desktop Chrome'],
-        launchOptions: chromiumExecutablePath
-          ? { executablePath: chromiumExecutablePath }
-          : undefined,
+        launchOptions: chromiumLaunchOptions,
       },
     },
     {
@@ -41,7 +42,7 @@ export default defineConfig({
     },
     {
       name: 'mobile-chrome',
-      use: { ...devices['Pixel 7'] },
+      use: { ...devices['Pixel 7'], launchOptions: chromiumLaunchOptions },
     },
     {
       name: 'mobile-safari',
@@ -50,7 +51,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173',
+      'node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

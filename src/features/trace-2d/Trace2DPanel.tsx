@@ -59,7 +59,7 @@ function TokenDiagram({
   const selected = selectedTokenIndex
 
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="token-diagram-title token-diagram-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="token-diagram-title token-diagram-desc">
       <title id="token-diagram-title">Token 与 Embedding 二维图</title>
       <desc id="token-diagram-desc">
         输入句子包含六个可选择的 Token。每个 Token 显示文本和对应的词表 ID。
@@ -75,6 +75,7 @@ function TokenDiagram({
             transform={`translate(${x(index) ?? 0} 68)`}
             role="button"
             tabIndex={0}
+            aria-pressed={isSelected}
             aria-label={`选择 Token ${index + 1}：${token}，ID ${trace.input.tokenIds[index]}`}
             onClick={() => onSelectToken(index)}
             onKeyDown={(event) => activateWithKeyboard(event, () => onSelectToken(index))}
@@ -122,7 +123,7 @@ function EmbeddingDiagram({
   const cellsStart = 220
 
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="embedding-title embedding-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="embedding-title embedding-desc">
       <title id="embedding-title">
         {showComposition ? 'Token Embedding 与 Position Embedding 相加图' : 'Token Embedding 查表图'}
       </title>
@@ -206,7 +207,7 @@ function LayerNormDiagram({
   ]
 
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="layernorm-title layernorm-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="layernorm-title layernorm-desc">
       <title id="layernorm-title">LayerNorm 归一化前后分布图</title>
       <desc id="layernorm-desc">
         选择任意 Token，对比它的八维隐藏向量在 LayerNorm 前后的均值、标准差和数值分布。
@@ -276,7 +277,7 @@ function QKVDiagram({ trace, onSelectOperation }: { trace: ModelTrace; onSelectO
     { channel: 'V', label: '内容 · 我要贡献什么', matrix: 'W_V · [8, 8]', className: 'is-v', y: 242 },
   ]
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="qkv-title qkv-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="qkv-title qkv-desc">
       <title id="qkv-title">Q、K、V 投影二维图</title>
       <desc id="qkv-desc">六个归一化后的八维 Token 向量经过三组独立权重，投影为两组四维的查询、索引和内容向量。</desc>
       <g className="trace2d-source" transform="translate(42 118)">
@@ -349,7 +350,7 @@ function AttentionDiagram({
   const baseline = 230
 
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="attention-title attention-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="attention-title attention-desc">
       <title id="attention-title">Attention Head {headIndex + 1} 权重矩阵</title>
       <desc id="attention-desc">左侧展开 Head {headIndex + 1} 的完整权重矩阵，右侧对比全部 Head 在查询 Token {trace.input.tokens[focusedCell.row].trim()} 上的注意力分布；未来位置使用交叉图案遮挡。</desc>
       <defs>
@@ -555,7 +556,7 @@ function ResidualMLPDiagram({
   ] as const
 
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="residual-mlp-title residual-mlp-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="residual-mlp-title residual-mlp-desc">
       <title id="residual-mlp-title">Residual 与 MLP 计算路径图</title>
       <desc id="residual-mlp-desc">
         Attention 输出先与原始隐藏向量相加，再经过 LayerNorm、八维到三十二维再回八维的 MLP，最后与残差主路相加。
@@ -701,7 +702,7 @@ function OutputDiagram({
       ? `采样池 ${experiment.eligibleCount} / ${experiment.candidates.length} · 重归一化概率`
       : `Top 5 候选 · Temperature ${experiment.parameters.temperature.toFixed(1)}`
   return (
-    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-labelledby="output-title output-desc">
+    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="output-title output-desc">
       <title id="output-title">{title}</title>
       <desc id="output-desc">
         {isLogitStep
