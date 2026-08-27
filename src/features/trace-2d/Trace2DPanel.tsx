@@ -984,6 +984,11 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
         <div className="trace2d-empty" role="status">
           <span aria-hidden="true" />
           <strong>{traceStatus === 'error' ? '二维数据暂不可用' : '正在准备二维模型轨迹'}</strong>
+          <div className="trace2d-skeleton" aria-hidden="true">
+            <span className="trace2d-skeleton__bar" />
+            <span className="trace2d-skeleton__bar" />
+            <span className="trace2d-skeleton__bar" />
+          </div>
           <p>课程正文可以先阅读，模型轨迹就绪后会自动显示计算图。</p>
         </div>
       </section>

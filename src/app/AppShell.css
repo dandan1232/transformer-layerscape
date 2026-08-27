@@ -422,6 +422,10 @@
   overflow: auto;
 }
 
+.app-shell {
+  animation: shell-rise-in calc(var(--duration-enter) * 1.1) var(--ease-out);
+}
+
 .workspace-panel.is-mobile-active {
   display: flex;
   animation: panel-reveal var(--duration-enter) var(--ease-out) both;
@@ -1268,6 +1272,16 @@ kbd {
 @keyframes panel-reveal {
   from { opacity: 0; transform: translateY(0.5rem); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shell-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shell-rise-in {
+  from { transform: translateY(0.75rem); }
+  to { transform: translateY(0); }
 }
 
 @media (hover: hover) and (pointer: fine) {

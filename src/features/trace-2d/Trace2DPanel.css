@@ -838,7 +838,7 @@
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   text-align: center;
 }
 
@@ -848,12 +848,46 @@
   background: var(--amber-300);
   border-radius: 50%;
   box-shadow: 0 0 0 0.35rem oklch(80% 0.15 80 / 0.14);
+  animation: dot-breathe calc(var(--duration-enter) * 1.5) ease-in-out infinite;
 }
+
+.trace2d-skeleton {
+  display: grid;
+  gap: var(--space-2);
+  width: min(18rem, 80%);
+}
+
+.trace2d-skeleton__bar {
+  height: 0.625rem;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    90deg,
+    oklch(88% 0.024 82 / 0.5) 25%,
+    oklch(94% 0.018 83 / 0.8) 50%,
+    oklch(88% 0.024 82 / 0.5) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.trace2d-skeleton__bar:first-child { width: 55%; margin-inline: auto; }
+.trace2d-skeleton__bar:nth-child(2) { width: 90%; animation-delay: 120ms; }
+.trace2d-skeleton__bar:nth-child(3) { width: 70%; animation-delay: 240ms; }
 
 .trace2d-empty p {
   max-width: 30rem;
   margin: 0;
   color: var(--ink-500);
+}
+
+@keyframes dot-breathe {
+  0%, 100% { box-shadow: 0 0 0 0.35rem oklch(80% 0.15 80 / 0.14); }
+  50% { box-shadow: 0 0 0 0.7rem oklch(80% 0.15 80 / 0.22); }
+}
+
+@keyframes skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
 }
 
 @media (max-width: 47.99rem) {
