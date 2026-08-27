@@ -1,0 +1,11 @@
+.theme-toggle svg {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.theme-toggle:active svg {
+  transform: rotate(30deg) scale(0.9);
+}
+
+.theme-toggle[aria-pressed='true'] svg {
+  color: var(--amber-300);
+}
