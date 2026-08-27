@@ -27,6 +27,8 @@ import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
 import { RealModelDownload } from '../features/real-model/RealModelDownload'
 import { WelcomeTour } from '../features/onboarding/welcome-tour'
 import { ThemeToggle } from '../features/theme/theme-toggle'
+import { ShareViewButton } from '../features/share/share-view-button'
+import { useUrlStateSync } from '../hooks/use-url-state'
 import { useDeviceCapabilities } from '../platform/use-device-capabilities'
 import {
   selectCanGoNext,
@@ -538,6 +540,7 @@ export function AppShell({
   const traceError = useStore(store, (state) => state.traceError)
   const traceRequestId = useStore(store, (state) => state.traceRequestId)
   const capabilities = useDeviceCapabilities()
+  useUrlStateSync(store)
   const setLearningMode = store.getState().setMode
   const setMobileView = store.getState().setView
   const capabilityLabel =
@@ -633,6 +636,7 @@ export function AppShell({
         <div className="topbar__tools">
           <RealModelDownload store={store} memoryTier={capabilities.memoryTier} />
           <ThemeToggle />
+          <ShareViewButton />
           <button type="button" disabled aria-label="打开帮助" title="帮助中心即将开放">
             <CircleHelp size={19} aria-hidden="true" />
           </button>
