@@ -244,6 +244,22 @@
 .trace2d-source rect {
   fill: var(--paper-50);
   stroke: var(--border-light);
+  transition:
+    fill var(--duration-base) var(--ease-out),
+    stroke var(--duration-base) var(--ease-out),
+    stroke-width var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-state);
+}
+
+.trace2d-token:hover .trace2d-token__card,
+.trace2d-embedding-token:hover rect {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 0.25rem 0.5rem oklch(23% 0.03 252 / 0.12));
+}
+
+.trace2d-token.is-selected .trace2d-token__card,
+.trace2d-embedding-token.is-selected rect {
+  animation: trace-pulse-in var(--duration-enter) var(--ease-out);
 }
 
 .trace2d-token.is-selected .trace2d-token__card {
@@ -446,6 +462,11 @@
 .trace2d-matrix-cell {
   stroke: var(--paper-50);
   stroke-width: 1;
+  transition:
+    fill var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out),
+    stroke-width var(--duration-base) var(--ease-out),
+    stroke var(--duration-base) var(--ease-out);
 }
 
 .trace2d-matrix-cell.is-row-selected {
@@ -472,10 +493,30 @@
 
 .trace2d-head-comparison__bar {
   opacity: 0.48;
+  transition: opacity var(--duration-base) var(--ease-out),
+    height var(--duration-enter) var(--ease-out);
 }
 
 .trace2d-head-comparison__bar.is-active {
   opacity: 1;
+}
+
+@keyframes trace-pulse-in {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.trace2d-candidate__track {
+  transition: width var(--duration-enter) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.trace2d-projection line,
+.trace2d-projection path {
+  transition:
+    stroke-dashoffset calc(var(--duration-enter) * 1.5) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
 }
 
 .trace2d-head-comparison__baseline {

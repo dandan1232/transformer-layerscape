@@ -37,6 +37,7 @@ import {
   type ExplorerStoreApi,
   type ExplorerView,
 } from '../store/explorer-store'
+import { useStepTransition } from '../hooks/use-step-transition'
 import './AppShell.css'
 
 type MobileView = ExplorerView
@@ -238,6 +239,8 @@ function LessonPanel({
   const previousStep = getAdjacentLessonStep(coreLesson, context.step.id, -1)
   const nextStep = getAdjacentLessonStep(coreLesson, context.step.id, 1)
   const canNavigate = traceStatus === 'ready'
+  const reducedMotion = useStore(store, (state) => state.reducedMotion)
+  const bodyRef = useStepTransition(currentStepIndex, reducedMotion)
 
   const navigate = (lessonStepId: string) => {
     navigateToLessonStep(store, coreLesson, lessonStepId)
@@ -273,7 +276,7 @@ function LessonPanel({
         </span>
       </header>
 
-      <div className="lesson-panel__body">
+      <div className="lesson-panel__body" ref={bodyRef}>
         <div className="lesson-panel__title-group">
           <p className="kicker">{context.step.kicker}</p>
           <h1 id="lesson-heading" tabIndex={-1}>{context.step.title}</h1>

@@ -820,7 +820,7 @@ function SceneGraph({
         makeDefault
         target={controlsTarget}
         enableDamping={!reducedMotion}
-        dampingFactor={0.08}
+        dampingFactor={0.05}
         minDistance={3.8}
         maxDistance={18}
         maxPolarAngle={Math.PI * 0.72}

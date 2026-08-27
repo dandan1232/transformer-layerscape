@@ -85,5 +85,5 @@ export function getCameraTransitionAlpha(
   const safeDelta = Number.isFinite(deltaSeconds)
     ? Math.min(Math.max(deltaSeconds, 0), 0.1)
     : 0
-  return 1 - Math.exp(-safeDelta * 4.8)
+  return 1 - Math.exp(-safeDelta * 3.2)
 }

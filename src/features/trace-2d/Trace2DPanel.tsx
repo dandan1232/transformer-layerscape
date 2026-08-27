@@ -1,6 +1,7 @@
 import { format, max, scaleBand, scaleLinear } from 'd3'
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { useStore } from 'zustand'
+import { useStepTransition } from '../../hooks/use-step-transition'
 import {
   DEFAULT_SAMPLING_PARAMETERS,
   normalizeSamplingParameters,
@@ -938,9 +939,11 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
   const traceStatus = useStore(store, (state) => state.traceStatus)
   const currentStep = useStore(store, selectCurrentStep)
   const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
+  const reducedMotion = useStore(store, (state) => state.reducedMotion)
   const selectedTokenIndex = useStore(store, (state) => state.selectedTokenIndex)
   const selectedHeadIndex = useStore(store, (state) => state.selectedHeadIndex)
   const selectedEntityId = useStore(store, (state) => state.selectedEntityId)
+  const bodyRef = useStepTransition(currentStepIndex, reducedMotion)
   const [samplingParameters, setSamplingParameters] =
     useState<SamplingParameters>(() =>
       trace
@@ -976,6 +979,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
         className={`workspace-panel calculation-panel trace2d-panel${isActive ? ' is-mobile-active' : ''}`}
         role="tabpanel"
         aria-labelledby="mobile-view-2d"
+        ref={bodyRef}
       >
         <div className="trace2d-empty" role="status">
           <span aria-hidden="true" />
@@ -1039,6 +1043,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
       className={`workspace-panel calculation-panel trace2d-panel${isActive ? ' is-mobile-active' : ''}`}
       role="tabpanel"
       aria-labelledby="mobile-view-2d"
+      ref={bodyRef}
     >
       <header className="panel-heading panel-heading--light trace2d-heading">
         <div>

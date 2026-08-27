@@ -1273,19 +1273,48 @@ kbd {
 @media (hover: hover) and (pointer: fine) {
   .mode-switch button:hover:not([aria-pressed='true']),
   .topbar__tools button:hover,
-  .scene-control:hover {
+  .scene-control:hover,
+  .timeline__controls button:hover:not(:disabled) {
     color: var(--starlight-100);
     background: var(--void-800);
+    transform: scale(1.08);
   }
 
   .primary-action:hover {
     background: var(--amber-400);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1.25rem oklch(67% 0.15 73 / 0.25);
   }
 
   .brand:hover .brand-mark {
     stroke: var(--amber-300);
   }
+}
+
+.topbar__tools button:not(:disabled):active,
+.scene-control:not(:disabled):active,
+.timeline button:not(:disabled):active,
+.mode-switch button:active,
+.mobile-view-tabs button:active,
+.primary-action:active {
+  transform: scale(0.95);
+}
+
+.timeline__fill {
+  transition: transform var(--duration-enter, 620ms) var(--ease-out);
+}
+
+.timeline__marker {
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-state),
+    opacity var(--duration-base) var(--ease-out);
+}
+
+.timeline__marker.is-current {
+  transform: translateX(-50%) scale(1.25);
+  z-index: 1;
 }
 
 @media (min-width: 48rem) {
