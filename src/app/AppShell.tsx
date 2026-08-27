@@ -25,6 +25,7 @@ import {
 } from '../features/lesson-panel/lesson-navigation'
 import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
 import { RealModelDownload } from '../features/real-model/RealModelDownload'
+import { WelcomeTour } from '../features/onboarding/welcome-tour'
 import { useDeviceCapabilities } from '../platform/use-device-capabilities'
 import {
   selectCanGoNext,
@@ -716,6 +717,7 @@ export function AppShell({
       </main>
 
       <Timeline store={store} />
+      <WelcomeTour />
     </div>
   )
 }
