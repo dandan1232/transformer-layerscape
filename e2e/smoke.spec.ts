@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('transformer-layerscape:tour-dismissed', 'true')
+  })
+})
+
 test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.goto('/')
 

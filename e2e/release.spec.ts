@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('transformer-layerscape:tour-dismissed', 'true')
+  })
+})
+
 test('发布入口、课程联动和响应式布局可用', async ({ page }) => {
   await page.goto('/')
 

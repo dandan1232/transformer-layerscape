@@ -2,6 +2,9 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('transformer-layerscape:tour-dismissed', 'true')
+  })
   await page.emulateMedia({ reducedMotion: 'reduce' })
 })
 

@@ -11,6 +11,12 @@ interface PerformanceSample {
 }
 
 const sharedRunner = process.env.PERFORMANCE_PROFILE === 'shared-runner'
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('transformer-layerscape:tour-dismissed', 'true')
+  })
+})
 const desktopBudget = sharedRunner
   ? {
       interactiveMs: 8_000,

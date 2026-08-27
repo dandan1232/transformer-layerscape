@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 async function useDeterministicRendering(page: Page) {
   await page.addInitScript(() => {
     localStorage.clear()
+    localStorage.setItem('transformer-layerscape:tour-dismissed', 'true')
     Object.defineProperty(window, 'WebGLRenderingContext', {
       configurable: true,
       value: undefined,
