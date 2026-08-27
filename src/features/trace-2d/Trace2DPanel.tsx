@@ -1,4 +1,6 @@
-import { format, max, scaleBand, scaleLinear } from 'd3'
+import { max } from 'd3-array'
+import { format } from 'd3-format'
+import { scaleBand, scaleLinear } from 'd3-scale'
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { useStore } from 'zustand'
 import { useStepTransition } from '../../hooks/use-step-transition'

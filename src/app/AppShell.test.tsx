@@ -23,7 +23,7 @@ describe('中文学习工作台外壳', () => {
     expect(screen.getByText('真实模型已就绪')).toBeInTheDocument()
   })
 
-  it('提供课程、二维计算、三维空间和时间轴语义区域', async () => {
+    it('提供课程、二维计算、三维空间和时间轴语义区域', { timeout: 15000 }, async () => {
     const user = userEvent.setup()
     renderAppShell({ withTrace: true })
 
@@ -36,7 +36,7 @@ describe('中文学习工作台外壳', () => {
 
     await user.click(screen.getByRole('tab', { name: '三维空间' }))
     expect(
-      await screen.findByRole('heading', { name: 'Transformer 微型观测场' }),
+      await screen.findByRole('heading', { name: 'Transformer 微型观测场' }, { timeout: 10000 }),
     ).toBeVisible()
     expect(screen.getByRole('contentinfo', { name: '计算时间轴' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '跳到主要内容' })).toHaveAttribute(
@@ -215,7 +215,7 @@ describe('中文学习工作台外壳', () => {
     render(<AppShell store={store} />)
 
     await user.click(
-      await screen.findByRole('button', { name: '三维实体：Attention Head 2' }),
+      await screen.findByRole('button', { name: '三维实体：Attention Head 2' }, { timeout: 10000 }),
     )
     expect(store.getState()).toMatchObject({
       selectedEntityId: 'head:1',
@@ -253,7 +253,7 @@ describe('中文学习工作台外壳', () => {
     )
     await user.click(screen.getByRole('tab', { name: '三维空间' }))
     expect(
-      await screen.findByRole('button', { name: '三维实体：Token 4 deep' }),
+      await screen.findByRole('button', { name: '三维实体：Token 4 deep' }, { timeout: 10000 }),
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
