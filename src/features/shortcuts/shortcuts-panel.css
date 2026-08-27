@@ -1,0 +1,79 @@
+.shortcuts-backdrop {
+  position: fixed;
+  z-index: 800;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: oklch(10% 0.028 257 / 0.6);
+  backdrop-filter: blur(0.25rem);
+  animation: shortcuts-fade-in var(--duration-base) var(--ease-out) both;
+}
+
+.shortcuts-panel {
+  max-width: 20rem;
+  width: 100%;
+  padding: var(--space-6);
+  color: var(--starlight-100);
+  background: var(--void-900);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1rem 3rem oklch(0% 0 0 / 0.3);
+  animation: shortcuts-rise-in calc(var(--duration-enter) * 0.7) var(--ease-out) both;
+}
+
+.shortcuts-panel__title {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.shortcuts-panel__list {
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.shortcuts-panel__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.shortcuts-panel__keys {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.shortcuts-panel__keys kbd {
+  display: inline-block;
+  min-width: 1.75rem;
+  text-align: center;
+  padding: var(--space-1) var(--space-2);
+  color: var(--starlight-200);
+  background: var(--void-800);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.shortcuts-panel__close {
+  width: 100%;
+}
+
+@keyframes shortcuts-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shortcuts-rise-in {
+  from { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

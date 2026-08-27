@@ -28,6 +28,7 @@ import { RealModelDownload } from '../features/real-model/RealModelDownload'
 import { WelcomeTour } from '../features/onboarding/welcome-tour'
 import { ThemeToggle } from '../features/theme/theme-toggle'
 import { ShareViewButton } from '../features/share/share-view-button'
+import { ShortcutsPanel } from '../features/shortcuts/shortcuts-panel'
 import { useUrlStateSync } from '../hooks/use-url-state'
 import { useDeviceCapabilities } from '../platform/use-device-capabilities'
 import {
@@ -724,6 +725,7 @@ export function AppShell({
 
       <Timeline store={store} />
       <WelcomeTour />
+      <ShortcutsPanel />
     </div>
   )
 }
