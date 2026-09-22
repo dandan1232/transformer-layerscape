@@ -1490,6 +1490,162 @@ kbd {
   .explore-dock__focus {
     align-self: center;
   }
+
+  /* In guided mode the model becomes the stage. The lesson and tensor view
+     remain fully functional, but read as instruments layered over the trace. */
+  .app-shell:not(.is-explore) .workspace {
+    position: relative;
+    display: block;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--void-1000);
+  }
+
+  .app-shell:not(.is-explore) .scene-panel {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .app-shell:not(.is-explore) .scene-panel__header {
+    position: absolute;
+    z-index: 4;
+    inset: var(--space-6) var(--space-6) auto auto;
+    max-width: 22rem;
+    padding: 0;
+    justify-content: flex-end;
+  }
+
+  .app-shell:not(.is-explore) .scene-panel__header > div {
+    display: none;
+  }
+
+  .app-shell:not(.is-explore) .scene-control {
+    min-height: 2.5rem;
+    padding-inline: var(--space-3);
+    border: 1px solid oklch(70% 0.03 82 / 0.2);
+    background: oklch(13% 0.034 257 / 0.76);
+    backdrop-filter: blur(0.75rem);
+  }
+
+  .app-shell:not(.is-explore) .scene3d-stage,
+  .app-shell:not(.is-explore) .scene3d-canvas,
+  .app-shell:not(.is-explore) .scene3d-fallback {
+    min-height: 100%;
+  }
+
+  .app-shell:not(.is-explore) .scene3d-director {
+    inset-block-start: var(--space-8);
+    inset-inline-start: clamp(29rem, 35vw, 34rem);
+  }
+
+  .app-shell:not(.is-explore) .scene3d-overlay {
+    inset: auto var(--space-6) var(--space-6) clamp(29rem, 35vw, 34rem);
+  }
+
+  .app-shell:not(.is-explore) .scene3d-readout {
+    position: absolute;
+    z-index: 4;
+    inset: auto clamp(32rem, 35vw, 36rem) var(--space-6) clamp(29rem, 35vw, 34rem);
+    grid-template-columns: repeat(3, minmax(8rem, 1fr));
+    padding: 1px;
+    background: oklch(30% 0.035 253 / 0.8);
+    box-shadow: 0 0.75rem 2rem oklch(6% 0.02 257 / 0.35);
+  }
+
+  .app-shell:not(.is-explore) .scene3d-readout > div {
+    background: oklch(13% 0.034 257 / 0.86);
+    backdrop-filter: blur(0.75rem);
+  }
+
+  .app-shell:not(.is-explore) .scene3d-entities,
+  .app-shell:not(.is-explore) .scene3d-description {
+    display: none;
+  }
+
+  .app-shell:not(.is-explore) .lesson-panel {
+    position: absolute;
+    z-index: 5;
+    inset: var(--space-4) auto var(--space-4) var(--space-4);
+    width: clamp(24rem, 30vw, 28rem);
+    min-height: 0;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    box-shadow: 0 1.5rem 4rem oklch(6% 0.02 257 / 0.48);
+  }
+
+  .app-shell:not(.is-explore) .lesson-panel__header {
+    padding: var(--space-4) var(--space-4) 0;
+  }
+
+  .app-shell:not(.is-explore) .lesson-panel__body {
+    min-height: 0;
+    gap: var(--space-6);
+    padding: 1.25rem var(--space-4) var(--space-4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .app-shell:not(.is-explore) .lesson-panel h1 {
+    max-width: 10ch;
+    font-size: clamp(2rem, 3vw, 3.25rem);
+  }
+
+  .app-shell:not(.is-explore) .lesson-panel__lead {
+    font-size: var(--text-sm);
+    line-height: 1.65;
+  }
+
+  .app-shell:not(.is-explore) .lesson-panel__actions {
+    flex: 0 0 auto;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .app-shell:not(.is-explore) .calculation-panel {
+    position: absolute;
+    z-index: 5;
+    inset: auto var(--space-4) var(--space-4) auto;
+    width: clamp(27rem, 32vw, 32rem);
+    height: clamp(16rem, 34vh, 20rem);
+    min-height: 0;
+    padding: var(--space-4);
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    box-shadow: 0 1.25rem 3.5rem oklch(6% 0.02 257 / 0.42);
+  }
+
+  .app-shell:not(.is-explore) .calculation-panel::before {
+    content: 'TENSOR MICROSCOPE';
+    position: absolute;
+    inset: 0 auto auto 0;
+    padding: 0.35rem 0.55rem;
+    color: var(--amber-ink);
+    background: var(--amber-300);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+  }
+
+  .app-shell:not(.is-explore) .calculation-panel .panel-heading {
+    padding-inline-start: 7.75rem;
+  }
+
+  .app-shell:not(.is-explore) .calculation-figure {
+    min-height: 9rem;
+    margin-block: var(--space-3);
+  }
+
+  .app-shell:not(.is-explore) .calculation-summary {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: var(--text-xs);
+  }
 }
 
 @media (min-width: 90rem) {

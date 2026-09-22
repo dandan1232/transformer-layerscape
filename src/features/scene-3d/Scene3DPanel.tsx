@@ -120,7 +120,7 @@ function TokenInstances({
           position={[token.position[0], token.position[1] - 0.48, token.position[2]]}
           center
           distanceFactor={9}
-          className="scene3d-label"
+          className={`scene3d-label scene3d-label--token${selectedTokenIndex === index ? ' is-active' : ''}`}
         >
           <span aria-hidden="true">T{index + 1} · {trace.input.tokens[index].trim()}</span>
         </Html>
@@ -226,7 +226,7 @@ function EmbeddingLayer({
         center
         distanceFactor={9}
         position={[0, -0.42, 1.38]}
-        className="scene3d-label scene3d-label--embedding"
+        className={`scene3d-label scene3d-label--embedding${tokenSelected || positionSelected ? ' is-active' : ''}`}
       >
         <span aria-hidden="true">TOKEN EMB ＋ POSITION → X</span>
       </Html>
@@ -291,7 +291,7 @@ function NormalizationRail({
         center
         distanceFactor={9}
         position={[0, -0.08, 0.72]}
-        className="scene3d-label scene3d-label--normalization"
+        className={`scene3d-label scene3d-label--normalization${selected ? ' is-active' : ''}`}
       >
         <span aria-hidden="true">LAYER NORM · μ→0 · σ→1</span>
       </Html>
@@ -338,7 +338,7 @@ function HeadNode({
         <sphereGeometry args={[0.2, 20, 20]} />
         <meshStandardMaterial color={selected ? palette.headSelected : palette.output} />
       </mesh>
-      <Html center distanceFactor={8} position={[0, -0.78, 0]} className="scene3d-label scene3d-label--head">
+      <Html center distanceFactor={8} position={[0, -0.78, 0]} className={`scene3d-label scene3d-label--head${selected ? ' is-active' : ''}`}>
         <span aria-hidden="true">HEAD {index + 1} · 4D</span>
       </Html>
     </group>
@@ -380,7 +380,7 @@ function ConcatHub({
           />
         </mesh>
       ))}
-      <Html center distanceFactor={8} position={[0, -0.78, 0]} className="scene3d-label scene3d-label--concat">
+      <Html center distanceFactor={8} position={[0, -0.78, 0]} className={`scene3d-label scene3d-label--concat${selected ? ' is-active' : ''}`}>
         <span aria-hidden="true">CONCAT · {headCount}×{headSize}D</span>
       </Html>
     </group>
@@ -424,7 +424,7 @@ function ResidualNode({
         <boxGeometry />
         <meshStandardMaterial color={palette.outputSelected} />
       </mesh>
-      <Html center distanceFactor={8} position={[0, -0.62, 0]} className="scene3d-label scene3d-label--residual">
+      <Html center distanceFactor={8} position={[0, -0.62, 0]} className={`scene3d-label scene3d-label--residual${selected ? ' is-active' : ''}`}>
         <span aria-hidden="true">RESIDUAL {String(index).padStart(2, '0')} · ＋</span>
       </Html>
     </group>
@@ -456,7 +456,7 @@ function MlpNormNode({
           roughness={0.36}
         />
       </mesh>
-      <Html center distanceFactor={8} position={[0, -0.58, 0]} className="scene3d-label scene3d-label--mlp-norm">
+      <Html center distanceFactor={8} position={[0, -0.58, 0]} className={`scene3d-label scene3d-label--mlp-norm${selected ? ' is-active' : ''}`}>
         <span aria-hidden="true">LN · BEFORE MLP</span>
       </Html>
     </group>
@@ -500,7 +500,7 @@ function MlpTower({
           />
         </mesh>
       ))}
-      <Html center distanceFactor={8} position={[0, -0.86, 0]} className="scene3d-label scene3d-label--mlp">
+      <Html center distanceFactor={8} position={[0, -0.86, 0]} className={`scene3d-label scene3d-label--mlp${selected ? ' is-active' : ''}`}>
         <span aria-hidden="true">MLP · {hiddenSize}→{hiddenSize * 4}→{hiddenSize}</span>
       </Html>
     </group>
@@ -543,7 +543,7 @@ function OutputNode({
           metalness={0.2}
         />
       </mesh>
-      <Html center distanceFactor={8} position={[0, -0.76, 0]} className="scene3d-label scene3d-label--output">
+      <Html center distanceFactor={8} position={[0, -0.76, 0]} className={`scene3d-label scene3d-label--output${selected ? ' is-active' : ''}`}>
         <span aria-hidden="true">NEXT · {token}</span>
       </Html>
     </group>
@@ -583,7 +583,7 @@ function QKVGate({
               roughness={0.38}
             />
           </mesh>
-          <Html center distanceFactor={8} className="scene3d-label scene3d-label--channel">
+          <Html center distanceFactor={8} className={`scene3d-label scene3d-label--channel${selected ? ' is-active' : ''}`}>
             <span aria-hidden="true">{channel.label}</span>
           </Html>
         </group>
@@ -1007,6 +1007,11 @@ export function Scene3DPanel({
           <div className="scene3d-overlay" aria-hidden="true">
             <span>LAYER 01</span>
             <span>TOKEN AXIS</span>
+          </div>
+          <div className="scene3d-director" aria-hidden="true">
+            <span>LIVE MODEL TRACE</span>
+            <strong data-step-title={currentStep?.title ?? '等待模型轨迹'} />
+            <small data-focus-label={selectedEntity?.label ?? 'Transformer 全景'} />
           </div>
         </div>
       ) : (

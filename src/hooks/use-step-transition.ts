@@ -18,19 +18,17 @@ export function useStepTransition(
     !navigator.webdriver
 
   useEffect(() => {
-    if (
-      !canAnimate ||
-      !containerRef.current ||
-      previousStepRef.current === stepIndex ||
-      reducedMotion
-    ) {
+    const element = containerRef.current
+    if (!element || previousStepRef.current === stepIndex) {
       previousStepRef.current = stepIndex
       return
     }
 
-    const element = containerRef.current!
     const direction = stepIndex > previousStepRef.current ? 1 : -1
     previousStepRef.current = stepIndex
+    element.scrollTop = 0
+
+    if (!canAnimate || reducedMotion) return
 
     try {
       gsap.fromTo(

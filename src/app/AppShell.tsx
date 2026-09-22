@@ -540,6 +540,7 @@ export function AppShell({
   const traceSource = useStore(store, (state) => state.trace?.source)
   const traceError = useStore(store, (state) => state.traceError)
   const traceRequestId = useStore(store, (state) => state.traceRequestId)
+  const playback = useStore(store, (state) => state.playback)
   const capabilities = useDeviceCapabilities()
   useUrlStateSync(store)
   const setLearningMode = store.getState().setMode
@@ -584,6 +585,7 @@ export function AppShell({
       data-three-d-mode={capabilities.threeDMode}
       data-compact-viewport={capabilities.compactViewport}
       data-coarse-pointer={capabilities.coarsePointer}
+      data-playback={playback}
     >
       <a className="skip-link" href="#main-content">
         跳到主要内容

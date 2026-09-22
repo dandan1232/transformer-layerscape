@@ -11,6 +11,41 @@
   flex: 1;
   min-height: 24rem;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 58% 48%, oklch(35% 0.08 245 / 0.22), transparent 28%),
+    linear-gradient(115deg, transparent 28%, oklch(75% 0.08 80 / 0.035) 50%, transparent 72%);
+}
+
+.scene3d-stage::before,
+.scene3d-stage::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.scene3d-stage::before {
+  inset: 0;
+  background:
+    linear-gradient(var(--border-dark) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-dark) 1px, transparent 1px);
+  background-size: 5rem 5rem;
+  mask-image: radial-gradient(circle at 62% 52%, black, transparent 70%);
+  opacity: 0.22;
+}
+
+.scene3d-stage::after {
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 34%,
+    oklch(84% 0.16 79 / 0.04) 43%,
+    oklch(84% 0.16 79 / 0.2) 50%,
+    oklch(84% 0.16 79 / 0.04) 57%,
+    transparent 66%
+  );
+  opacity: 0;
+  transform: translateX(-65%);
 }
 
 .scene3d-canvas {
@@ -28,6 +63,7 @@
   white-space: nowrap;
   pointer-events: none;
   text-shadow: 0 1px 4px var(--void-1000);
+  transition: opacity var(--duration-base) var(--ease-state);
 }
 
 .scene3d-label--head {
@@ -42,6 +78,21 @@
   color: var(--void-1000);
   font-weight: 900;
   text-shadow: none;
+}
+
+@media (min-width: 75rem) {
+  .app-shell:not(.is-explore) .scene3d-label {
+    opacity: 0.2;
+  }
+
+  .app-shell:not(.is-explore) .scene3d-label--token,
+  .app-shell:not(.is-explore) .scene3d-label--channel {
+    opacity: 0.62;
+  }
+
+  .app-shell:not(.is-explore) .scene3d-label.is-active {
+    opacity: 1;
+  }
 }
 
 .scene3d-label--embedding {
@@ -89,6 +140,59 @@
   font-size: 0.625rem;
   letter-spacing: 0.18em;
   pointer-events: none;
+}
+
+.scene3d-director {
+  position: absolute;
+  z-index: 2;
+  inset: var(--space-6) auto auto var(--space-6);
+  max-width: min(32rem, 55%);
+  display: grid;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
+.scene3d-director span {
+  color: var(--amber-300);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.scene3d-director strong {
+  color: var(--starlight-100);
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 2.8vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  text-shadow: 0 0.15rem 1rem var(--void-1000);
+}
+
+.scene3d-director strong::before {
+  content: attr(data-step-title);
+}
+
+.scene3d-director small {
+  color: var(--starlight-400);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+}
+
+.scene3d-director small::before {
+  content: attr(data-focus-label);
+}
+
+.app-shell[data-playback='playing'] .scene3d-stage::after {
+  opacity: 1;
+  animation: trace-scan 2.8s linear infinite;
+}
+
+@keyframes trace-scan {
+  from { transform: translateX(-65%); }
+  to { transform: translateX(65%); }
 }
 
 .scene3d-context-alert {
@@ -410,12 +514,27 @@
     width: 100%;
     margin-inline-start: 1.45rem;
   }
+
+  .scene3d-director {
+    inset: var(--space-4) auto auto var(--space-4);
+    max-width: 70%;
+  }
+
+  .scene3d-director strong {
+    font-size: 1.5rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .scene3d-label,
   .scene3d-panel button {
     transition: none !important;
+  }
+
+  .app-shell[data-playback='playing'] .scene3d-stage::after {
+    animation: none;
+    opacity: 0.12;
+    transform: none;
   }
 }
 
