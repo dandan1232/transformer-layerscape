@@ -1560,9 +1560,40 @@ kbd {
     backdrop-filter: blur(0.75rem);
   }
 
-  .app-shell:not(.is-explore) .scene3d-entities,
   .app-shell:not(.is-explore) .scene3d-description {
     display: none;
+  }
+
+  .app-shell:not(.is-explore) .scene3d-entities {
+    position: absolute;
+    z-index: 4;
+    inset: auto clamp(32rem, 35vw, 36rem) 5.75rem clamp(29rem, 35vw, 34rem);
+    flex-wrap: nowrap;
+    gap: var(--space-3);
+    padding: var(--space-2);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    color: var(--starlight-400);
+    background: oklch(13% 0.034 257 / 0.86);
+    border: 1px solid oklch(70% 0.03 82 / 0.2);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0.75rem 2rem oklch(6% 0.02 257 / 0.35);
+    backdrop-filter: blur(0.75rem);
+  }
+
+  .app-shell:not(.is-explore) .scene3d-entities > div {
+    flex: 0 0 auto;
+  }
+
+  .app-shell:not(.is-explore) .scene3d-entities button {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+  }
+
+  .app-shell:not(.is-explore) .scene3d-context-alert {
+    z-index: 7;
+    inset: auto var(--space-6) var(--space-6) clamp(29rem, 35vw, 34rem);
   }
 
   .app-shell:not(.is-explore) .lesson-panel {
