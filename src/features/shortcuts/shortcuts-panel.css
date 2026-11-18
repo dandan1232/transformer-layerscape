@@ -11,25 +11,28 @@
 }
 
 .shortcuts-panel {
-  max-width: 20rem;
+  max-width: 36rem;
   width: 100%;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--space-6);
   color: var(--starlight-100);
   background: var(--void-900);
   border: 1px solid var(--border-dark);
   border-radius: var(--radius-md);
-  box-shadow: 0 1rem 3rem oklch(0% 0 0 / 0.3);
   animation: shortcuts-rise-in calc(var(--duration-enter) * 0.7) var(--ease-out) both;
 }
 
 .shortcuts-panel__title {
-  margin: 0 0 var(--space-4);
-  font-family: var(--font-display);
+  margin: 0;
+  font-family: var(--font-body);
   font-size: var(--text-lg);
 }
 
 .shortcuts-panel__list {
-  margin: 0 0 var(--space-5);
+  margin: 0 0 var(--space-6);
   padding: 0;
   list-style: none;
   display: grid;
@@ -66,6 +69,67 @@
 
 .shortcuts-panel__close {
   width: 100%;
+}
+
+.shortcuts-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.shortcuts-panel__dismiss {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--starlight-100);
+  background: var(--void-800);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.shortcuts-panel__dismiss:hover {
+  background: var(--void-700);
+}
+
+.shortcuts-panel__lead,
+.shortcuts-panel__hint,
+.shortcuts-panel__terms dd {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--starlight-200);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.shortcuts-panel__section-title {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: var(--text-base);
+}
+
+.shortcuts-panel__terms {
+  margin: 0;
+}
+
+.shortcuts-panel__terms dt {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.shortcuts-panel__terms dd {
+  margin-top: var(--space-1);
+}
+
+@media (max-width: 30rem) {
+  .shortcuts-panel {
+    padding: var(--space-4);
+  }
+
+  .shortcuts-panel__item {
+    gap: var(--space-2);
+  }
 }
 
 @keyframes shortcuts-fade-in {

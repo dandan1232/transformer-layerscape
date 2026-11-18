@@ -16,7 +16,8 @@
 - 产品边界、需求、实施路线和测试验收方案已经固化。
 - M1 的测试基线、中文工作台、统一 `ModelTrace`、共享 Store、中文课程、二维计算、三维空间、完整联动、能力检测、错误恢复和综合验收已经完成。
 - 当前页面可以学习 Token、Embedding、LayerNorm、Q/K/V、Attention、Residual、MLP 与 Output 共十四项中文课程，在二维图中查看位置编码相加、归一化分布、三路投影、跨 Head 差异、两条残差旁路、`8→32→8` 前馈网络和完整词表概率，并通过 Temperature、Top-k、Top-p 与 Seed 实验可复现的采样结果；自由探索台支持跨步骤选择算子、Token、Block 与 Head，同时保留返回课程锚点的入口。三维空间同步展示 CONCAT、Pre-Norm、MLP 与 Block 输出链路。移动端按窄屏、粗指针和内存能力切换简化三维，横竖屏变化后会恢复当前课程、二维视图和共享选择；系统同时保存本地进度，并在数据、子视图或 WebGL Context 失败时保持核心课程可用。
-- 当前自动化基线为 216 条单元/组件测试；生产构建已通过 Chrome 桌面/移动发布门禁、8 条产品冒烟、2 条性能预算和 9 条视觉回归。GitHub Actions 还会在部署前自动验证 Chromium、Firefox、WebKit、Pixel 7 与 iPhone 15 配置。
+- 分享链接可以直接恢复指定步骤与学习模式；没有分享参数时继续上次的本地进度。课程与二维说明跟随当前模型更新，高维向量图明确标出展示范围。四章末尾均提供可跳过的小练习和答题解释，顶部帮助入口支持术语查询、快捷键说明与重新查看引导。
+- M4 验收时的自动化基线为 216 条单元/组件测试；生产构建已通过 Chrome 桌面/移动发布门禁、8 条产品冒烟、2 条性能预算和 9 条视觉回归。GitHub Actions 还会在部署前自动验证 Chromium、Firefox、WebKit、Pixel 7 与 iPhone 15 配置。
 - 真实模型候选固定为 DistilGPT-2 的不可变 Revision，预计主动下载 87.02MB；文件哈希、加载覆盖项和许可证边界见 [真实模型资源基线](./MODEL_RESOURCES.md) 与 [第三方声明](./THIRD_PARTY_NOTICES.md)。
 - 插桩图通过 Node CPU 与浏览器 WASM 实测，81 个额外输出覆盖 Embedding、Q/K/V、Attention、Residual 与 MLP，完整下载仍约 87.03MB；方案与数值校验见 [插桩 ONNX 技术探针](./MODEL_INSTRUMENTATION.md)。
 - [模型 Worker 协议](./MODEL_WORKER_PROTOCOL.md)已覆盖握手、加载进度、推理、取消、释放、结构化错误和张量 Transferable，后续下载与缓存实现复用同一请求关联机制。

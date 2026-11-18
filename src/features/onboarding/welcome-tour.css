@@ -13,12 +13,15 @@
 .welcome-tour {
   max-width: 24rem;
   width: 100%;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--space-6);
   color: var(--starlight-100);
   background: var(--void-900);
   border: 1px solid var(--border-dark);
   border-radius: var(--radius-md);
-  box-shadow: 0 1rem 3rem oklch(0% 0 0 / 0.35);
   animation: tour-rise-in calc(var(--duration-enter) * 0.8) var(--ease-out) both;
 }
 
@@ -30,7 +33,8 @@
 
 .welcome-tour__lead {
   margin: 0 0 var(--space-4);
-  color: var(--starlight-400);
+  color: var(--starlight-200);
+  line-height: 1.6;
 }
 
 .welcome-tour__steps {
@@ -43,7 +47,7 @@
 }
 
 .welcome-tour__steps strong {
-  color: var(--amber-300);
+  color: var(--starlight-100);
 }
 
 .welcome-tour__start {
@@ -54,7 +58,8 @@
   margin: var(--space-3) 0 0;
   text-align: center;
   font-size: var(--text-xs);
-  color: var(--void-700);
+  color: var(--starlight-200);
+  line-height: 1.6;
 }
 
 @keyframes tour-fade-in {

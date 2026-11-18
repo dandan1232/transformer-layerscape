@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, type KeyboardEvent } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   BookOpenText,
   Box,
@@ -28,6 +28,7 @@ import { LessonQuiz } from '../features/lesson-panel/lesson-quiz'
 import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
 import { RealModelDownload } from '../features/real-model/RealModelDownload'
 import { WelcomeTour } from '../features/onboarding/welcome-tour'
+import { isWelcomeTourDismissed } from '../features/onboarding/welcome-tour-state'
 import { ThemeToggle } from '../features/theme/theme-toggle'
 import { ShareViewButton } from '../features/share/share-view-button'
 import { ShortcutsPanel } from '../features/shortcuts/shortcuts-panel'
@@ -551,6 +552,13 @@ export function AppShell({
   const traceRequestId = useStore(store, (state) => state.traceRequestId)
   const playback = useStore(store, (state) => state.playback)
   const capabilities = useDeviceCapabilities()
+  const [learningOverlay, setLearningOverlay] = useState<'help' | 'tour' | null>(() =>
+    isWelcomeTourDismissed() ? null : 'tour',
+  )
+  const helpButtonRef = useRef<HTMLButtonElement>(null)
+  const openHelp = useCallback(() => setLearningOverlay('help'), [])
+  const closeLearningOverlay = useCallback(() => setLearningOverlay(null), [])
+  const restartTour = useCallback(() => setLearningOverlay('tour'), [])
   useUrlStateSync(store)
   const setLearningMode = store.getState().setMode
   const setMobileView = store.getState().setView
@@ -649,7 +657,7 @@ export function AppShell({
           <RealModelDownload store={store} memoryTier={capabilities.memoryTier} />
           <ThemeToggle />
           <ShareViewButton />
-          <button type="button" disabled aria-label="打开帮助" title="帮助中心即将开放">
+          <button ref={helpButtonRef} type="button" aria-label="打开帮助" title="学习帮助（?）" onClick={openHelp}>
             <CircleHelp size={19} aria-hidden="true" />
           </button>
           <button type="button" disabled aria-label="打开设置" title="设置即将开放">
@@ -735,8 +743,8 @@ export function AppShell({
       </main>
 
       <Timeline store={store} lesson={lesson} />
-      <WelcomeTour />
-      <ShortcutsPanel />
+      <WelcomeTour open={learningOverlay === 'tour'} onClose={closeLearningOverlay} returnFocusRef={helpButtonRef} />
+      <ShortcutsPanel open={learningOverlay === 'help'} onOpen={openHelp} onClose={closeLearningOverlay} onRestartTour={restartTour} returnFocusRef={helpButtonRef} store={store} />
     </div>
   )
 }

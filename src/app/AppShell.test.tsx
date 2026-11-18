@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { verticalSliceTrace } from '../content/traces/vertical-slice-trace'
 import type { ModelTrace } from '../domain/trace/trace'
 import { createExplorerStore } from '../store/explorer-store'
@@ -13,6 +13,31 @@ function renderAppShell({ withTrace = false } = {}) {
 }
 
 describe('中文学习工作台外壳', () => {
+  beforeEach(() => {
+    localStorage.setItem('transformer-layerscape:tour-dismissed', 'true')
+  })
+
+  it('帮助可以重开引导，两者不会叠加且关闭后回到帮助按钮', async () => {
+    const user = userEvent.setup()
+    renderAppShell({ withTrace: true })
+    const trigger = screen.getByRole('button', { name: '打开帮助' })
+    await user.click(trigger)
+    expect(screen.getByRole('dialog', { name: '学习帮助' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '重新查看引导' }))
+    expect(screen.queryByRole('dialog', { name: '学习帮助' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '首次使用引导' })).toBeVisible()
+    const start = screen.getByRole('button', { name: '开始学习' })
+    expect(start).toHaveFocus()
+    await user.tab()
+    expect(start).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(start).toHaveFocus()
+    expect(localStorage.getItem('transformer-layerscape:tour-dismissed')).toBe('true')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
   it.each([
     [2, '为什么要加入位置信息？'],
     [6, '使用因果注意力时，当前位置可以读取哪些内容？'],

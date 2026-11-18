@@ -44,6 +44,32 @@ test('窄屏章末练习可重选、可跳过且不阻塞课程导航', async ({
   await expect(page.getByText('步骤 04 / 14')).toBeVisible()
 })
 
+test('学习快捷键控制步骤和播放且不会抢占表单按键', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByText('步骤 02 / 14')).toBeVisible()
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.getByText('步骤 01 / 14')).toBeVisible()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: '暂停计算过程' })).toBeVisible()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: '播放计算过程' })).toBeVisible()
+  await page.keyboard.press('2')
+  await expect(page.getByRole('tab', { name: '二维计算' })).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('1')
+  await expect(page.getByRole('tab', { name: '课程' })).toHaveAttribute('aria-selected', 'true')
+
+  const scrubber = page.getByRole('slider', { name: '定位模型计算步骤' })
+  await scrubber.focus()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByText('步骤 02 / 14')).toBeVisible()
+  await page.keyboard.press('2')
+  await expect(page.getByRole('tab', { name: '课程' })).toHaveAttribute('aria-selected', 'true')
+})
+
 test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.goto('/')
 

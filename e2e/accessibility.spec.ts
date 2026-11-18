@@ -8,10 +8,11 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 })
 
-async function expectNoWcagViolations(page: Page, state: string) {
-  const results = await new AxeBuilder({ page })
+async function expectNoWcagViolations(page: Page, state: string, selector?: string) {
+  const scanner = new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-    .analyze()
+  if (selector) scanner.include(selector)
+  const results = await scanner.analyze()
 
   expect(
     results.violations.map(({ id, impact, help, nodes }) => ({
@@ -62,3 +63,69 @@ test('章末练习答题反馈通过 WCAG A/AA 自动扫描', async ({ page }) =
   await expect(quiz.getByRole('status')).toContainText('答对了')
   await expectNoWcagViolations(page, '章末练习')
 })
+
+for (const theme of ['dark', 'light'] as const) {
+  test(`${theme} 主题帮助与重开引导通过扫描、保持焦点且适合当前屏幕`, async ({ page }) => {
+    await page.goto('/')
+    if (theme === 'light') {
+      await page.getByRole('button', { name: '切换到浅色主题' }).click()
+    }
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+
+    const trigger = page.getByRole('button', { name: '打开帮助' })
+    const help = page.getByRole('dialog', { name: '学习帮助' })
+    const closeHelp = help.getByRole('button', { name: '关闭学习帮助' })
+    const restart = help.getByRole('button', { name: '重新查看引导' })
+    await trigger.click()
+    await expect(help).toBeVisible()
+    await expect(help).toHaveAttribute('aria-modal', 'true')
+    await expect(closeHelp).toBeFocused()
+    await expectNoWcagViolations(page, `${theme} 主题学习帮助`, '[role="dialog"][aria-label="学习帮助"]')
+
+    expect(await help.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return bounds.left >= 0 && bounds.top >= 0 &&
+        bounds.right <= window.innerWidth + 1 && bounds.bottom <= window.innerHeight + 1 &&
+        element.scrollWidth <= element.clientWidth + 1
+    })).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+    await page.keyboard.press('Shift+Tab')
+    await expect(restart).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(closeHelp).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(help).not.toBeVisible()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await restart.click()
+    const tour = page.getByRole('dialog', { name: '首次使用引导' })
+    const start = tour.getByRole('button', { name: '开始学习' })
+    await expect(tour).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(1)
+    await expect(start).toBeFocused()
+    await expectNoWcagViolations(page, `${theme} 主题重新查看引导`, '[role="dialog"][aria-label="首次使用引导"]')
+    expect(await tour.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return bounds.left >= 0 && bounds.top >= 0 &&
+        bounds.right <= window.innerWidth + 1 && bounds.bottom <= window.innerHeight + 1 &&
+        element.scrollWidth <= element.clientWidth + 1
+    })).toBe(true)
+
+    await page.keyboard.press('Tab')
+    await expect(start).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(start).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(tour).not.toBeVisible()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await restart.click()
+    await start.click()
+    await expect(tour).not.toBeVisible()
+    await expect(trigger).toBeFocused()
+    expect(await page.evaluate(() => localStorage.getItem('transformer-layerscape:tour-dismissed'))).toBe('true')
+  })
+}
