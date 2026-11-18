@@ -72,6 +72,40 @@ describe('三维首帧就绪信号', () => {
 })
 
 describe('三维模型探索场景', () => {
+  it('真实模型安全预览显示每头实际维度，并明确仅示意前两个 Head', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace({
+      ...verticalSliceTrace,
+      source: 'onnx',
+      model: { ...verticalSliceTrace.model, heads: 12, hiddenSize: 768 },
+    })
+    render(<Scene3DPanel store={store} isActive />)
+
+    expect(screen.getByText('H1 · 64D')).toBeInTheDocument()
+    expect(screen.getByText('H2 · 64D')).toBeInTheDocument()
+    expect(screen.getByText(/图中仅示意前 2 个 Head；当前模型共有 12 个 Head，每个 64 维/)).toBeInTheDocument()
+    expect(screen.getByText('LN · γ/β')).toBeInTheDocument()
+    expect(screen.queryByText(/μ→0/)).not.toBeInTheDocument()
+    expect(screen.queryByText('H1 · 4D')).not.toBeInTheDocument()
+
+    act(() => store.getState().setTrace(verticalSliceTrace))
+    expect(screen.getByText('H1 · 4D')).toBeInTheDocument()
+    expect(screen.getByText('H2 · 4D')).toBeInTheDocument()
+    expect(screen.getByText('LAYER NORM')).toBeInTheDocument()
+    expect(screen.queryByText(/图中仅示意前 2 个 Head/)).not.toBeInTheDocument()
+  })
+
+  it('单 Head 轨迹预览不虚构第二个 Head', () => {
+    const store = createExplorerStore()
+    store.getState().setTrace({
+      ...verticalSliceTrace,
+      model: { ...verticalSliceTrace.model, heads: 1, hiddenSize: 8 },
+    })
+    render(<Scene3DPanel store={store} isActive />)
+    expect(screen.getByText('H1 · 8D')).toBeInTheDocument()
+    expect(screen.queryByText(/^H2 ·/)).not.toBeInTheDocument()
+  })
+
   it('Trace 未就绪时显示不会阻塞其他视图的安全状态', () => {
     const store = createExplorerStore()
     render(<Scene3DPanel store={store} isActive />)

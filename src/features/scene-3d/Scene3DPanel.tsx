@@ -236,10 +236,12 @@ function EmbeddingLayer({
 
 function NormalizationRail({
   layout,
+  isRealModel,
   selected,
   onSelect,
 }: {
   layout: SceneLayout
+  isRealModel: boolean
   selected: boolean
   onSelect: () => void
 }) {
@@ -293,7 +295,7 @@ function NormalizationRail({
         position={[0, -0.08, 0.72]}
         className={`scene3d-label scene3d-label--normalization${selected ? ' is-active' : ''}`}
       >
-        <span aria-hidden="true">LAYER NORM · μ→0 · σ→1</span>
+        <span aria-hidden="true">{isRealModel ? 'LAYER NORM · 标准化 + γ/β' : 'LAYER NORM · μ→0 · σ→1'}</span>
       </Html>
     </>
   )
@@ -302,11 +304,13 @@ function NormalizationRail({
 function HeadNode({
   position,
   index,
+  headSize,
   selected,
   onSelect,
 }: {
   position: ScenePosition
   index: number
+  headSize: number
   selected: boolean
   onSelect: () => void
 }) {
@@ -339,7 +343,7 @@ function HeadNode({
         <meshStandardMaterial color={selected ? palette.headSelected : palette.output} />
       </mesh>
       <Html center distanceFactor={8} position={[0, -0.78, 0]} className={`scene3d-label scene3d-label--head${selected ? ' is-active' : ''}`}>
-        <span aria-hidden="true">HEAD {index + 1} · 4D</span>
+        <span aria-hidden="true">HEAD {index + 1} · {headSize}D</span>
       </Html>
     </group>
   )
@@ -780,6 +784,7 @@ function SceneGraph({
       />
       <NormalizationRail
         layout={layout}
+        isRealModel={trace.source === 'onnx'}
         selected={selectedEntityId === 'operation:layernorm'}
         onSelect={() => store.getState().selectEntity('operation:layernorm')}
       />
@@ -793,6 +798,7 @@ function SceneGraph({
           key={head.id}
           position={head.position}
           index={index}
+          headSize={trace.model.hiddenSize / trace.model.heads}
           selected={selectedHeadIndex === index || selectedEntityId === head.id}
           onSelect={() => store.getState().selectHead(index)}
         />
@@ -859,6 +865,7 @@ function SceneFallback({
   layout: SceneLayout
   message?: string
 }) {
+  const headSize = trace.model.hiddenSize / trace.model.heads
   return (
     <div className="scene3d-fallback" role="img" aria-label="三维场景安全预览">
       <svg viewBox="0 0 760 390" aria-hidden="true">
@@ -874,7 +881,7 @@ function SceneFallback({
           <text x="346" y="22" textAnchor="middle">X</text>
           <path className="is-flow" d="M346 34v18" />
           <rect className="is-normalized" x="300" y="52" width="92" height="30" rx="15" />
-          <text x="346" y="72" textAnchor="middle">LAYER NORM</text>
+          <text x="346" y="72" textAnchor="middle">{trace.source === 'onnx' ? 'LN · γ/β' : 'LAYER NORM'}</text>
         </g>
         {layout.tokens.map((token, index) => (
           <g key={token.id} transform={`translate(${125 + index * 82} ${290 - index * 34})`}>
@@ -883,9 +890,11 @@ function SceneFallback({
           </g>
         ))}
         <circle className="scene3d-fallback__core" cx="430" cy="154" r="28" />
-        <text x="430" y="158" textAnchor="middle">H1 · 4D</text>
-        <circle className="scene3d-fallback__core is-second-head" cx="462" cy="210" r="28" />
-        <text x="462" y="214" textAnchor="middle">H2 · 4D</text>
+        <text x="430" y="158" textAnchor="middle">H1 · {headSize}D</text>
+        {trace.model.heads > 1 && <>
+          <circle className="scene3d-fallback__core is-second-head" cx="462" cy="210" r="28" />
+          <text x="462" y="214" textAnchor="middle">H2 · {headSize}D</text>
+        </>}
         <path className="scene3d-fallback__head-line" d="M454 164 510 184M486 204 510 190" />
         <rect className="scene3d-fallback__concat" x="508" y="170" width="58" height="34" rx="5" />
         <text x="537" y="191" textAnchor="middle">CONCAT</text>
@@ -903,7 +912,7 @@ function SceneFallback({
         <path className="scene3d-fallback__output-line" d="M733 187 744 144" />
         <circle className="scene3d-fallback__output" cx="748" cy="132" r="12" />
       </svg>
-      <p>{message}</p>
+      <p>{message}{trace.model.heads > 2 && ` 图中仅示意前 2 个 Head；当前模型共有 ${trace.model.heads} 个 Head，每个 ${headSize} 维。`}</p>
     </div>
   )
 }
