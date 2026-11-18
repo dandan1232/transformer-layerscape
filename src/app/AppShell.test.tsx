@@ -13,6 +13,45 @@ function renderAppShell({ withTrace = false } = {}) {
 }
 
 describe('中文学习工作台外壳', () => {
+  it.each([
+    [2, '为什么要加入位置信息？'],
+    [6, '使用因果注意力时，当前位置可以读取哪些内容？'],
+    [10, '残差连接怎样合并信息？'],
+    [13, '使用随机采样时，概率最高的候选一定会被选中吗？'],
+  ])('仅在第 %i 步对应的章节末尾展示练习', (lastStep, question) => {
+    const { store } = renderAppShell({ withTrace: true })
+    act(() => store.getState().goToStep(lastStep - 1))
+    expect(screen.queryByRole('region', { name: '章末小练习' })).not.toBeInTheDocument()
+
+    act(() => store.getState().nextStep())
+    expect(screen.getByRole('group', { name: question })).toBeInTheDocument()
+
+    act(() => { store.getState().beginTraceLoad() })
+    expect(screen.queryByRole('region', { name: '章末小练习' })).not.toBeInTheDocument()
+  })
+
+  it('章末练习未答或答错都能继续，返回时重新选择答案', async () => {
+    const user = userEvent.setup()
+    const { store } = renderAppShell({ withTrace: true })
+    act(() => store.getState().goToStep(2))
+    const nextButton = () => screen.getByRole('button', { name: '下一项' })
+    expect(nextButton()).toBeEnabled()
+    await user.click(nextButton())
+    expect(store.getState().currentStepIndex).toBe(3)
+
+    await user.click(screen.getByRole('button', { name: '上一项' }))
+    await user.click(screen.getByRole('radio', { name: '增加词表里的词' }))
+    const quiz = within(screen.getByRole('region', { name: '章末小练习' }))
+    expect(quiz.getByRole('status')).toHaveTextContent('再想一想。')
+    await user.click(nextButton())
+    expect(store.getState().currentStepIndex).toBe(3)
+    expect(screen.queryByRole('region', { name: '章末小练习' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '上一项' }))
+    expect(screen.getAllByRole('radio').every((option) => !(option as HTMLInputElement).checked)).toBe(true)
+    expect(within(screen.getByRole('region', { name: '章末小练习' })).getByRole('status')).toBeEmptyDOMElement()
+  })
+
   it('课程随输入和模型切换更新，采样导航使用当前轨迹的输出实体', async () => {
     const user = userEvent.setup()
     const { store } = renderAppShell({ withTrace: true })

@@ -24,6 +24,7 @@ import {
   getAdjacentLessonStep,
   navigateToLessonStep,
 } from '../features/lesson-panel/lesson-navigation'
+import { LessonQuiz } from '../features/lesson-panel/lesson-quiz'
 import { Trace2DPanel } from '../features/trace-2d/Trace2DPanel'
 import { RealModelDownload } from '../features/real-model/RealModelDownload'
 import { WelcomeTour } from '../features/onboarding/welcome-tour'
@@ -367,6 +368,9 @@ function LessonPanel({
             )}
           </div>
         </details>
+        {canNavigate && context.stepIndex === context.chapter.steps.length - 1 && (
+          <LessonQuiz key={context.chapter.id} chapterId={context.chapter.id} />
+        )}
       </div>
 
       <div className="lesson-panel__actions">

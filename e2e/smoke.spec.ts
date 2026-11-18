@@ -20,6 +20,30 @@ test('分享链接在首次访问和已有进度时都恢复指定步骤', async
   await expect(page.getByText('步骤 05 / 14')).toBeVisible()
 })
 
+test('窄屏章末练习可重选、可跳过且不阻塞课程导航', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.goto('/?step=2&mode=guided')
+  const quiz = page.getByRole('region', { name: '章末小练习' })
+  await expect(quiz).toBeVisible()
+  await expect(quiz.getByRole('radio')).toHaveCount(3)
+  await expect(page.getByRole('button', { name: '下一项' })).toBeEnabled()
+
+  await quiz.getByRole('radio', { name: '增加词表里的词' }).check()
+  await expect(quiz.getByRole('status')).toContainText('再想一想。')
+  await quiz.getByRole('radio', { name: '告诉模型词块的先后顺序' }).check()
+  await expect(quiz.getByRole('status')).toContainText('答对了。')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+  await page.getByRole('button', { name: '下一项' }).click()
+  await expect(page.getByText('步骤 04 / 14')).toBeVisible()
+  await expect(quiz).toHaveCount(0)
+
+  await page.getByRole('button', { name: '上一项' }).click()
+  await expect(quiz.locator('input:checked')).toHaveCount(0)
+  await page.getByRole('button', { name: '下一项' }).click()
+  await expect(page.getByText('步骤 04 / 14')).toBeVisible()
+})
+
 test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.goto('/')
 

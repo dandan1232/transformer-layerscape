@@ -54,3 +54,11 @@ test('真实模型确认弹窗通过扫描并保持键盘焦点', async ({ page 
   await expect(dialog).not.toBeVisible()
   await expect(trigger).toBeFocused()
 })
+
+test('章末练习答题反馈通过 WCAG A/AA 自动扫描', async ({ page }) => {
+  await page.goto('/?step=2&mode=guided')
+  const quiz = page.getByRole('region', { name: '章末小练习' })
+  await quiz.getByRole('radio', { name: '告诉模型词块的先后顺序' }).check()
+  await expect(quiz.getByRole('status')).toContainText('答对了')
+  await expectNoWcagViolations(page, '章末练习')
+})
