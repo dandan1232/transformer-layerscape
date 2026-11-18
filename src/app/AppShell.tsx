@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type KeyboardEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, type KeyboardEvent } from 'react'
 import {
   BookOpenText,
   Box,
@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import { useStore } from 'zustand'
 import { FeatureErrorBoundary } from '../components/FeatureErrorBoundary'
-import { coreLesson } from '../content/lessons/core-lesson'
+import { coreLesson, createCoreLesson } from '../content/lessons/core-lesson'
+import type { Lesson } from '../domain/lesson/lesson'
 import {
   findLessonStepContext,
   flattenLessonSteps,
@@ -228,27 +229,29 @@ function ExploreDock({ store }: { store: ExplorerStoreApi }) {
 function LessonPanel({
   store,
   isActive,
+  lesson,
 }: {
   store: ExplorerStoreApi
   isActive: boolean
+  lesson: Lesson
 }) {
   const trace = useStore(store, (state) => state.trace)
   const traceStatus = useStore(store, (state) => state.traceStatus)
   const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
   const selectedEntity = useStore(store, selectSelectedEntity)
   const traceStepId = trace?.steps[currentStepIndex]?.id ?? null
-  const allLessonSteps = flattenLessonSteps(coreLesson)
+  const allLessonSteps = flattenLessonSteps(lesson)
   const context =
-    findLessonStepContext(coreLesson, traceStepId) ??
-    findLessonStepContext(coreLesson, allLessonSteps[0].action.traceStepId)!
-  const previousStep = getAdjacentLessonStep(coreLesson, context.step.id, -1)
-  const nextStep = getAdjacentLessonStep(coreLesson, context.step.id, 1)
+    findLessonStepContext(lesson, traceStepId) ??
+    findLessonStepContext(lesson, allLessonSteps[0].action.traceStepId)!
+  const previousStep = getAdjacentLessonStep(lesson, context.step.id, -1)
+  const nextStep = getAdjacentLessonStep(lesson, context.step.id, 1)
   const canNavigate = traceStatus === 'ready'
   const reducedMotion = useStore(store, (state) => state.reducedMotion)
   const bodyRef = useStepTransition(currentStepIndex, reducedMotion)
 
   const navigate = (lessonStepId: string) => {
-    navigateToLessonStep(store, coreLesson, lessonStepId)
+    navigateToLessonStep(store, lesson, lessonStepId)
     requestAnimationFrame(() => {
       document.getElementById('lesson-heading')?.focus()
     })
@@ -269,10 +272,10 @@ function LessonPanel({
           </p>
           <p
             className="lesson-panel__index"
-            aria-label={`第 ${context.chapterIndex + 1} 章，共 ${coreLesson.chapters.length} 章`}
+            aria-label={`第 ${context.chapterIndex + 1} 章，共 ${lesson.chapters.length} 章`}
           >
             {String(context.chapterIndex + 1).padStart(2, '0')}{' '}
-            <span>/ {String(coreLesson.chapters.length).padStart(2, '0')}</span>
+            <span>/ {String(lesson.chapters.length).padStart(2, '0')}</span>
           </p>
         </div>
         <span className="lesson-panel__status">
@@ -299,7 +302,7 @@ function LessonPanel({
         </div>
 
         <ol className="chapter-track" aria-label="课程章节进度">
-          {coreLesson.chapters.map((chapter, chapterIndex) => {
+          {lesson.chapters.map((chapter, chapterIndex) => {
             const isCurrent = chapter.id === context.chapter.id
             const firstStep = chapter.steps[0]
             return (
@@ -393,7 +396,7 @@ function LessonPanel({
   )
 }
 
-function Timeline({ store }: { store: ExplorerStoreApi }) {
+function Timeline({ store, lesson }: { store: ExplorerStoreApi; lesson: Lesson }) {
   const trace = useStore(store, (state) => state.trace)
   const traceStatus = useStore(store, (state) => state.traceStatus)
   const currentStepIndex = useStore(store, (state) => state.currentStepIndex)
@@ -407,7 +410,7 @@ function Timeline({ store }: { store: ExplorerStoreApi }) {
   const progress =
     totalSteps > 1 ? (currentStepIndex / (totalSteps - 1)) * 100 : totalSteps > 0 ? 100 : 0
   const isPlaying = playback === 'playing'
-  const lessonContext = findLessonStepContext(coreLesson, currentStep?.id ?? null)
+  const lessonContext = findLessonStepContext(lesson, currentStep?.id ?? null)
   const chapterStartTraceStepId = lessonContext?.chapter.steps[0]?.action.traceStepId
   const chapterStartIndex = trace
     ? Math.max(
@@ -537,7 +540,9 @@ export function AppShell({
   const learningMode = useStore(store, (state) => state.mode)
   const mobileView = useStore(store, (state) => state.view)
   const traceStatus = useStore(store, (state) => state.traceStatus)
-  const traceSource = useStore(store, (state) => state.trace?.source)
+  const trace = useStore(store, (state) => state.trace)
+  const traceSource = trace?.source
+  const lesson = useMemo(() => trace ? createCoreLesson(trace) : coreLesson, [trace])
   const traceError = useStore(store, (state) => state.traceError)
   const traceRequestId = useStore(store, (state) => state.traceRequestId)
   const playback = useStore(store, (state) => state.playback)
@@ -693,7 +698,7 @@ export function AppShell({
           labelledBy="mobile-view-lesson"
           panelClassName={`workspace-panel lesson-panel${mobileView === 'lesson' ? ' is-mobile-active' : ''}`}
         >
-          <LessonPanel store={store} isActive={mobileView === 'lesson'} />
+          <LessonPanel store={store} lesson={lesson} isActive={mobileView === 'lesson'} />
         </FeatureErrorBoundary>
         <FeatureErrorBoundary
           key={`2d:${traceRequestId}:${traceStatus}`}
@@ -725,7 +730,7 @@ export function AppShell({
         </FeatureErrorBoundary>
       </main>
 
-      <Timeline store={store} />
+      <Timeline store={store} lesson={lesson} />
       <WelcomeTour />
       <ShortcutsPanel />
     </div>

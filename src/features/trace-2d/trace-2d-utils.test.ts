@@ -14,6 +14,31 @@ import {
 } from './trace-2d-utils'
 
 describe('二维 Trace 数据工具', () => {
+  it('高维图示只取前八维，并按完整隐藏维度定位第二个 Token', () => {
+    const hiddenSize = 768
+    const trace = {
+      ...verticalSliceTrace,
+      model: { ...verticalSliceTrace.model, hiddenSize },
+      tensors: {
+        ...verticalSliceTrace.tensors,
+        'tensor:embedding': {
+          ...verticalSliceTrace.tensors['tensor:embedding'],
+          shape: [1, 6, hiddenSize],
+          values: Array.from({ length: 6 * hiddenSize }, (_, index) => index),
+        },
+      },
+    }
+    expect(getEmbeddingSample(trace, 0)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    expect(getEmbeddingSample(trace, 1)).toEqual([768, 769, 770, 771, 772, 773, 774, 775])
+  })
+
+  it('真实 LayerNorm 摘要解释缩放平移，预置摘要保留标准化说明', () => {
+    const step = verticalSliceTrace.steps.find((item) => item.operation === 'layer-normalize')!
+    expect(createStepSummary({ ...verticalSliceTrace, source: 'onnx' }, step, 0))
+      .toContain('γ 和 β 缩放、平移，输出不一定是零均值和单位方差')
+    expect(createStepSummary(verticalSliceTrace, step, 0)).toContain('使每个位置接近零均值和单位方差')
+  })
+
   it('把十四种算子分为七个可视阶段', () => {
     expect(getTrace2DStage('tokenize')).toBe('token')
     expect(getTrace2DStage('embed')).toBe('embedding')
@@ -106,6 +131,45 @@ describe('二维 Trace 数据工具', () => {
       activationValid: true,
       blockResidualValid: true,
     })
+  })
+
+  it('真实 LayerNorm 接受训练后非零均值输出，预置仍验证标准化数值', () => {
+    const trace = {
+      ...verticalSliceTrace,
+      tensors: {
+        ...verticalSliceTrace.tensors,
+        'tensor:feed-forward-normalized': {
+          ...verticalSliceTrace.tensors['tensor:feed-forward-normalized'],
+          values: Array(48).fill(3),
+        },
+      },
+    }
+    expect(getResidualMlpChecks({ ...trace, source: 'onnx' }).normalizationValid).toBe(true)
+    expect(getResidualMlpChecks(trace).normalizationValid).toBe(false)
+  })
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])('真实 LayerNorm 拒绝非有限输出 %s', (invalid) => {
+    const tensor = verticalSliceTrace.tensors['tensor:feed-forward-normalized']
+    const trace = {
+      ...verticalSliceTrace,
+      source: 'onnx' as const,
+      tensors: { ...verticalSliceTrace.tensors, [tensor.id]: { ...tensor, values: [invalid, ...tensor.values.slice(1)] } },
+    }
+    expect(getResidualMlpChecks(trace).normalizationValid).toBe(false)
+  })
+
+  it('真实 LayerNorm 拒绝与隐藏张量形状或长度不匹配的输出', () => {
+    const tensor = verticalSliceTrace.tensors['tensor:feed-forward-normalized']
+    for (const invalidTensor of [
+      { ...tensor, shape: [1, 6, 7] },
+      { ...tensor, values: tensor.values.slice(1) },
+    ]) {
+      expect(getResidualMlpChecks({
+        ...verticalSliceTrace,
+        source: 'onnx',
+        tensors: { ...verticalSliceTrace.tensors, [tensor.id]: invalidTensor },
+      }).normalizationValid).toBe(false)
+    }
   })
 
   it('为全部 TraceStep 生成中文文字替代', () => {

@@ -6,6 +6,96 @@ import { createExplorerStore } from '../../store/explorer-store'
 import { Trace2DPanel } from './Trace2DPanel'
 
 describe('二维计算视图', () => {
+  it('真实前馈 LayerNorm 校验只说明形状和数值有效，不误报非零均值输出', () => {
+    const store = createExplorerStore()
+    const tensor = verticalSliceTrace.tensors['tensor:feed-forward-normalized']
+    store.getState().setTrace({
+      ...verticalSliceTrace,
+      source: 'onnx',
+      tensors: { ...verticalSliceTrace.tensors, [tensor.id]: { ...tensor, values: Array(48).fill(3) } },
+    })
+    store.getState().goToStep(8)
+    render(<Trace2DPanel store={store} isActive />)
+
+    const proof = screen.getByRole('region', { name: 'Residual 与 MLP 校验' })
+    const label = within(proof).getByText('LayerNorm 输出')
+    expect(label.closest('article')).toHaveAttribute('data-valid', 'true')
+    expect(within(proof).getByText('形状与数值有效')).toBeInTheDocument()
+    expect(within(proof).queryByText('LayerNorm 顺序')).not.toBeInTheDocument()
+    expect(within(proof).queryByText('Residual → LN → MLP')).not.toBeInTheDocument()
+  })
+
+  it('高维模型图示展示动态维度、前八维预览及所选 Block 的 LayerNorm 输入', () => {
+    const store = createExplorerStore()
+    const { 'tensor:block-input': blockInput, ...otherTensors } = verticalSliceTrace.tensors
+    const trace = {
+      ...verticalSliceTrace,
+      source: 'onnx' as const,
+      model: { ...verticalSliceTrace.model, hiddenSize: 768, heads: 12 },
+      input: { ...verticalSliceTrace.input, tokens: ['The', ' sky', ' is', ' blue'], tokenIds: [4, 7, 2, 11] },
+      tensors: {
+        ...otherTensors,
+        'tensor:token-embedding': { ...otherTensors['tensor:token-embedding'], shape: [1, 4, 768], values: Array(4 * 768).fill(1) },
+        'tensor:embedding': { ...otherTensors['tensor:embedding'], shape: [1, 4, 768], values: Array(4 * 768).fill(42) },
+        'tensor:selected-block-input': { ...blockInput, id: 'tensor:selected-block-input', shape: [1, 4, 768], values: Array(4 * 768).fill(9) },
+        'tensor:normalized': { ...otherTensors['tensor:normalized'], shape: [1, 4, 768], values: Array(4 * 768).fill(3) },
+      },
+    }
+    store.getState().setTrace(trace)
+    render(<Trace2DPanel store={store} isActive />)
+    expect(screen.getByText('输入句子包含 4 个可选择的 Token。每个 Token 显示文本和对应的词表 ID。')).toBeInTheDocument()
+
+    act(() => store.getState().goToStep(1))
+    const embedding = screen.getByRole('group', { name: /^Token Embedding 查表图/ })
+    expect(within(embedding).getByText('[1, 4, 768]')).toBeInTheDocument()
+    expect(within(embedding).getByText(/展示前 8 \/ 768 维/)).toBeInTheDocument()
+    expect(within(embedding).getAllByText(/^Token 内容，维度 \d+：/)).toHaveLength(8)
+
+    act(() => store.getState().goToStep(3))
+    const normalization = screen.getByRole('group', { name: /^LayerNorm 归一化前后分布图/ })
+    expect(within(normalization).getByText('μ 9 · σ 0')).toBeInTheDocument()
+    expect(within(normalization).getByText('μ 3 · σ 0')).toBeInTheDocument()
+    expect(within(normalization).queryByText('μ 42 · σ 0')).not.toBeInTheDocument()
+    expect(within(normalization).getByText(/μ、σ 仅统计这些展示维度/)).toBeInTheDocument()
+    expect(screen.getByText(/输出不一定是零均值和单位方差/)).toBeInTheDocument()
+
+    act(() => store.getState().goToStep(4))
+    const projections = screen.getByRole('group', { name: /^Q、K、V 投影二维图/ })
+    expect(within(projections).getByText('W_Q · [768, 768]')).toBeInTheDocument()
+    expect(within(projections).getAllByText('→ [1, 12, 4, 64]')).toHaveLength(3)
+
+    act(() => {
+      store.getState().setTrace({ ...trace, tensors: { ...trace.tensors, 'tensor:selected-block-input': { ...trace.tensors['tensor:selected-block-input'], role: 'embedding' } } })
+      store.getState().goToStep(3)
+    })
+    expect(screen.getByText('μ 42 · σ 0')).toBeInTheDocument()
+  })
+
+  it('选择真实模型的默认采样候选时联动动态输出实体 ID', async () => {
+    const user = userEvent.setup()
+    const store = createExplorerStore()
+    store.getState().setTrace({
+      ...verticalSliceTrace,
+      source: 'onnx',
+      entities: {
+        ...verticalSliceTrace.entities,
+        'output-token:77': { id: 'output-token:77', kind: 'output-token', label: '.' },
+      },
+      output: {
+        ...verticalSliceTrace.output,
+        sampledTokenId: 77,
+        candidates: verticalSliceTrace.output.candidates.map((candidate) => candidate.tokenId === 12
+          ? { ...candidate, tokenId: 77 }
+          : candidate),
+      },
+    })
+    store.getState().goToStep(12)
+    render(<Trace2DPanel store={store} isActive />)
+
+    await user.click(screen.getByRole('button', { name: '.，概率 17.5%，Logit 1.21' }))
+    expect(store.getState().selectedEntityId).toBe('output-token:77')
+  })
+
   it('Trace 未就绪时显示安全状态', () => {
     const store = createExplorerStore()
     render(<Trace2DPanel store={store} isActive />)

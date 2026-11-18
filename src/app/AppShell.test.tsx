@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { verticalSliceTrace } from '../content/traces/vertical-slice-trace'
+import type { ModelTrace } from '../domain/trace/trace'
 import { createExplorerStore } from '../store/explorer-store'
 import { AppShell } from './AppShell'
 
@@ -12,6 +13,34 @@ function renderAppShell({ withTrace = false } = {}) {
 }
 
 describe('中文学习工作台外壳', () => {
+  it('课程随输入和模型切换更新，采样导航使用当前轨迹的输出实体', async () => {
+    const user = userEvent.setup()
+    const { store } = renderAppShell({ withTrace: true })
+    const alternateTrace: ModelTrace = {
+      ...verticalSliceTrace,
+      source: 'onnx',
+      input: { ...verticalSliceTrace.input, tokens: ['The', ' sky', ' is', ' blue'], tokenIds: [4, 7, 2, 11] },
+      entities: {
+        ...verticalSliceTrace.entities,
+        'output-token:77': { id: 'output-token:77', kind: 'output-token', label: 'today' },
+      },
+      output: { ...verticalSliceTrace.output, sampledTokenId: 77, sampledToken: ' today' },
+    }
+    const lesson = () => within(screen.getByRole('tabpanel', { name: '课程' }))
+    expect(lesson().getByText(/先把文本切成 6 个 Token/)).toBeInTheDocument()
+    act(() => store.getState().setTrace(alternateTrace))
+    expect(lesson().getByText(/先把文本切成 4 个 Token/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '跳到Output章节' }))
+    await user.click(screen.getByRole('button', { name: '下一项' }))
+    await user.click(screen.getByRole('button', { name: '下一项' }))
+    expect(store.getState().selectedEntityId).toBe('output-token:77')
+    expect(lesson().getByText(/本次轨迹默认参数.*结果是“today”/)).toBeInTheDocument()
+
+    act(() => store.getState().setTrace(verticalSliceTrace))
+    expect(lesson().getByText(/先把文本切成 6 个 Token/)).toBeInTheDocument()
+  })
+
   it('在 Store 切换真实 Trace 后更新来源徽标', () => {
     const store = createExplorerStore()
     store.getState().setTrace(verticalSliceTrace)

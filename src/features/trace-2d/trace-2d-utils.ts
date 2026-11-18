@@ -17,7 +17,7 @@ export type Trace2DStage =
 
 export type EmbeddingTensorRole = Extract<
   TensorRole,
-  'token-embedding' | 'position-embedding' | 'embedding' | 'normalized'
+  'token-embedding' | 'position-embedding' | 'embedding' | 'block-input' | 'normalized'
 >
 
 export interface AttentionCell {
@@ -247,8 +247,12 @@ export function getResidualMlpChecks(trace: ModelTrace): ResidualMlpChecks {
           ) <= 1e-4,
       ),
   )
-  let normalizationValid = sameShape(normalized?.shape, hiddenShape)
-  if (normalizationValid && normalized) {
+  let normalizationValid = Boolean(
+    sameShape(normalized?.shape, hiddenShape) &&
+      normalized?.values.length === trace.input.tokens.length * trace.model.hiddenSize &&
+      normalized.values.every(Number.isFinite),
+  )
+  if (normalizationValid && normalized && trace.source === 'preset') {
     for (let tokenIndex = 0; tokenIndex < trace.input.tokens.length; tokenIndex += 1) {
       const start = tokenIndex * trace.model.hiddenSize
       const values = normalized.values.slice(start, start + trace.model.hiddenSize)
@@ -301,7 +305,7 @@ export function getEmbeddingSample(
   if (!tensor || tokenIndex < 0 || tokenIndex >= trace.input.tokens.length) return []
   const hiddenSize = trace.model.hiddenSize
   const offset = tokenIndex * hiddenSize
-  return tensor.values.slice(offset, offset + hiddenSize)
+  return tensor.values.slice(offset, offset + Math.min(hiddenSize, 8))
 }
 
 export function getVectorStats(values: readonly number[]) {
@@ -328,7 +332,9 @@ export function createStepSummary(
     case 'add-position-embedding':
       return `Token 向量与位置向量逐项相加，把内容和顺序合并为 [1, ${tokenCount}, ${trace.model.hiddenSize}]，张量形状保持不变。`
     case 'layer-normalize':
-      return `LayerNorm 分别归一化 ${tokenCount} 个 Token 的 ${trace.model.hiddenSize} 个隐藏维度，使每个位置接近零均值和单位方差，形状保持不变。`
+      return trace.source === 'onnx'
+        ? `LayerNorm 分别处理当前 Block 中 ${tokenCount} 个 Token 的 ${trace.model.hiddenSize} 个隐藏维度；标准化后还会用训练得到的 γ 和 β 缩放、平移，输出不一定是零均值和单位方差，形状保持不变。`
+        : `LayerNorm 分别归一化 ${tokenCount} 个 Token 的 ${trace.model.hiddenSize} 个隐藏维度，使每个位置接近零均值和单位方差，形状保持不变。`
     case 'project-qkv':
       return `归一化后的隐藏向量被投影为 Q、K、V，并拆成 ${trace.model.heads} 个 Attention Head；每个 Head 的维度为 ${trace.model.hiddenSize / trace.model.heads}。`
     case 'apply-causal-mask':

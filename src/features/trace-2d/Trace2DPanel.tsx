@@ -65,7 +65,7 @@ function TokenDiagram({
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="token-diagram-title token-diagram-desc">
       <title id="token-diagram-title">Token 与 Embedding 二维图</title>
       <desc id="token-diagram-desc">
-        输入句子包含六个可选择的 Token。每个 Token 显示文本和对应的词表 ID。
+        输入句子包含 {trace.input.tokens.length} 个可选择的 Token。每个 Token 显示文本和对应的词表 ID。
       </desc>
       <text className="trace2d-svg__axis-title" x="42" y="42">输入序列 · 点击 Token 查看向量</text>
       {indexes.map((index) => {
@@ -132,8 +132,9 @@ function EmbeddingDiagram({
       </title>
       <desc id="embedding-desc">
         {showComposition
-          ? '选中 Token 的八维内容向量与八维位置向量逐项相加，得到形状不变的隐藏向量。'
-          : '选择任意 Token，查看它从 Embedding 表中查到的八维内容向量。'}
+          ? `选中 Token 的 ${trace.model.hiddenSize} 维内容向量与 ${trace.model.hiddenSize} 维位置向量逐项相加，得到形状不变的隐藏向量。`
+          : `选择任意 Token，查看它从 Embedding 表中查到的 ${trace.model.hiddenSize} 维内容向量。`}
+        {tokenVector.length < trace.model.hiddenSize && `图示仅展示前 ${tokenVector.length} 个维度。`}
       </desc>
       <text className="trace2d-svg__axis-title" x="42" y="28">
         选择 Token · 当前 T{selected + 1} “{trace.input.tokens[selected].trim()}”
@@ -154,10 +155,15 @@ function EmbeddingDiagram({
           <text x={x.bandwidth() / 2} y="34" textAnchor="middle">{trace.input.tokens[index].trim()}</text>
         </g>
       ))}
+      {tokenVector.length < trace.model.hiddenSize && (
+        <text className="trace2d-svg__small" x="220" y="110">
+          展示前 {tokenVector.length} / {trace.model.hiddenSize} 维，完整张量形状见左侧。
+        </text>
+      )}
       {rows.map((row) => (
         <g key={row.role} className={`trace2d-embedding-row is-${row.role}`}>
           <text className="trace2d-embedding-row__label" x="42" y={row.y + 22}>{row.label}</text>
-          <text className="trace2d-embedding-row__shape" x="42" y={row.y + 42}>[1, 6, 8]</text>
+          <text className="trace2d-embedding-row__shape" x="42" y={row.y + 42}>[1, {trace.input.tokens.length}, {trace.model.hiddenSize}]</text>
           {row.values.map((value, dimension) => (
             <g key={dimension} transform={`translate(${cellsStart + dimension * (cellWidth + cellGap)} ${row.y})`}>
               <rect
@@ -198,7 +204,10 @@ function LayerNormDiagram({
   const indexes = trace.input.tokens.map((_, index) => index)
   const selected = selectedTokenIndex ?? 0
   const tokenX = scaleBand<number>().domain(indexes).range([42, 678]).padding(0.12)
-  const before = getEmbeddingSample(trace, selected, 'embedding')
+  const beforeRole = Object.values(trace.tensors).some((tensor) => tensor.role === 'block-input')
+    ? 'block-input'
+    : 'embedding'
+  const before = getEmbeddingSample(trace, selected, beforeRole)
   const after = getEmbeddingSample(trace, selected, 'normalized')
   const beforeStats = getVectorStats(before)
   const afterStats = getVectorStats(after)
@@ -213,7 +222,8 @@ function LayerNormDiagram({
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="layernorm-title layernorm-desc">
       <title id="layernorm-title">LayerNorm 归一化前后分布图</title>
       <desc id="layernorm-desc">
-        选择任意 Token，对比它的八维隐藏向量在 LayerNorm 前后的均值、标准差和数值分布。
+        选择任意 Token，对比它的 {trace.model.hiddenSize} 维隐藏向量在当前 Block 的 LayerNorm 前后的均值、标准差和数值分布。
+        {before.length < trace.model.hiddenSize && `图示仅展示前 ${before.length} 个维度，均值和标准差只统计这些展示样本。`}
       </desc>
       <text className="trace2d-svg__axis-title" x="42" y="28">
         选择 Token · 当前 T{selected + 1} “{trace.input.tokens[selected].trim()}”
@@ -234,6 +244,11 @@ function LayerNormDiagram({
           <text x={tokenX.bandwidth() / 2} y="34" textAnchor="middle">{trace.input.tokens[index].trim()}</text>
         </g>
       ))}
+      {before.length < trace.model.hiddenSize && (
+        <text className="trace2d-svg__small" x="42" y="112">
+          展示前 {before.length} / {trace.model.hiddenSize} 维；μ、σ 仅统计这些展示维度。
+        </text>
+      )}
       {rows.map((row) => (
         <g key={row.label} className={`trace2d-normalization-row ${row.className}`}>
           <text className="trace2d-normalization-row__label" x="42" y={row.y - 12}>{row.label}</text>
@@ -266,23 +281,24 @@ function LayerNormDiagram({
       <g className="trace2d-normalization-action" transform="translate(560 196)">
         <path d="M0 0v32" />
         <path d="m-5 26 5 6 5-6" />
-        <text x="-12" y="16" textAnchor="end">中心化 + 缩放</text>
+        <text x="-12" y="16" textAnchor="end">{trace.source === 'onnx' ? '标准化 + γ 缩放 + β 平移' : '中心化 + 缩放'}</text>
       </g>
     </svg>
   )
 }
 
 function QKVDiagram({ trace, onSelectOperation }: { trace: ModelTrace; onSelectOperation: () => void }) {
-  const headSize = trace.model.hiddenSize / trace.model.heads
+  const { hiddenSize, heads } = trace.model
+  const headSize = hiddenSize / heads
   const paths = [
-    { channel: 'Q', label: '查询 · 我在找什么', matrix: 'W_Q · [8, 8]', className: 'is-q', y: 78 },
-    { channel: 'K', label: '索引 · 我有什么特征', matrix: 'W_K · [8, 8]', className: 'is-k', y: 160 },
-    { channel: 'V', label: '内容 · 我要贡献什么', matrix: 'W_V · [8, 8]', className: 'is-v', y: 242 },
+    { channel: 'Q', label: '查询 · 我在找什么', matrix: `W_Q · [${hiddenSize}, ${hiddenSize}]`, className: 'is-q', y: 78 },
+    { channel: 'K', label: '索引 · 我有什么特征', matrix: `W_K · [${hiddenSize}, ${hiddenSize}]`, className: 'is-k', y: 160 },
+    { channel: 'V', label: '内容 · 我要贡献什么', matrix: `W_V · [${hiddenSize}, ${hiddenSize}]`, className: 'is-v', y: 242 },
   ]
   return (
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="qkv-title qkv-desc">
       <title id="qkv-title">Q、K、V 投影二维图</title>
-      <desc id="qkv-desc">六个归一化后的八维 Token 向量经过三组独立权重，投影为两组四维的查询、索引和内容向量。</desc>
+      <desc id="qkv-desc">{trace.input.tokens.length} 个归一化后的 {hiddenSize} 维 Token 向量经过三组独立权重，分别投影为 {heads} 个 Head、每个 Head 为 {headSize} 维的查询、索引和内容向量。</desc>
       <g className="trace2d-source" transform="translate(42 118)">
         <rect width="174" height="120" rx="9" />
         <text x="87" y="38" textAnchor="middle">LayerNorm 输出 X̂</text>
@@ -305,7 +321,7 @@ function QKVDiagram({ trace, onSelectOperation }: { trace: ModelTrace; onSelectO
             <text x="22" y="26">{path.channel}</text>
             <text className="trace2d-svg__small" x="66" y="17">{path.label}</text>
             <text className="trace2d-svg__small" x="66" y="34">{path.matrix}</text>
-            <text className="trace2d-svg__small" x="176" y="34">→ [1, {trace.model.heads}, {trace.input.tokens.length}, {headSize}]</text>
+            <text className="trace2d-svg__small" x="66" y="51">→ [1, {heads}, {trace.input.tokens.length}, {headSize}]</text>
           </g>
         </g>
       ))}
@@ -469,7 +485,7 @@ function AttentionDiagram({
         </text>
         <text className="trace2d-svg__small" x="410" y="307">
           {focusedMasked
-            ? '两个 Head 都被因果掩码置为 0'
+            ? `${trace.model.heads} 个 Head 都被因果掩码置为 0`
             : comparisonRows.map((row) => `H${row.headIndex + 1} ${numberFormat(row.weights[focusedCell.column] ?? 0)}`).join(' · ')}
         </text>
         <text className="trace2d-svg__small" x="410" y="330">
@@ -526,7 +542,7 @@ function ResidualMLPDiagram({
   onSelectOperation: (entityId: string) => void
 }) {
   const hiddenSize = trace.model.hiddenSize
-  const intermediateSize = hiddenSize * 4
+  const intermediateSize = Object.values(trace.tensors).find((tensor) => tensor.role === 'mlp-expanded')?.shape.at(-1) ?? hiddenSize * 4
   const nodes = [
     {
       operation: 'add-attention-residual',
@@ -562,7 +578,7 @@ function ResidualMLPDiagram({
     <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="group" aria-labelledby="residual-mlp-title residual-mlp-desc">
       <title id="residual-mlp-title">Residual 与 MLP 计算路径图</title>
       <desc id="residual-mlp-desc">
-        Attention 输出先与原始隐藏向量相加，再经过 LayerNorm、八维到三十二维再回八维的 MLP，最后与残差主路相加。
+        Attention 输出先与当前 Block 的输入相加，再经过 LayerNorm、{hiddenSize} 维到 {intermediateSize} 维再回 {hiddenSize} 维的 MLP，最后与残差主路相加。
       </desc>
       <path className="trace2d-block-flow" d="M52 174H690" />
       <path className="trace2d-residual-bypass" d="M52 76H142V142" />
@@ -624,9 +640,11 @@ function ResidualMLPProof({ trace }: { trace: ModelTrace }) {
       valid: checks.attentionResidualValid,
     },
     {
-      label: 'LayerNorm 顺序',
-      code: 'Residual → LN → MLP',
-      detail: 'Pre-Norm 前馈子层',
+      label: trace.source === 'onnx' ? 'LayerNorm 输出' : 'LayerNorm 顺序',
+      code: trace.source === 'onnx' ? `[${checks.hiddenShape.join(', ')}]` : 'Residual → LN → MLP',
+      detail: trace.source === 'onnx'
+        ? checks.normalizationValid ? '形状与数值有效' : '形状或数值异常'
+        : 'Pre-Norm 前馈子层',
       valid: checks.normalizationValid,
     },
     {
@@ -1170,7 +1188,7 @@ export function Trace2DPanel({ store, isActive }: Trace2DPanelProps) {
             onSelectOutput={(isSampled) =>
               store
                 .getState()
-                .selectEntity(isSampled ? 'output-token:12' : 'operation:output')
+                .selectEntity(isSampled ? `output-token:${trace.output.sampledTokenId}` : 'operation:output')
             }
           />
         )}
