@@ -3,6 +3,7 @@ import { PresetTraceAdapter } from './adapters/preset/preset-trace-adapter'
 import { AppShell } from './app/AppShell'
 import { coreLesson } from './content/lessons/core-lesson'
 import { validateLesson } from './domain/lesson/lesson-validator'
+import { readInitialUrlState } from './hooks/use-url-state'
 import { explorerStore } from './store/explorer-store'
 import { createExplorerPersistenceController } from './store/explorer-persistence'
 import { createPlaybackController } from './store/playback-controller'
@@ -11,6 +12,7 @@ const presetTraceAdapter = new PresetTraceAdapter()
 
 function App() {
   const [loadAttempt, setLoadAttempt] = useState(0)
+  const [initialUrl] = useState(readInitialUrlState)
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -30,6 +32,12 @@ function App() {
         validateLesson(coreLesson, trace)
         explorerStore.getState().finishTraceLoad(requestId, trace)
         persistenceController.restoreProgress()
+        if (initialUrl.mode) {
+          explorerStore.getState().setMode(initialUrl.mode)
+        }
+        if (initialUrl.step !== undefined) {
+          explorerStore.getState().goToStep(initialUrl.step)
+        }
       })
       .catch((error: unknown) => {
         if (abortController.signal.aborted) return
@@ -45,7 +53,7 @@ function App() {
       playbackController.dispose()
       persistenceController.dispose()
     }
-  }, [loadAttempt])
+  }, [loadAttempt, initialUrl])
 
   return (
     <AppShell

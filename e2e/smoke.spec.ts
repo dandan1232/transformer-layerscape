@@ -6,6 +6,20 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+test('分享链接在首次访问和已有进度时都恢复指定步骤', async ({ page }) => {
+  await page.goto('/?step=7&mode=explore&from=share#main-content')
+  await expect(page.getByText('步骤 08 / 14')).toBeVisible()
+  await expect(page.getByRole('button', { name: '自由探索' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page).toHaveURL(/from=share/)
+  await expect(page).toHaveURL(/#main-content$/)
+
+  await page.goto('/?step=4&mode=guided')
+  await expect(page.getByText('步骤 05 / 14')).toBeVisible()
+  await expect(page.getByRole('button', { name: '引导学习' })).toHaveAttribute('aria-pressed', 'true')
+  await page.reload()
+  await expect(page.getByText('步骤 05 / 14')).toBeVisible()
+})
+
 test('预置课程完成 next-token prediction 主路径', async ({ page }) => {
   await page.goto('/')
 
@@ -256,7 +270,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
       }),
     )
   })
-  await page.reload()
+  await page.goto('/')
 
   await expect(page.getByText('步骤 06 / 14')).toBeVisible()
   await expect(page.getByRole('button', { name: '自由探索' })).toHaveAttribute(
@@ -275,7 +289,7 @@ test('版本化进度可以恢复，损坏 LocalStorage 会被安全清理', asy
   await page.evaluate(() => {
     localStorage.setItem('transformer-layerscape:explorer:v1', '{broken')
   })
-  await page.reload()
+  await page.goto('/')
   await expect(page.getByText('步骤 01 / 14')).toBeVisible()
   expect(
     await page.evaluate(() =>
