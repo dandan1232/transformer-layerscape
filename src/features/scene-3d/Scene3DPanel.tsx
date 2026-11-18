@@ -1,5 +1,5 @@
 import { Html, Line, OrbitControls } from '@react-three/drei'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { addAfterEffect, Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Focus, MousePointer2, Orbit, RefreshCcw, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -616,6 +616,26 @@ function CameraRig({
   return null
 }
 
+export function SceneFrameReady({ onReady }: { readonly onReady: () => void }) {
+  const { gl } = useThree()
+
+  useLayoutEffect(() => {
+    const initialFrame = gl.info.render.frame
+    const unsubscribe = addAfterEffect(() => {
+      if (
+        gl.info.render.frame <= initialFrame ||
+        gl.info.render.calls === 0 ||
+        gl.getContext().isContextLost()
+      ) return
+      unsubscribe()
+      onReady()
+    })
+    return unsubscribe
+  }, [gl, onReady])
+
+  return null
+}
+
 function WebGLContextGuard({
   onLost,
 }: {
@@ -905,14 +925,21 @@ export function Scene3DPanel({
   const layout = useMemo(() => (trace ? createSceneLayout(trace) : null), [trace])
   const [contextStatus, setContextStatus] = useState<'ready' | 'lost'>('ready')
   const [sceneRevision, setSceneRevision] = useState(0)
+  const [sceneReady, setSceneReady] = useState(false)
   const hasWebGL = capabilities.threeDMode !== 'none'
-  const canRenderCanvas = hasWebGL && contextStatus === 'ready'
+  const canRenderCanvas = Boolean(trace && layout) && hasWebGL && contextStatus === 'ready'
   const reducedDetail = capabilities.threeDMode === 'reduced'
+  const handleSceneReady = useCallback(() => setSceneReady(true), [])
+  useLayoutEffect(() => {
+    if (!canRenderCanvas) setSceneReady(false)
+  }, [canRenderCanvas])
   const handleContextLost = useCallback(() => {
     store.getState().setCameraMode('guided')
+    setSceneReady(false)
     setContextStatus('lost')
   }, [store])
   const retryContext = () => {
+    setSceneReady(false)
     setSceneRevision((revision) => revision + 1)
     setContextStatus('ready')
   }
@@ -957,6 +984,8 @@ export function Scene3DPanel({
               className="scene3d-canvas"
               role="img"
               aria-label="可旋转的 Transformer 三维模型空间"
+              aria-busy={!sceneReady}
+              data-scene-ready={sceneReady}
               dpr={reducedDetail ? 1 : [1, 1.5]}
               camera={{ position: [7, 5, 9], fov: 46, near: 0.1, far: 100 }}
               gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
@@ -974,6 +1003,7 @@ export function Scene3DPanel({
                 reducedDetail={reducedDetail}
                 onContextLost={handleContextLost}
               />
+              <SceneFrameReady onReady={handleSceneReady} />
             </Canvas>
           ) : (
             <SceneFallback

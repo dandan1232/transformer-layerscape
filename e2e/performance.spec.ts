@@ -124,9 +124,10 @@ test('M2 桌面首次交互、步骤反馈和三维帧率预算', async ({ page 
     page.getByRole('heading', { name: '把句子切成模型的词块' }),
   ).toBeVisible()
   const interactiveMs = Date.now() - navigationStart
-  await expect(
-    page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' }),
-  ).toBeVisible()
+  const scene = page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' })
+  await expect(scene).toBeVisible()
+  await expect(scene).toHaveAttribute('data-scene-ready', 'true')
+  await expect(scene).toHaveAttribute('aria-busy', 'false')
   const sceneReadyMs = Date.now() - navigationStart
 
   const stepFeedbackMs = await measureStepFeedback(page)
@@ -189,9 +190,10 @@ test('M2 移动视口简化三维帧率与页面宽度预算', async ({ page }) 
     'reduced',
   )
   await page.getByRole('tab', { name: '三维空间' }).click()
-  await expect(
-    page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' }),
-  ).toBeVisible()
+  const scene = page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' })
+  await expect(scene).toBeVisible()
+  await expect(scene).toHaveAttribute('data-scene-ready', 'true')
+  await expect(scene).toHaveAttribute('aria-busy', 'false')
 
   const averageFps = await sampleAnimationFps(page, 45)
   const hasOverflow = await page.evaluate(

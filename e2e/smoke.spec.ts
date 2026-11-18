@@ -258,6 +258,9 @@ test('WebGL Context 丢失后保留进度并支持重建或切换二维', async 
   await page.getByRole('button', { name: '跳到第 6 步：遮住未来 Token' }).click()
 
   const loseReadyContext = async () => {
+    const scene = page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' })
+    await expect(scene).toHaveAttribute('data-scene-ready', 'true')
+    await expect(scene).toHaveAttribute('aria-busy', 'false')
     const canvas = page.locator('canvas[data-context-listener="ready"]')
     await expect(canvas).toBeVisible()
     await canvas.dispatchEvent('webglcontextlost', { cancelable: true })
@@ -272,7 +275,7 @@ test('WebGL Context 丢失后保留进度并支持重建或切换二维', async 
   await page.getByRole('button', { name: '尝试恢复三维' }).click()
   await expect(
     page.getByRole('img', { name: '可旋转的 Transformer 三维模型空间' }),
-  ).toBeVisible()
+  ).toHaveAttribute('data-scene-ready', 'true')
   await expect(page.getByText('步骤 06 / 14')).toBeVisible()
 
   await loseReadyContext()

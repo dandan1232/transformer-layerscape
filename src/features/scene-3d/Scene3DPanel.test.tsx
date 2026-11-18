@@ -1,9 +1,75 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { verticalSliceTrace } from '../../content/traces/vertical-slice-trace'
 import { createExplorerStore } from '../../store/explorer-store'
-import { Scene3DPanel } from './Scene3DPanel'
+import { Scene3DPanel, SceneFrameReady } from './Scene3DPanel'
+
+const frameProbe = vi.hoisted(() => ({
+  callbacks: new Set<() => void>(),
+  renderer: {
+    info: { render: { frame: 0, calls: 0 } },
+    getContext: () => ({ isContextLost: () => frameProbe.contextLost }),
+  },
+  contextLost: false,
+}))
+
+vi.mock('@react-three/fiber', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@react-three/fiber')>(),
+  useThree: () => ({ gl: frameProbe.renderer }),
+  addAfterEffect: (callback: () => void) => {
+    frameProbe.callbacks.add(callback)
+    return () => { frameProbe.callbacks.delete(callback) }
+  },
+}))
+
+describe('三维首帧就绪信号', () => {
+  beforeEach(() => {
+    frameProbe.callbacks.clear()
+    frameProbe.renderer.info.render.frame = 0
+    frameProbe.renderer.info.render.calls = 0
+    frameProbe.contextLost = false
+  })
+
+  it('等待当前渲染器真正绘制一帧后才通知，并只通知一次', () => {
+    const onReady = vi.fn()
+    render(<SceneFrameReady onReady={onReady} />)
+    const afterFrame = () => act(() => { frameProbe.callbacks.forEach((callback) => callback()) })
+
+    afterFrame()
+    expect(onReady).not.toHaveBeenCalled()
+    frameProbe.renderer.info.render.frame = 1
+    afterFrame()
+    expect(onReady).not.toHaveBeenCalled()
+
+    frameProbe.renderer.info.render.calls = 4
+    afterFrame()
+    expect(onReady).toHaveBeenCalledOnce()
+    expect(frameProbe.callbacks.size).toBe(0)
+    afterFrame()
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('Context 丢失时不误报，卸载会清理订阅，重新挂载等待新帧', () => {
+    const onReady = vi.fn()
+    const view = render(<SceneFrameReady onReady={onReady} />)
+    frameProbe.renderer.info.render.frame = 1
+    frameProbe.renderer.info.render.calls = 4
+    frameProbe.contextLost = true
+    act(() => { frameProbe.callbacks.forEach((callback) => callback()) })
+    expect(onReady).not.toHaveBeenCalled()
+    view.unmount()
+    expect(frameProbe.callbacks.size).toBe(0)
+
+    frameProbe.contextLost = false
+    render(<SceneFrameReady onReady={onReady} />)
+    act(() => { frameProbe.callbacks.forEach((callback) => callback()) })
+    expect(onReady).not.toHaveBeenCalled()
+    frameProbe.renderer.info.render.frame = 2
+    act(() => { frameProbe.callbacks.forEach((callback) => callback()) })
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+})
 
 describe('三维模型探索场景', () => {
   it('Trace 未就绪时显示不会阻塞其他视图的安全状态', () => {
